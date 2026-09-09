@@ -1,0 +1,15 @@
+# Quebra de linha normalizada no repositório.
+#
+# Esta máquina é Windows e o build da implantação é Linux. Sem isto, o Git
+# grava o que a máquina de origem tiver, e arquivo com CRLF pode quebrar do
+# outro lado — script com shebang é o caso clássico.
+#
+# `eol=lf` guarda e devolve LF em todo lugar. Editores modernos lidam bem com
+# isso no Windows, e o custo de não fazer aparece na hora errada.
+* text=auto eol=lf
+
+# Binários passam intactos.
+*.png binary
+*.jpg binary
+*.ico binary
+*.pdf binary

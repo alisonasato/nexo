@@ -1,0 +1,31 @@
+# ---------------------------------------------------------------- .NET
+bin/
+obj/
+*.user
+*.suo
+.vs/
+artifacts/
+
+# ---------------------------------------------------------------- Node
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+.turbo/
+
+# ---------------------------------------------------------------- segredos
+# appsettings.Development.json É versionado: guarda configuração local sem
+# segredo (portas, origens de CORS). Segredo em .NET vai para
+# `dotnet user-secrets`, que grava fora do repositório.
+.env
+.env.local
+.env*.local
+
+# ---------------------------------------------------------------- gerado
+# O cliente TypeScript é derivado do OpenAPI da API: gera-se, não se versiona.
+# Ver README, seção "O contrato".
+web/src/api/esquema.d.ts
+
+# ---------------------------------------------------------------- sistema
+Thumbs.db
+.DS_Store

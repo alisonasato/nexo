@@ -1,0 +1,68 @@
+@import "tailwindcss";
+
+/* ==========================================================================
+   Tokens do design system.
+
+   Vêm do protótipo ContaGestor, que é o que a decisão Q20 mandou reaproveitar:
+   a aparência já estava resolvida, o que não estava era o que havia por trás.
+   Paleta azul-marinho para autoridade, cinzas neutros de fundo, verde só para
+   valor e confirmação.
+   ========================================================================== */
+
+@theme {
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, "SF Mono", "Cascadia Mono",
+    Menlo, Consolas, monospace;
+
+  /* Marca. O 600 é a cor de ação: 7.9:1 de contraste com branco. */
+  --color-marca-50: #eff4fa;
+  --color-marca-100: #dae6f3;
+  --color-marca-200: #b9cee7;
+  --color-marca-300: #8badd5;
+  --color-marca-400: #5784bd;
+  --color-marca-500: #3665a3;
+  --color-marca-600: #275089;
+  --color-marca-700: #1f406e;
+  --color-marca-800: #1c3559;
+  --color-marca-900: #182c48;
+  --color-marca-950: #0e1c2f;
+
+  --color-fundo: #f5f7fa;
+  --color-superficie: #ffffff;
+  --color-borda: #e4e9f0;
+  --color-borda-forte: #cbd5e1;
+
+  --shadow-nivel-1: 0 1px 2px 0 rgb(15 27 45 / 0.05);
+  --shadow-nivel-2: 0 1px 3px 0 rgb(15 27 45 / 0.08), 0 1px 2px -1px rgb(15 27 45 / 0.06);
+  --shadow-nivel-3: 0 8px 24px -6px rgb(15 27 45 / 0.12), 0 2px 8px -2px rgb(15 27 45 / 0.06);
+
+  --radius-controle: 0.5rem;
+  --radius-cartao: 0.75rem;
+}
+
+:root {
+  color-scheme: light;
+}
+
+body {
+  background-color: var(--color-fundo);
+  color: var(--color-slate-800);
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Foco sempre visível. Nunca remover o anel (WCAG 2.4.7). */
+:focus-visible {
+  outline: 2px solid var(--color-marca-500);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* Números alinhados em colunas de valores, datas, documentos e códigos. */
+.numeros-tabulares {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}

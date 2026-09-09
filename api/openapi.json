@@ -1,0 +1,1768 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "Nexo",
+    "description": "API do Nexo. Este documento é o contrato: o cliente TypeScript do front é gerado a partir dele, nunca escrito à mão.",
+    "version": "v1"
+  },
+  "paths": {
+    "/autenticacao/entrar": {
+      "post": {
+        "tags": [
+          "Acesso"
+        ],
+        "summary": "Abre a sessão",
+        "operationId": "Entrar",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/PedidoDeEntrada"
+                  }
+                ]
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessaoAberta"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FalhaDeEntrada"
+                }
+              }
+            }
+          },
+          "423": {
+            "description": "Locked",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FalhaDeEntrada"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/autenticacao/sair": {
+      "post": {
+        "tags": [
+          "Acesso"
+        ],
+        "summary": "Encerra a sessão",
+        "operationId": "Sair",
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        }
+      }
+    },
+    "/autenticacao/eu": {
+      "get": {
+        "tags": [
+          "Acesso"
+        ],
+        "summary": "Quem está na sessão",
+        "operationId": "ConsultarSessao",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessaoAtual"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/clientes": {
+      "get": {
+        "tags": [
+          "Clientes"
+        ],
+        "summary": "Lista os clientes do escritório",
+        "operationId": "ListarClientes",
+        "parameters": [
+          {
+            "name": "incluirInativos",
+            "in": "query",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ClienteNaLista"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Clientes"
+        ],
+        "summary": "Torna uma pessoa cliente do escritório",
+        "operationId": "CriarCliente",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/DadosDeCliente"
+                  }
+                ]
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClienteNaLista"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RespostaComProblemas"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/clientes/{id}": {
+      "put": {
+        "tags": [
+          "Clientes"
+        ],
+        "summary": "Altera o vínculo",
+        "operationId": "AlterarCliente",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/DadosDeCliente"
+                  }
+                ]
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClienteNaLista"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/contratos": {
+      "get": {
+        "tags": [
+          "Contratos"
+        ],
+        "summary": "Lista os contratos recorrentes",
+        "operationId": "ListarContratos",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ContratoNaLista"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Contratos"
+        ],
+        "summary": "Cria um contrato",
+        "operationId": "CriarContrato",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/DadosDeContrato"
+                  }
+                ]
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContratoDetalhado"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RespostaComProblemas"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/contratos/{id}": {
+      "get": {
+        "tags": [
+          "Contratos"
+        ],
+        "summary": "Abre um contrato",
+        "operationId": "ObterContrato",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContratoDetalhado"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Contratos"
+        ],
+        "summary": "Altera um contrato",
+        "operationId": "AlterarContrato",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/DadosDeContrato"
+                  }
+                ]
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContratoDetalhado"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RespostaComProblemas"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/contratos/gerar-mensalidades": {
+      "post": {
+        "tags": [
+          "Contratos"
+        ],
+        "summary": "Gera as mensalidades de uma competência",
+        "description": "Pode ser executado quantas vezes for preciso: o que já foi gerado é ignorado, não duplicado.",
+        "operationId": "GerarMensalidades",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/PedidoDeGeracao"
+                  }
+                ]
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultadoDaGeracao"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/empresas": {
+      "get": {
+        "tags": [
+          "Empresas"
+        ],
+        "summary": "Empresas do tenant da sessão",
+        "operationId": "ListarEmpresas",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EmpresaNaLista"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/pessoas": {
+      "get": {
+        "tags": [
+          "Pessoas"
+        ],
+        "summary": "Lista as pessoas do tenant",
+        "operationId": "ListarPessoas",
+        "parameters": [
+          {
+            "name": "busca",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "incluirInativos",
+            "in": "query",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          },
+          {
+            "name": "pagina",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 1
+            }
+          },
+          {
+            "name": "tamanho",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 25
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginaDePessoas"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Pessoas"
+        ],
+        "summary": "Cria um cadastro",
+        "operationId": "CriarPessoa",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/DadosDePessoa"
+                  }
+                ]
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PessoaDetalhada"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RespostaComProblemas"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/pessoas/{id}": {
+      "get": {
+        "tags": [
+          "Pessoas"
+        ],
+        "summary": "Abre um cadastro",
+        "operationId": "ObterPessoa",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PessoaDetalhada"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Pessoas"
+        ],
+        "summary": "Altera um cadastro",
+        "operationId": "AlterarPessoa",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/DadosDePessoa"
+                  }
+                ]
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PessoaDetalhada"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RespostaComProblemas"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Pessoas"
+        ],
+        "summary": "Inativa um cadastro",
+        "description": "Não apaga: marca como inativo. Quem já apareceu em contrato ou cobrança precisa continuar existindo no histórico.",
+        "operationId": "InativarPessoa",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/recebiveis": {
+      "get": {
+        "tags": [
+          "Recebíveis"
+        ],
+        "summary": "Lista os recebíveis",
+        "operationId": "ListarRecebiveis",
+        "parameters": [
+          {
+            "name": "situacao",
+            "in": "query",
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/SituacaoRecebivel"
+                }
+              ]
+            }
+          },
+          {
+            "name": "ano",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "mes",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResumoDeRecebiveis"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/recebiveis/{id}/baixar": {
+      "post": {
+        "tags": [
+          "Recebíveis"
+        ],
+        "summary": "Registra o recebimento",
+        "operationId": "BaixarRecebivel",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/DadosDaBaixa"
+                  }
+                ]
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecebivelNaLista"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RespostaComProblemas"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/recebiveis/{id}/estornar": {
+      "post": {
+        "tags": [
+          "Recebíveis"
+        ],
+        "summary": "Desfaz a baixa",
+        "description": "Existe porque baixa errada acontece, e sem estorno a correção viraria um segundo registro inventado.",
+        "operationId": "EstornarRecebivel",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecebivelNaLista"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/saude": {
+      "get": {
+        "tags": [
+          "Saúde"
+        ],
+        "summary": "Estado da API",
+        "description": "Devolve ambiente, versão e horário do servidor. Usado para verificar que o contrato entre API e front está fechado.",
+        "operationId": "ConsultarSaude",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RespostaSaude"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ClienteNaLista": {
+        "required": [
+          "ativo",
+          "codigo",
+          "documento",
+          "id",
+          "nome",
+          "nomeFantasia",
+          "pessoaId",
+          "regimeTributario",
+          "responsavel"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "codigo": {
+            "type": "string"
+          },
+          "pessoaId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "nome": {
+            "type": "string"
+          },
+          "nomeFantasia": {
+            "type": "string"
+          },
+          "documento": {
+            "type": "string"
+          },
+          "regimeTributario": {
+            "enum": [
+              "Mei",
+              "SimplesNacional",
+              "LucroPresumido",
+              "LucroReal",
+              "TerceiroSetor",
+              "PessoaFisica"
+            ],
+            "type": "string",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RegimeTributario"
+              }
+            ]
+          },
+          "responsavel": {
+            "type": "string"
+          },
+          "ativo": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ContratoDetalhado": {
+        "required": [
+          "clienteId",
+          "codigo",
+          "descricao",
+          "diaDeVencimento",
+          "id",
+          "inicioDaVigencia",
+          "observacoes",
+          "situacao",
+          "valor"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "codigo": {
+            "type": "string"
+          },
+          "clienteId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "descricao": {
+            "type": "string"
+          },
+          "valor": {
+            "type": "number",
+            "format": "double"
+          },
+          "diaDeVencimento": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "inicioDaVigencia": {
+            "type": "string",
+            "format": "date"
+          },
+          "fimDaVigencia": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "situacao": {
+            "enum": [
+              "Ativo",
+              "Suspenso",
+              "Encerrado"
+            ],
+            "type": "string",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SituacaoContrato"
+              }
+            ]
+          },
+          "observacoes": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ContratoNaLista": {
+        "required": [
+          "clienteId",
+          "codigo",
+          "codigoDoCliente",
+          "descricao",
+          "diaDeVencimento",
+          "id",
+          "nomeDoCliente",
+          "situacao",
+          "valor"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "codigo": {
+            "type": "string"
+          },
+          "clienteId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "codigoDoCliente": {
+            "type": "string"
+          },
+          "nomeDoCliente": {
+            "type": "string"
+          },
+          "descricao": {
+            "type": "string"
+          },
+          "valor": {
+            "type": "number",
+            "format": "double"
+          },
+          "diaDeVencimento": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "situacao": {
+            "enum": [
+              "Ativo",
+              "Suspenso",
+              "Encerrado"
+            ],
+            "type": "string",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SituacaoContrato"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "DadosDaBaixa": {
+        "required": [
+          "valorPago"
+        ],
+        "type": "object",
+        "properties": {
+          "valorPago": {
+            "type": "number",
+            "format": "double"
+          },
+          "pagoEm": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "DadosDeCliente": {
+        "required": [
+          "ativo",
+          "pessoaId",
+          "regimeTributario"
+        ],
+        "type": "object",
+        "properties": {
+          "pessoaId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "regimeTributario": {
+            "enum": [
+              "Mei",
+              "SimplesNacional",
+              "LucroPresumido",
+              "LucroReal",
+              "TerceiroSetor",
+              "PessoaFisica"
+            ],
+            "type": "string",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RegimeTributario"
+              }
+            ]
+          },
+          "responsavel": {
+            "type": "string",
+            "nullable": true
+          },
+          "observacoes": {
+            "type": "string",
+            "nullable": true
+          },
+          "ativo": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "DadosDeContrato": {
+        "required": [
+          "clienteId",
+          "diaDeVencimento",
+          "inicioDaVigencia",
+          "situacao",
+          "valor"
+        ],
+        "type": "object",
+        "properties": {
+          "clienteId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "descricao": {
+            "type": "string",
+            "nullable": true
+          },
+          "valor": {
+            "type": "number",
+            "format": "double"
+          },
+          "diaDeVencimento": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "inicioDaVigencia": {
+            "type": "string",
+            "format": "date"
+          },
+          "fimDaVigencia": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "situacao": {
+            "enum": [
+              "Ativo",
+              "Suspenso",
+              "Encerrado"
+            ],
+            "type": "string",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SituacaoContrato"
+              }
+            ]
+          },
+          "observacoes": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "DadosDeEndereco": {
+        "required": [
+          "bairro",
+          "cep",
+          "cidade",
+          "complemento",
+          "logradouro",
+          "numero",
+          "uf"
+        ],
+        "type": "object",
+        "properties": {
+          "cep": {
+            "type": "string"
+          },
+          "logradouro": {
+            "type": "string"
+          },
+          "numero": {
+            "type": "string"
+          },
+          "complemento": {
+            "type": "string"
+          },
+          "bairro": {
+            "type": "string"
+          },
+          "cidade": {
+            "type": "string"
+          },
+          "uf": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "DadosDePessoa": {
+        "required": [
+          "ativo",
+          "tipo"
+        ],
+        "type": "object",
+        "properties": {
+          "tipo": {
+            "enum": [
+              "Fisica",
+              "Juridica"
+            ],
+            "type": "string",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TipoPessoa"
+              }
+            ]
+          },
+          "nome": {
+            "type": "string",
+            "nullable": true
+          },
+          "nomeFantasia": {
+            "type": "string",
+            "nullable": true
+          },
+          "documento": {
+            "type": "string",
+            "nullable": true
+          },
+          "inscricaoEstadual": {
+            "type": "string",
+            "nullable": true
+          },
+          "inscricaoMunicipal": {
+            "type": "string",
+            "nullable": true
+          },
+          "email": {
+            "type": "string",
+            "nullable": true
+          },
+          "telefone": {
+            "type": "string",
+            "nullable": true
+          },
+          "celular": {
+            "type": "string",
+            "nullable": true
+          },
+          "endereco": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DadosDeEndereco"
+              }
+            ],
+            "nullable": true
+          },
+          "observacoes": {
+            "type": "string",
+            "nullable": true
+          },
+          "ativo": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "EmpresaNaLista": {
+        "required": [
+          "cnpj",
+          "ehMatriz",
+          "id",
+          "razaoSocial"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "razaoSocial": {
+            "type": "string"
+          },
+          "nomeFantasia": {
+            "type": "string",
+            "nullable": true
+          },
+          "cnpj": {
+            "type": "string"
+          },
+          "ehMatriz": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "FalhaDeEntrada": {
+        "required": [
+          "mensagem"
+        ],
+        "type": "object",
+        "properties": {
+          "mensagem": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "PaginaDePessoas": {
+        "required": [
+          "itens",
+          "pagina",
+          "tamanho",
+          "total"
+        ],
+        "type": "object",
+        "properties": {
+          "itens": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PessoaNaLista"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "pagina": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "tamanho": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "PedidoDeEntrada": {
+        "required": [
+          "email",
+          "senha"
+        ],
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "senha": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "PedidoDeGeracao": {
+        "required": [
+          "ano",
+          "mes"
+        ],
+        "type": "object",
+        "properties": {
+          "ano": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "mes": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "contratoIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "PessoaDetalhada": {
+        "required": [
+          "ativo",
+          "celular",
+          "criadoEm",
+          "documento",
+          "email",
+          "endereco",
+          "id",
+          "inscricaoEstadual",
+          "inscricaoMunicipal",
+          "nome",
+          "nomeFantasia",
+          "observacoes",
+          "telefone",
+          "tipo"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "tipo": {
+            "enum": [
+              "Fisica",
+              "Juridica"
+            ],
+            "type": "string",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TipoPessoa"
+              }
+            ]
+          },
+          "nome": {
+            "type": "string"
+          },
+          "nomeFantasia": {
+            "type": "string"
+          },
+          "documento": {
+            "type": "string"
+          },
+          "inscricaoEstadual": {
+            "type": "string"
+          },
+          "inscricaoMunicipal": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "telefone": {
+            "type": "string"
+          },
+          "celular": {
+            "type": "string"
+          },
+          "endereco": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DadosDeEndereco"
+              }
+            ]
+          },
+          "observacoes": {
+            "type": "string"
+          },
+          "ativo": {
+            "type": "boolean"
+          },
+          "criadoEm": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "additionalProperties": false
+      },
+      "PessoaNaLista": {
+        "required": [
+          "ativo",
+          "celular",
+          "cidade",
+          "documento",
+          "email",
+          "id",
+          "nome",
+          "nomeFantasia",
+          "tipo",
+          "uf"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "tipo": {
+            "enum": [
+              "Fisica",
+              "Juridica"
+            ],
+            "type": "string",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TipoPessoa"
+              }
+            ]
+          },
+          "nome": {
+            "type": "string"
+          },
+          "nomeFantasia": {
+            "type": "string"
+          },
+          "documento": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "celular": {
+            "type": "string"
+          },
+          "cidade": {
+            "type": "string"
+          },
+          "uf": {
+            "type": "string"
+          },
+          "ativo": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "Problema": {
+        "required": [
+          "campo",
+          "descricao",
+          "sugestao",
+          "titulo"
+        ],
+        "type": "object",
+        "properties": {
+          "campo": {
+            "type": "string"
+          },
+          "titulo": {
+            "type": "string"
+          },
+          "descricao": {
+            "type": "string"
+          },
+          "sugestao": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "RecebivelNaLista": {
+        "required": [
+          "codigoDoCliente",
+          "competenciaAno",
+          "competenciaMes",
+          "descricao",
+          "id",
+          "nomeDoCliente",
+          "origemDaBaixa",
+          "situacao",
+          "valor",
+          "vencimento"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "codigoDoCliente": {
+            "type": "string"
+          },
+          "nomeDoCliente": {
+            "type": "string"
+          },
+          "descricao": {
+            "type": "string"
+          },
+          "competenciaAno": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "competenciaMes": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "valor": {
+            "type": "number",
+            "format": "double"
+          },
+          "vencimento": {
+            "type": "string",
+            "format": "date"
+          },
+          "situacao": {
+            "enum": [
+              "Aberto",
+              "Pago",
+              "Cancelado"
+            ],
+            "type": "string",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SituacaoRecebivel"
+              }
+            ]
+          },
+          "valorPago": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "pagoEm": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "origemDaBaixa": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "RegimeTributario": {
+        "enum": [
+          "Mei",
+          "SimplesNacional",
+          "LucroPresumido",
+          "LucroReal",
+          "TerceiroSetor",
+          "PessoaFisica"
+        ],
+        "type": "string"
+      },
+      "RespostaComProblemas": {
+        "required": [
+          "problemas"
+        ],
+        "type": "object",
+        "properties": {
+          "problemas": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Problema"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "RespostaSaude": {
+        "required": [
+          "ambiente",
+          "momento",
+          "status",
+          "versao"
+        ],
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "ambiente": {
+            "type": "string"
+          },
+          "versao": {
+            "type": "string"
+          },
+          "momento": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ResultadoDaGeracao": {
+        "required": [
+          "foraDeVigencia",
+          "geradas",
+          "ignoradas",
+          "recado"
+        ],
+        "type": "object",
+        "properties": {
+          "geradas": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "ignoradas": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "foraDeVigencia": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "recado": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ResumoDeRecebiveis": {
+        "required": [
+          "itens",
+          "quantidade",
+          "totalEmAberto",
+          "totalRecebido",
+          "totalVencido"
+        ],
+        "type": "object",
+        "properties": {
+          "itens": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecebivelNaLista"
+            }
+          },
+          "quantidade": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalEmAberto": {
+            "type": "number",
+            "format": "double"
+          },
+          "totalVencido": {
+            "type": "number",
+            "format": "double"
+          },
+          "totalRecebido": {
+            "type": "number",
+            "format": "double"
+          }
+        },
+        "additionalProperties": false
+      },
+      "SessaoAberta": {
+        "required": [
+          "email",
+          "expira",
+          "nome",
+          "tenantId"
+        ],
+        "type": "object",
+        "properties": {
+          "nome": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "tenantId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "expira": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "additionalProperties": false
+      },
+      "SessaoAtual": {
+        "required": [
+          "email",
+          "tenantId"
+        ],
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "tenantId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "empresaId": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "SituacaoContrato": {
+        "enum": [
+          "Ativo",
+          "Suspenso",
+          "Encerrado"
+        ],
+        "type": "string"
+      },
+      "SituacaoRecebivel": {
+        "enum": [
+          "Aberto",
+          "Pago",
+          "Cancelado"
+        ],
+        "type": "string"
+      },
+      "TipoPessoa": {
+        "enum": [
+          "Fisica",
+          "Juridica"
+        ],
+        "type": "string"
+      }
+    }
+  }
+}

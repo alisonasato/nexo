@@ -1,0 +1,12 @@
+{
+  "name": "nexo",
+  "private": true,
+  "description": "ERP sucessor do Cuca. Monorepo: api/ em .NET, web/ em Next.js. Ver DECISOES.md.",
+  "scripts": {
+    "contrato": "node ferramentas/gerar-contrato.mjs",
+    "dev:api": "dotnet run --project api/src/Nexo.Api",
+    "dev:web": "npm --prefix web run dev",
+    "verificar": "dotnet build api/Nexo.sln -v q --nologo && npm --prefix web run build",
+    "testar": "dotnet test api/Nexo.sln -v q --nologo"
+  }
+}
