@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Configuration;
 using Nexo.Api.Dados;
 
 namespace Nexo.Api.Testes;
@@ -51,6 +52,32 @@ public class ConexaoRuimTeste
         var normalizada = ConexaoDoBanco.Normalizar(comAspas);
 
         Assert.StartsWith("Host=servidor", normalizada);
+    }
+
+    [Fact]
+    public void Sem_conexao_o_erro_lista_os_nomes_presentes_e_nenhum_valor()
+    {
+        const string nome = "PGSENHA_DE_TESTE";
+        const string segredo = "valor-que-nao-pode-aparecer-em-log-nenhum";
+
+        Environment.SetEnvironmentVariable(nome, segredo);
+
+        try
+        {
+            var erro = Assert.Throws<InvalidOperationException>(
+                () => ConexaoDoBanco.Resolver(new ConfigurationBuilder().Build()));
+
+            /*
+             * O nome ajuda a diagnosticar sem custar outra implantação; o valor
+             * carrega senha e mensagem de erro vai para o log.
+             */
+            Assert.Contains(nome, erro.Message);
+            Assert.DoesNotContain(segredo, erro.Message);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(nome, null);
+        }
     }
 
     [Fact]

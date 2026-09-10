@@ -35,7 +35,41 @@ public static class ConexaoDoBanco
         throw new InvalidOperationException(
             $"Configure ConnectionStrings__{Nome} ou DATABASE_URL. " +
             "Aceita tanto a forma do Npgsql (Host=…;Port=…;Database=…;Username=…;Password=…) " +
-            "quanto a URI que os PaaS entregam (postgresql://usuario:senha@servidor:5432/banco).");
+            "quanto a URI que os PaaS entregam (postgresql://usuario:senha@servidor:5432/banco). " +
+            DescreverAmbiente());
+    }
+
+    /// <summary>
+    /// Lista os <b>nomes</b> das variáveis de ambiente que parecem ser de banco.
+    ///
+    /// <para>
+    /// Existe porque cada tentativa de implantação custa caro: sem isto, o erro
+    /// só diz o que falta, e não o que chegou. Ver que o ambiente tem
+    /// <c>PGHOST</c> e <c>DATABASE_PUBLIC_URL</c> mas não <c>DATABASE_URL</c>
+    /// responde a pergunta na hora, em vez de custar mais uma implantação.
+    /// </para>
+    /// <para>
+    /// <b>Só nomes, nunca valores.</b> O valor carrega a senha do banco, e uma
+    /// mensagem de erro vai para o log — que é o último lugar onde ela deve
+    /// aparecer.
+    /// </para>
+    /// </summary>
+    private static string DescreverAmbiente()
+    {
+        string[] pistas = ["DATABASE", "POSTGRES", "PG", "CONNECTIONSTRINGS"];
+
+        var encontradas = Environment.GetEnvironmentVariables()
+            .Keys
+            .Cast<object>()
+            .Select(chave => chave?.ToString() ?? string.Empty)
+            .Where(nome => pistas.Any(pista => nome.ToUpperInvariant().Contains(pista)))
+            .OrderBy(nome => nome, StringComparer.Ordinal)
+            .ToList();
+
+        return encontradas.Count == 0
+            ? "Nenhuma variável de ambiente com cara de banco chegou até aqui — nem uma sequer."
+            : "Variáveis de banco presentes no ambiente (só os nomes; valores omitidos porque " +
+              $"contêm senha): {string.Join(", ", encontradas)}.";
     }
 
     /// <summary>
