@@ -38,9 +38,22 @@ A CLI não está instalada nesta máquina, e o `gh` também não.
 
 ## Postgres
 
-Adicione o plugin de Postgres ao projeto e **ligue-o ao serviço `api`**. Ao ligar,
-a Railway injeta `DATABASE_URL` no serviço, e é só disso que a aplicação precisa
-— não há string de conexão para copiar.
+Adicione o plugin de Postgres ao projeto.
+
+**Ligar o banco ao projeto não basta.** A Railway não injeta as variáveis de um
+serviço em outro sozinha: é preciso **referenciar**. No serviço `api`, crie uma
+variável assim, com esta sintaxe literal:
+
+```
+DATABASE_URL=${{Postgres.DATABASE_URL}}
+```
+
+Troque `Postgres` pelo nome que o seu serviço de banco tem. Sem isso, a API sobe
+e morre dizendo que falta configurar a conexão — que é a verificação de arranque
+funcionando, mas custa uma implantação para descobrir.
+
+Use `DATABASE_URL`, e **não** `DATABASE_PUBLIC_URL`: na Railway o primeiro já é a
+rede privada; o público passa por proxy TCP e cobra egress.
 
 A URL vem no formato URI (`postgresql://usuário:senha@servidor:5432/banco`) e o
 Npgsql espera pares `Host=…;Port=…`. A aplicação faz a tradução sozinha,
@@ -133,7 +146,7 @@ Variáveis:
 | Variável | Valor |
 |---|---|
 | `ASPNETCORE_ENVIRONMENT` | `Production` |
-| `DATABASE_URL` | Injetada pela Railway ao ligar o Postgres ao serviço. Não precisa digitar. |
+| `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` — referência ao serviço de banco, com esta sintaxe literal |
 | `Jwt__Chave` | 32 bytes ou mais, gerada, nunca inventada |
 | `PORT` | `8080` — **definida à mão, de propósito.** Ver abaixo. |
 | `Provisionamento__TenantNome` | Nome do escritório. Só no primeiro deploy. |
