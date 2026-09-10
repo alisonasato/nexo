@@ -22,9 +22,15 @@ out/
 .env*.local
 
 # ---------------------------------------------------------------- gerado
-# O cliente TypeScript é derivado do OpenAPI da API: gera-se, não se versiona.
-# Ver README, seção "O contrato".
-web/src/api/esquema.d.ts
+# O cliente TypeScript É versionado, apesar de gerado.
+#
+# A razão é o build isolado: no PaaS, cada serviço constrói só a sua pasta, e
+# de dentro de web/ o arquivo api/openapi.json não existe. Gerar no build
+# deixou de ser possível.
+#
+# A divergência que "não versionar" evitava continua guardada: a integração
+# contínua regera do código da API e falha se este arquivo ou o openapi.json
+# estiverem desatualizados.
 
 # ---------------------------------------------------------------- sistema
 Thumbs.db

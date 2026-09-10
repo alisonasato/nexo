@@ -43,15 +43,17 @@ dotnet tool restore
 npm ci --prefix web
 ```
 
-O cliente TypeScript da API também é gerado, e por isso não é versionado. Ele
-sai do `api/openapi.json`, que é versionado — então basta o Node:
+O cliente TypeScript da API é gerado, mas **é versionado** — junto com o
+`api/openapi.json`. Um clone limpo já tem os dois, e `npm --prefix web run build`
+funciona sem mais nada.
 
-```bash
-npm --prefix web run tipos
-```
+Versionar um arquivo gerado tem um motivo concreto: no PaaS cada serviço
+constrói só a sua pasta, e de dentro de `web/` o `api/openapi.json` não existe.
+Gerar no build deixou de ser possível.
 
-Sem isso, todo import de `@/api/esquema` quebra. Use `npm run contrato` na raiz
-quando quiser regerar a partir do código da API, e não do documento gravado.
+A divergência que "não versionar" evitaria continua guardada pela integração
+contínua, que regera do código da API e falha se qualquer um dos dois estiver
+desatualizado.
 
 ## Rodar
 

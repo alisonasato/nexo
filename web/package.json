@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "npm run tipos && next build",
+    "build": "next build",
     "start": "next start",
     "lint": "eslint",
     "tipos": "openapi-typescript ../api/openapi.json --output src/api/esquema.d.ts"
