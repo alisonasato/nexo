@@ -1,0 +1,9 @@
+# O que nunca deve entrar na imagem.
+#
+# A Railway clona do git, onde bin/ e obj/ já não existem. Isto é seguro contra
+# um build local, onde eles existem e carregariam binários de outra plataforma
+# para dentro da imagem.
+bin/
+obj/
+Dockerfile
+.dockerignore

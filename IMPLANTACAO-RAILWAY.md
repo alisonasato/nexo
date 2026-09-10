@@ -84,6 +84,29 @@ o que não existe.
 5. **Variables** → as da tabela correspondente
 6. Reimplante
 
+### Como cada serviço é construído
+
+A `api` tem um **Dockerfile**, em `api/src/Nexo.Api/`. Não é preferência: o
+Railpack, construtor automático da Railway, **não suporta .NET** — a própria
+documentação deles manda usar Dockerfile para ASP.NET Core.
+
+O `web` **não** tem Dockerfile, e não precisa: Railpack detecta Node e Next
+sozinho.
+
+### O erro que aparece quando o root directory não foi definido
+
+```
+↳ Detected Node
+✖ No start command detected
+```
+
+É o sintoma clássico. Sem root directory, o construtor olha a **raiz do
+repositório**, encontra o `package.json` dos scripts de orquestração — que não
+tem dependências nem `start` — e conclui que o projeto é Node.
+
+Se você viu isso, o serviço está construindo a pasta errada. Vá em Settings e
+defina o Root Directory.
+
 ### Se o repositório não aparece na lista
 
 Na ordem, do mais barato para o mais drástico:
