@@ -52,10 +52,14 @@ e não atrapalha.
 - Cadastro de cliente novo. Hoje existe o provisionamento do **primeiro**
   tenant, por configuração, e mais nada. Como um segundo escritório vira
   cliente do Nexo é um fluxo que ainda não foi desenhado.
-- **Trocar a senha.** Não existe tela nem endpoint. A senha inicial vem das
-  variáveis de `Provisionamento` e fica valendo para sempre — quem provisiona é
-  quem conhece a senha do único usuário. É aceitável enquanto o usuário é você;
-  deixa de ser no minuto em que houver um cliente de verdade.
+- **Invalidar sessões abertas ao trocar a senha.** A troca existe, mas o token
+  é autocontido: uma sessão aberta em outro navegador segue valendo por até
+  oito horas. No dia em que a troca for por suspeita de vazamento, isso passa a
+  importar — e a resposta é validar o carimbo de segurança do Identity a cada
+  requisição, ao custo de uma consulta ao banco.
+- **Recuperar senha esquecida.** Não existe. Hoje a saída é reprovisionar, o
+  que exige banco vazio — ou seja, não é saída nenhuma. Depende de e-mail
+  transacional, que o projeto ainda não tem.
 - Convidar outra pessoa para o mesmo escritório. Um tenant tem um usuário só.
 - Uma pessoa pertence a exatamente um tenant, e o e-mail é único no sistema
   inteiro. Quem trabalha em dois escritórios precisaria de duas contas com

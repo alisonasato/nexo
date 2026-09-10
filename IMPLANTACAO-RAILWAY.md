@@ -134,9 +134,10 @@ Na ordem, porque cada uma depende da anterior:
    Se responder `Development`, a variável de ambiente não chegou.
 2. **Entre com a credencial de `Provisionamento`.** Com o banco vazio, a
    aplicação cria o tenant, a empresa e o usuário na primeira subida — e o log
-   registra isso. **Depois de entrar, remova as cinco variáveis**: elas guardam
-   uma senha em texto no painel, e não servem mais para nada (a criação só
-   acontece com banco vazio).
+   registra isso. **Depois de entrar, troque a senha em Conta → Trocar a senha
+   e remova as cinco variáveis**: elas guardam uma senha em texto no painel, e
+   não servem mais para nada (a criação só acontece com banco vazio). Remover
+   sem trocar deixa a senha provisionada valendo — só a tira de vista.
 
    Sem essas variáveis, produção **não cria nada** — nem tenant de
    demonstração. É deliberado: senha conhecida nascendo sozinha num sistema com

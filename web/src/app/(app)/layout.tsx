@@ -55,6 +55,10 @@ export default function LayoutDaAplicacao({ children }: { children: ReactNode })
   const encerrar = () =>
     sair.mutate(undefined, { onSuccess: () => navegacao.replace("/entrar") });
 
+  const aparencia = (ativo: boolean) =>
+    "rounded-[--radius-controle] px-3 py-2 font-medium transition-colors " +
+    (ativo ? "bg-marca-800 text-white" : "hover:bg-marca-900");
+
   return (
     <div className="flex min-h-dvh flex-col sm:flex-row">
       <aside className="flex shrink-0 flex-col bg-marca-950 text-marca-100 sm:w-56">
@@ -71,29 +75,40 @@ export default function LayoutDaAplicacao({ children }: { children: ReactNode })
           </button>
         </div>
 
-        <nav className="flex gap-1 px-3 pb-3 sm:flex-1 sm:flex-col sm:pb-0">
-          {menu.map((item) => {
-            const ativo = caminho.startsWith(item.href);
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                aria-current={ativo ? "page" : undefined}
-                className={
-                  "rounded-[--radius-controle] px-3 py-2 font-medium transition-colors " +
-                  (ativo ? "bg-marca-800 text-white" : "hover:bg-marca-900")
-                }
-              >
-                {item.rotulo}
-              </Link>
-            );
-          })}
+        <nav className="flex gap-1 overflow-x-auto px-3 pb-3 sm:flex-1 sm:flex-col sm:overflow-visible sm:pb-0">
+          {menu.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              aria-current={caminho.startsWith(item.href) ? "page" : undefined}
+              className={aparencia(caminho.startsWith(item.href))}
+            >
+              {item.rotulo}
+            </Link>
+          ))}
+
+          {/*
+            No desktop a conta se alcança pelo e-mail no rodapé da barra. No
+            celular não existe rodapé, então ela precisa estar aqui — senão não
+            haveria como trocar a senha pelo telefone.
+          */}
+          <Link
+            href="/conta"
+            aria-current={caminho.startsWith("/conta") ? "page" : undefined}
+            className={aparencia(caminho.startsWith("/conta")) + " sm:hidden"}
+          >
+            Conta
+          </Link>
         </nav>
 
         <div className="hidden flex-col gap-2 border-t border-marca-900 px-5 py-4 sm:flex">
-          <span className="truncate text-xs text-marca-300" title={usuario.email}>
+          <Link
+            href="/conta"
+            className="truncate text-xs text-marca-300 underline-offset-2 hover:text-white hover:underline"
+            title={usuario.email}
+          >
             {usuario.email}
-          </span>
+          </Link>
           <button
             type="button"
             onClick={encerrar}

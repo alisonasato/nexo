@@ -75,6 +75,44 @@
         }
       }
     },
+    "/autenticacao/trocar-senha": {
+      "post": {
+        "tags": [
+          "Acesso"
+        ],
+        "summary": "Troca a senha de quem está na sessão",
+        "operationId": "TrocarSenha",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/PedidoDeTrocaDeSenha"
+                  }
+                ]
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RespostaComProblemas"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/autenticacao/eu": {
       "get": {
         "tags": [
@@ -1342,6 +1380,22 @@
               "format": "uuid"
             },
             "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "PedidoDeTrocaDeSenha": {
+        "required": [
+          "senhaAtual",
+          "senhaNova"
+        ],
+        "type": "object",
+        "properties": {
+          "senhaAtual": {
+            "type": "string"
+          },
+          "senhaNova": {
+            "type": "string"
           }
         },
         "additionalProperties": false

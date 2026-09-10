@@ -1,3 +1,4 @@
+using System.IdentityModel.Tokens.Jwt;
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
@@ -99,9 +100,19 @@ construtor.Services.AddIdentityCore<Usuario>(opcoes =>
         opcoes.Password.RequiredLength = 10;
         opcoes.Lockout.MaxFailedAccessAttempts = 5;
         opcoes.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(5);
+
+        /*
+         * O id do usuário viaja na claim `sub`, que é o nome padrão do JWT, e
+         * o handler não remapeia claims (MapInboundClaims = false). O Identity,
+         * porém, procura o id em `NameIdentifier` — e sem esta linha o
+         * `GetUserAsync` não encontra ninguém numa requisição perfeitamente
+         * autenticada, respondendo 401 onde deveria trabalhar.
+         */
+        opcoes.ClaimsIdentity.UserIdClaimType = JwtRegisteredClaimNames.Sub;
     })
     .AddRoles<IdentityRole<Guid>>()
     .AddEntityFrameworkStores<NexoDbContext>()
+    .AddErrorDescriber<DescritorDeErros>()
     .AddSignInManager();
 
 construtor.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
