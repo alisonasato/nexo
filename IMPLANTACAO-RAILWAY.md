@@ -38,12 +38,18 @@ A CLI não está instalada nesta máquina, e o `gh` também não.
 
 ## Postgres
 
-Adicione o plugin de Postgres ao projeto. Ele publica variáveis próprias; a que
-interessa é a URL de conexão.
+Adicione o plugin de Postgres ao projeto e **ligue-o ao serviço `api`**. Ao ligar,
+a Railway injeta `DATABASE_URL` no serviço, e é só disso que a aplicação precisa
+— não há string de conexão para copiar.
 
-**A string do Postgres da Railway vem no formato URI** (`postgresql://…`), e o
-Npgsql espera pares `Host=…;Port=…`. Converta ao preencher a variável da API,
-ou o serviço sobe e falha na primeira consulta.
+A URL vem no formato URI (`postgresql://usuário:senha@servidor:5432/banco`) e o
+Npgsql espera pares `Host=…;Port=…`. A aplicação faz a tradução sozinha,
+inclusive decodificando senha com `@`, `/` e `+`, que é o que costuma vir de
+senha gerada por PaaS. Verificado: a aplicação sobe e consulta o banco tendo
+apenas `DATABASE_URL` no ambiente.
+
+Se quiser apontar para outro banco, `ConnectionStrings__Nexo` vence o
+`DATABASE_URL` — e aceita as duas formas também.
 
 ### O papel do banco
 
@@ -73,7 +79,7 @@ Variáveis:
 | Variável | Valor |
 |---|---|
 | `ASPNETCORE_ENVIRONMENT` | `Production` |
-| `ConnectionStrings__Nexo` | `Host=…;Port=5432;Database=…;Username=…;Password=…` |
+| `DATABASE_URL` | Injetada pela Railway ao ligar o Postgres ao serviço. Não precisa digitar. |
 | `Jwt__Chave` | 32 bytes ou mais, gerada, nunca inventada |
 | `PORT` | `8080` — **definida à mão, de propósito.** Ver abaixo. |
 | `Provisionamento__TenantNome` | Nome do escritório. Só no primeiro deploy. |
@@ -149,6 +155,7 @@ CLI nesta máquina. O que **foi** verificado localmente, com um ensaio do deploy
 banco vazio em modo `Production`:
 
 - A aplicação liga na porta de `PORT`, em IPv4 e IPv6.
+- Sobe e consulta o banco tendo só `DATABASE_URL` em forma de URI.
 - A migração acontece sozinha na subida: 14 tabelas e as 5 políticas de RLS.
 - **Sem** as variáveis de `Provisionamento`, nada é criado: zero tenants, zero
   usuários.

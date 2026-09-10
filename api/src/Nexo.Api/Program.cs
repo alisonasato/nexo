@@ -66,8 +66,10 @@ construtor.Services.AddHttpContextAccessor();
 construtor.Services.AddScoped<IContextoDeTenant, ContextoDeTenantHttp>();
 construtor.Services.AddScoped<InterceptorDeTenant>();
 
+var conexao = ConexaoDoBanco.Resolver(construtor.Configuration);
+
 construtor.Services.AddDbContext<NexoDbContext>((provedor, opcoes) => opcoes
-    .UseNpgsql(construtor.Configuration.GetConnectionString("Nexo"))
+    .UseNpgsql(conexao)
     .UseSnakeCaseNamingConvention()
     .AddInterceptors(provedor.GetRequiredService<InterceptorDeTenant>()));
 

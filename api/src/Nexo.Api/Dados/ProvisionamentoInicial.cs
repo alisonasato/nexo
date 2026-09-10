@@ -100,7 +100,7 @@ public static class ProvisionamentoInicial
          */
         var configuracao = provedor.GetRequiredService<IConfiguration>();
         var opcoes = new DbContextOptionsBuilder<NexoDbContext>()
-            .UseNpgsql(configuracao.GetConnectionString("Nexo"))
+            .UseNpgsql(ConexaoDoBanco.Resolver(configuracao))
             .UseSnakeCaseNamingConvention()
             .AddInterceptors(new InterceptorDeTenant(new ContextoDeTenantFixo(tenantId)))
             .Options;

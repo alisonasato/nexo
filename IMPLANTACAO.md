@@ -15,7 +15,7 @@ Três variáveis, e nenhuma tem valor padrão útil:
 
 | Variável | O quê |
 |---|---|
-| `ConnectionStrings__Nexo` | `Host=…;Port=5432;Database=…;Username=…;Password=…` |
+| `DATABASE_URL` ou `ConnectionStrings__Nexo` | Aceita a URI `postgresql://…` ou os pares `Host=…;Port=…`. A explícita vence. |
 | `Jwt__Chave` | Mínimo de 32 bytes. **Sem ela a aplicação não sobe** — de propósito. |
 | `ASPNETCORE_ENVIRONMENT` | `Production` |
 
@@ -37,6 +37,17 @@ como todo PaaS diz onde escutar. Sem ela, nada muda: vale o `--urls` ou o
 O endereço é `[::]` e não `0.0.0.0` porque a rede privada entre serviços é
 IPv6 na Railway; `[::]` atende os dois protocolos. Verificado aqui: com
 `PORT=5299`, responde em `127.0.0.1` e em `[::1]`.
+
+### As duas formas de string de conexão
+
+O Npgsql quer `Host=…;Port=…`; quase todo PaaS entrega `postgresql://…`. A
+aplicação aceita as duas e traduz, porque conversão à mão na hora do primeiro
+deploy é onde se perde uma tarde: o serviço sobe, o `/saude` responde, e só a
+primeira consulta quebra.
+
+```bash
+ASPNETCORE_ENVIRONMENT=Production DATABASE_URL="postgresql://usuario:senha@servidor:5432/banco" Jwt__Chave="…" dotnet run --project api/src/Nexo.Api --no-launch-profile
+```
 
 ## O banco se migra sozinho
 
