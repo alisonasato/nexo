@@ -83,14 +83,37 @@ com `FORCE`** — e o usuário que a Railway cria costuma ser o dono do banco. E
 é o ponto mais perigoso de toda esta implantação: com um papel superusuário, o
 isolamento entre escritórios simplesmente não existe, e nada acusa.
 
-Depois de subir, confira. Os dois últimos precisam ser `f`:
+**A aplicação confere isso sozinha e se recusa a subir em produção.** Você não
+precisa lembrar de conferir — vai descobrir na primeira implantação.
+
+O conserto está pronto, em `ferramentas/papel-da-aplicacao.sql`. Ele cria um papel
+sem `SUPERUSER` e sem `BYPASSRLS`, e transfere a posse das tabelas para ele:
 
 ```bash
-psql "$DATABASE_URL" -c "SELECT rolname, rolsuper, rolbypassrls FROM pg_roles WHERE rolname = current_user;"
+node -e "console.log(require('crypto').randomBytes(24).toString('base64url'))"
 ```
 
-Se não forem, crie um papel comum, dê a ele posse das tabelas e use-o na string
-de conexão da aplicação.
+```bash
+psql "URL_DO_BANCO" -v senha="'a-senha-gerada'" -f ferramentas/papel-da-aplicacao.sql
+```
+
+Depois troque o `DATABASE_URL` do serviço `api` para usar `nexo_app` com essa senha.
+
+Transferir a posse é necessário porque as migrações rodam na subida, com a
+conexão da própria aplicação — ela precisa poder criar tabelas. Ser dona não
+abre brecha: as migrações marcam as tabelas com `FORCE ROW LEVEL SECURITY`, que
+faz a política valer inclusive para o dono.
+
+Isto foi verificado contra um banco montado igual ao da Railway — criado e
+migrado pelo papel administrativo, depois transferido. Com o papel novo, a
+aplicação sobe, provisiona e **o isolamento vale**: com duas empresas de tenants
+diferentes no banco, o usuário de um enxerga só a sua.
+
+### Se você precisa subir agora
+
+`NEXO_ACEITO_SEM_ISOLAMENTO=1` deixa a aplicação subir com o papel administrativo.
+Enquanto houver um tenant só não há o que vazar, e o log repete o aviso a cada
+subida. Com o segundo escritório, deixa de ser aceitável.
 
 ## Criar um serviço a partir do repositório
 
