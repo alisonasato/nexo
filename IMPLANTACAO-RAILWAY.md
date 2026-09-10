@@ -223,8 +223,17 @@ Na ordem, porque cada uma depende da anterior:
    Sem essas variáveis, produção **não cria nada** — nem tenant de
    demonstração. É deliberado: senha conhecida nascendo sozinha num sistema com
    dinheiro dentro seria pior do que não ter provisionamento.
-3. **Confira o papel do banco**, como acima. É o passo que ninguém lembra e o
-   único cujo erro é invisível.
+3. **O papel do banco é conferido pela própria aplicação**, na subida. Era o
+   passo que ninguém lembrava, e o único cujo erro era invisível.
+
+   O Postgres da Railway costuma entregar um papel administrativo, e nesse caso
+   a API **se recusa a subir** em produção. Duas saídas:
+
+   - **Certa:** criar um papel comum (`NOSUPERUSER NOBYPASSRLS`), dar a ele posse
+     das tabelas, e usá-lo na string de conexão.
+   - **Provisória:** definir `NEXO_ACEITO_SEM_ISOLAMENTO=1`. Enquanto houver um
+     tenant só não há o que vazar, e o log repete o aviso a cada subida. Com o
+     segundo escritório, isso deixa de ser aceitável.
 4. **Confirme que a Railway redireciona http para https.** A aplicação não faz
    isso — é trabalho do proxy, e o motivo está no `IMPLANTACAO.md`.
 5. **Backup.** Veja se está ligado e restaure uma vez para um banco de teste.

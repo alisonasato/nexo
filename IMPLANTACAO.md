@@ -64,9 +64,18 @@ e as 5 políticas de RLS sozinha.
 
 ### O papel do banco não pode ser dono
 
-Já dito no README, mas aqui custa caro esquecer: **superusuário ignora RLS por
-completo, inclusive com `FORCE`.** O usuário da string de conexão precisa ser um
-papel comum, sem `SUPERUSER` e sem `BYPASSRLS`. Confira depois de criar:
+**Superusuário ignora RLS por completo, inclusive com `FORCE`.** O usuário da
+string de conexão precisa ser um papel comum, sem `SUPERUSER` e sem `BYPASSRLS`.
+
+**A aplicação confere isso sozinha na subida.** Em produção ela se recusa a
+subir, dizendo o que criar; fora dela, apenas registra um aviso — quem
+desenvolve às vezes aponta para um banco administrativo de propósito.
+
+Isso existe porque era o único erro desta implantação **sem sintoma**: com
+superusuário, tudo funciona e um escritório enxerga o dado do outro. Depender de
+alguém lembrar de rodar uma consulta é o mesmo que não ter proteção.
+
+Para conferir à mão, se quiser:
 
 ```bash
 psql -c "SELECT rolname, rolsuper, rolbypassrls FROM pg_roles WHERE rolname = 'nexo';"

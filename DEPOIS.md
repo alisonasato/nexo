@@ -45,7 +45,7 @@ e não atrapalha.
 - Papel separado para a aplicação, sem ser dono das tabelas. Hoje `nexo` é dono
   e quem segura a política é o `FORCE ROW LEVEL SECURITY`. Em produção o certo
   é dono e aplicação serem papéis diferentes — o FORCE vira a segunda defesa,
-  não a única.
+  não a única. (O caso mais grave, superusuário, já é recusado na subida.)
 
 ## Aberto pelo passo 3
 

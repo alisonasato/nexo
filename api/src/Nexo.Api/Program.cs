@@ -272,6 +272,13 @@ if (!extraindoContrato)
      */
     await MigracaoNaSubida.AplicarAsync(app.Services);
 
+    /*
+     * Conferir o papel depois de migrar: as políticas precisam existir para
+     * a pergunta fazer sentido. Ver ConferenciaDoPapel — é o único erro desta
+     * implantação que não tem sintoma nenhum.
+     */
+    await ConferenciaDoPapel.VerificarAsync(app.Services, app.Environment);
+
 /*
  * Provisionamento do primeiro tenant.
  *
