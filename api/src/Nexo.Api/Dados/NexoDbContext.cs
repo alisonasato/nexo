@@ -138,6 +138,7 @@ public class NexoDbContext(DbContextOptions<NexoDbContext> opcoes)
             recebivel.HasKey(r => r.Id);
             recebivel.Property(r => r.Descricao).HasMaxLength(200);
             recebivel.Property(r => r.OrigemDaBaixa).HasMaxLength(30);
+            recebivel.Property(r => r.MotivoDoCancelamento).HasMaxLength(200);
             recebivel.Property(r => r.Valor).HasPrecision(14, 2);
             recebivel.Property(r => r.ValorPago).HasPrecision(14, 2);
             recebivel.Property(r => r.CriadoEm).HasDefaultValueSql("now()");
@@ -153,7 +154,14 @@ public class NexoDbContext(DbContextOptions<NexoDbContext> opcoes)
              * afetados por esta regra.
              */
             recebivel.HasIndex(r => new { r.TenantId, r.ContratoId, r.CompetenciaAno, r.CompetenciaMes })
-                .IsUnique();
+                .IsUnique()
+                /*
+                 * Índice parcial: cancelados ficam de fora. É o que permite
+                 * corrigir uma geração errada — cancela e gera de novo — sem
+                 * apagar o histórico do que foi cancelado e por quê.
+                 * 3 é SituacaoRecebivel.Cancelado.
+                 */
+                .HasFilter("situacao <> 3");
 
             recebivel.HasIndex(r => new { r.TenantId, r.Situacao, r.Vencimento });
 

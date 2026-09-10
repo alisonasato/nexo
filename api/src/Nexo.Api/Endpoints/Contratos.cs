@@ -158,11 +158,17 @@ public static class Contratos
             .Where(contrato => pedido.ContratoIds == null || pedido.ContratoIds.Contains(contrato.Id))
             .ToListAsync(cancelamento);
 
+        /*
+         * Cancelados ficam de fora da conta, do mesmo jeito que ficam de fora
+         * do índice único. É o que permite corrigir: cancela a mensalidade
+         * errada e gera de novo, com o valor certo, na mesma competência.
+         */
         var jaGerados = await banco.Recebiveis.AsNoTracking()
             .Where(recebivel =>
                 recebivel.CompetenciaAno == pedido.Ano
                 && recebivel.CompetenciaMes == pedido.Mes
-                && recebivel.ContratoId != null)
+                && recebivel.ContratoId != null
+                && recebivel.Situacao != SituacaoRecebivel.Cancelado)
             .Select(recebivel => recebivel.ContratoId!.Value)
             .ToListAsync(cancelamento);
 

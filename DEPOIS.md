@@ -95,7 +95,6 @@ e não atrapalha.
 - Reativar e inativar cliente pela tela. A API altera; a tela só cria e lista.
 - Recebível avulso, fora de contrato. O modelo já aceita (`contratoId` nulo),
   a API e a tela ainda não.
-- Cancelar um recebível. A situação existe no domínio, e nada a atinge.
 - Gerar mensalidade só dos contratos selecionados. A API aceita a lista de
   ids; a tela sempre manda todos.
 - Reajuste de contrato por índice, e histórico de valores. Hoje mudar o valor

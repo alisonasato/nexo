@@ -26,6 +26,14 @@ public static class Recebiveis
             .Produces<RespostaComProblemas>(StatusCodes.Status422UnprocessableEntity)
             .Produces(StatusCodes.Status404NotFound);
 
+        grupo.MapPost("/{id:guid}/cancelar", Cancelar)
+            .WithName("CancelarRecebivel")
+            .WithSummary("Cancela um recebível em aberto")
+            .WithDescription("Libera a competência para ser gerada de novo, sem apagar o histórico do que foi cancelado.")
+            .Produces<RecebivelNaLista>()
+            .Produces<RespostaComProblemas>(StatusCodes.Status422UnprocessableEntity)
+            .Produces(StatusCodes.Status404NotFound);
+
         grupo.MapPost("/{id:guid}/estornar", Estornar)
             .WithName("EstornarRecebivel")
             .WithSummary("Desfaz a baixa")
@@ -64,7 +72,8 @@ public static class Recebiveis
                 recebivel.Situacao,
                 recebivel.ValorPago,
                 recebivel.PagoEm,
-                recebivel.OrigemDaBaixa))
+                recebivel.OrigemDaBaixa,
+                recebivel.MotivoDoCancelamento))
             .ToListAsync(cancelamento);
 
         var hoje = DateOnly.FromDateTime(DateTime.Today);
@@ -134,6 +143,62 @@ public static class Recebiveis
         return Results.Ok(Detalhar(recebivel));
     }
 
+    /// <summary>
+    /// Cancela um recebível em aberto.
+    ///
+    /// Cancelar libera a competência: o índice único ignora cancelados, então
+    /// a mensalidade pode ser gerada de novo com o valor certo. É o caminho
+    /// para consertar o erro comum — valor do contrato errado, mensalidades
+    /// geradas, contrato corrigido — que antes não tinha conserto nenhum.
+    /// </summary>
+    private static async Task<IResult> Cancelar(
+        Guid id,
+        [FromBody] DadosDoCancelamento dados,
+        NexoDbContext banco,
+        CancellationToken cancelamento)
+    {
+        var recebivel = await banco.Recebiveis
+            .Include(r => r.Cliente).ThenInclude(c => c!.Pessoa)
+            .FirstOrDefaultAsync(r => r.Id == id, cancelamento);
+
+        if (recebivel is null) return Results.NotFound();
+
+        if (recebivel.Situacao == SituacaoRecebivel.Pago)
+        {
+            /*
+             * Cancelar o que já foi pago apagaria a entrada de dinheiro da
+             * conta sem devolver nada a ninguém. Estornar primeiro obriga a
+             * dizer o que aconteceu com o valor recebido.
+             */
+            return Problema("id", "Recebível já baixado",
+                $"Este recebível foi baixado em {recebivel.PagoEm:dd/MM/yyyy}.",
+                "Estorne a baixa antes de cancelar, para o valor recebido não sumir da conta.");
+        }
+
+        if (recebivel.Situacao == SituacaoRecebivel.Cancelado)
+        {
+            return Problema("id", "Recebível já cancelado",
+                "Este recebível já estava cancelado.",
+                "Para cobrar de novo, gere a mensalidade da competência.");
+        }
+
+        var motivo = (dados.Motivo ?? string.Empty).Trim();
+        if (motivo.Length == 0)
+        {
+            return Problema("motivo", "Motivo não informado",
+                "Cancelar tira um valor da conta do escritório sem dizer por quê.",
+                "Escreva o motivo: quem olhar isto daqui a seis meses vai perguntar.");
+        }
+
+        recebivel.Situacao = SituacaoRecebivel.Cancelado;
+        recebivel.MotivoDoCancelamento = motivo;
+        recebivel.AtualizadoEm = DateTimeOffset.UtcNow;
+
+        await banco.SaveChangesAsync(cancelamento);
+
+        return Results.Ok(Detalhar(recebivel));
+    }
+
     private static async Task<IResult> Estornar(Guid id, NexoDbContext banco, CancellationToken cancelamento)
     {
         var recebivel = await banco.Recebiveis
@@ -141,6 +206,18 @@ public static class Recebiveis
             .FirstOrDefaultAsync(r => r.Id == id, cancelamento);
 
         if (recebivel is null) return Results.NotFound();
+
+        if (recebivel.Situacao != SituacaoRecebivel.Pago)
+        {
+            /*
+             * Estornar só faz sentido sobre uma baixa. Sobre um cancelado
+             * seria pior que inútil: ressuscitaria a cobrança e poderia colidir
+             * com a mensalidade que já tivesse sido gerada no lugar dela.
+             */
+            return Problema("id", "Nada a estornar",
+                "Este recebível não está baixado.",
+                "Estorno desfaz uma baixa. Para reabrir um cancelado, gere a mensalidade de novo.");
+        }
 
         recebivel.Situacao = SituacaoRecebivel.Aberto;
         recebivel.ValorPago = null;
@@ -165,7 +242,8 @@ public static class Recebiveis
         recebivel.Situacao,
         recebivel.ValorPago,
         recebivel.PagoEm,
-        recebivel.OrigemDaBaixa);
+        recebivel.OrigemDaBaixa,
+        recebivel.MotivoDoCancelamento);
 
     private static IResult Problema(string campo, string titulo, string descricao, string sugestao) =>
         Results.Json(
@@ -174,6 +252,7 @@ public static class Recebiveis
 }
 
 public record DadosDaBaixa(decimal ValorPago, DateOnly? PagoEm);
+public record DadosDoCancelamento(string? Motivo);
 
 public record RecebivelNaLista(
     Guid Id,
@@ -187,7 +266,8 @@ public record RecebivelNaLista(
     SituacaoRecebivel Situacao,
     decimal? ValorPago,
     DateOnly? PagoEm,
-    string OrigemDaBaixa);
+    string OrigemDaBaixa,
+    string MotivoDoCancelamento);
 
 /// <param name="TotalEmAberto">Soma do que ainda não entrou.</param>
 /// <param name="TotalVencido">Parte do aberto cujo vencimento já passou.</param>

@@ -809,6 +809,66 @@
         }
       }
     },
+    "/recebiveis/{id}/cancelar": {
+      "post": {
+        "tags": [
+          "Recebíveis"
+        ],
+        "summary": "Cancela um recebível em aberto",
+        "description": "Libera a competência para ser gerada de novo, sem apagar o histórico do que foi cancelado.",
+        "operationId": "CancelarRecebivel",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/DadosDoCancelamento"
+                  }
+                ]
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecebivelNaLista"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RespostaComProblemas"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
     "/recebiveis/{id}/estornar": {
       "post": {
         "tags": [
@@ -1271,6 +1331,16 @@
         },
         "additionalProperties": false
       },
+      "DadosDoCancelamento": {
+        "type": "object",
+        "properties": {
+          "motivo": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
       "EmpresaNaLista": {
         "required": [
           "cnpj",
@@ -1568,6 +1638,7 @@
           "competenciaMes",
           "descricao",
           "id",
+          "motivoDoCancelamento",
           "nomeDoCliente",
           "origemDaBaixa",
           "situacao",
@@ -1629,6 +1700,9 @@
             "nullable": true
           },
           "origemDaBaixa": {
+            "type": "string"
+          },
+          "motivoDoCancelamento": {
             "type": "string"
           }
         },

@@ -293,9 +293,126 @@ public class CicloDoDinheiro(BancoDeTestes banco) : IDisposable
         Assert.Equal("C0011", Codigos.Proximo("C", ["C0009", "C0010"]));
     }
 
+    [Fact]
+    public async Task Cancelar_libera_a_competencia_para_gerar_de_novo()
+    {
+        var cliente = await Contas.Entrar(_aplicacao, await Contas.Criar(banco, _aplicacao));
+        var contratoId = await CriarContrato(cliente, valor: 500m, dia: 10);
+
+        await Gerar(cliente, 2026, 10);
+        var errada = Assert.Single((await Listar(cliente)).Itens);
+        Assert.Equal(500m, errada.Valor);
+
+        /*
+         * O erro comum: o valor do contrato estava errado. Corrige-se o
+         * contrato, mas a mensalidade ja gerada continua com o valor velho.
+         * Antes do cancelamento isso nao tinha conserto — a competencia ficava
+         * ocupada para sempre por um recebivel errado.
+         */
+        await cliente.PutAsJsonAsync($"/contratos/{contratoId}", new DadosDeContrato(
+            await ClienteDoContrato(cliente, contratoId),
+            "Honorários contábeis", 780m, 10,
+            new DateOnly(2025, 1, 1), null, SituacaoContrato.Ativo, string.Empty), Json);
+
+        var cancelamento = await cliente.PostAsJsonAsync(
+            $"/recebiveis/{errada.Id}/cancelar",
+            new DadosDoCancelamento("Valor do contrato estava errado"), Json);
+        Assert.Equal(HttpStatusCode.OK, cancelamento.StatusCode);
+
+        var denovo = await Gerar(cliente, 2026, 10);
+        Assert.Equal(1, denovo.Geradas);
+
+        var abertos = (await Listar(cliente)).Itens
+            .Where(item => item.Situacao == SituacaoRecebivel.Aberto)
+            .ToList();
+
+        var certa = Assert.Single(abertos);
+        Assert.Equal(780m, certa.Valor);
+    }
+
+    [Fact]
+    public async Task O_cancelado_sai_da_conta_mas_nao_do_historico()
+    {
+        var cliente = await Contas.Entrar(_aplicacao, await Contas.Criar(banco, _aplicacao));
+        await CriarContrato(cliente, valor: 300m, dia: 10);
+        await Gerar(cliente, 2026, 11);
+
+        var recebivel = Assert.Single((await Listar(cliente)).Itens);
+
+        await cliente.PostAsJsonAsync($"/recebiveis/{recebivel.Id}/cancelar",
+            new DadosDoCancelamento("Cliente encerrou o contrato antes"), Json);
+
+        var resumo = await Listar(cliente);
+
+        // Some da conta...
+        Assert.Equal(0m, resumo.TotalEmAberto);
+
+        // ...e continua visível, com o motivo por escrito.
+        var cancelado = Assert.Single(resumo.Itens);
+        Assert.Equal(SituacaoRecebivel.Cancelado, cancelado.Situacao);
+        Assert.Equal("Cliente encerrou o contrato antes", cancelado.MotivoDoCancelamento);
+    }
+
+    [Fact]
+    public async Task Cancelar_sem_motivo_e_recusado()
+    {
+        var cliente = await Contas.Entrar(_aplicacao, await Contas.Criar(banco, _aplicacao));
+        await CriarContrato(cliente, valor: 300m, dia: 10);
+        await Gerar(cliente, 2026, 12);
+
+        var recebivel = Assert.Single((await Listar(cliente)).Itens);
+
+        var resposta = await cliente.PostAsJsonAsync($"/recebiveis/{recebivel.Id}/cancelar",
+            new DadosDoCancelamento("   "), Json);
+
+        // Cancelar tira dinheiro da conta; quem olhar depois vai perguntar por quê.
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, resposta.StatusCode);
+    }
+
+    [Fact]
+    public async Task Cancelar_um_ja_baixado_e_recusado()
+    {
+        var cliente = await Contas.Entrar(_aplicacao, await Contas.Criar(banco, _aplicacao));
+        await CriarContrato(cliente, valor: 300m, dia: 10);
+        await Gerar(cliente, 2027, 1);
+
+        var recebivel = Assert.Single((await Listar(cliente)).Itens);
+        await cliente.PostAsJsonAsync($"/recebiveis/{recebivel.Id}/baixar",
+            new DadosDaBaixa(300m, null), Json);
+
+        var resposta = await cliente.PostAsJsonAsync($"/recebiveis/{recebivel.Id}/cancelar",
+            new DadosDoCancelamento("Mudei de ideia"), Json);
+
+        /*
+         * Cancelar o que ja foi pago apagaria a entrada de dinheiro da conta
+         * sem devolver nada a ninguem.
+         */
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, resposta.StatusCode);
+    }
+
+    [Fact]
+    public async Task Estornar_um_cancelado_e_recusado()
+    {
+        var cliente = await Contas.Entrar(_aplicacao, await Contas.Criar(banco, _aplicacao));
+        await CriarContrato(cliente, valor: 300m, dia: 10);
+        await Gerar(cliente, 2027, 2);
+
+        var recebivel = Assert.Single((await Listar(cliente)).Itens);
+        await cliente.PostAsJsonAsync($"/recebiveis/{recebivel.Id}/cancelar",
+            new DadosDoCancelamento("Gerado por engano"), Json);
+
+        var estorno = await cliente.PostAsync($"/recebiveis/{recebivel.Id}/estornar", null);
+
+        /*
+         * Estorno desfaz baixa. Sobre um cancelado, ressuscitaria a cobranca —
+         * e poderia colidir com a mensalidade gerada no lugar dela.
+         */
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, estorno.StatusCode);
+    }
+
     /* ------------------------------------------------------------- apoio */
 
-    private async Task CriarContrato(
+    private async Task<Guid> CriarContrato(
         HttpClient cliente,
         decimal valor,
         int dia,
@@ -319,6 +436,16 @@ public class CicloDoDinheiro(BancoDeTestes banco) : IDisposable
             clienteCriado!.Id, "Honorários contábeis", valor, dia,
             inicio ?? new DateOnly(2025, 1, 1), fim, situacao, string.Empty), Json);
         contrato.EnsureSuccessStatusCode();
+
+        var criado = await contrato.Content.ReadFromJsonAsync<ContratoDetalhado>(Json);
+        return criado!.Id;
+    }
+
+    /// <summary>O cliente de um contrato, para poder alterá-lo sem inventar o vínculo.</summary>
+    private static async Task<Guid> ClienteDoContrato(HttpClient cliente, Guid contratoId)
+    {
+        var contrato = await cliente.GetFromJsonAsync<ContratoDetalhado>($"/contratos/{contratoId}", Json);
+        return contrato!.ClienteId;
     }
 
     private async Task<ResultadoDaGeracao> Gerar(HttpClient cliente, int ano, int mes)

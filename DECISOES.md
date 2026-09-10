@@ -81,6 +81,22 @@ dado de negócio — **não tem filtro de tenant nenhum na consulta**. Quem filt
 Fora do escopo: contas a pagar, caixa, estoque, NF-e, escrituração, migração
 de dados do Cuca.
 
+### Por que o índice de mensalidade ignora cancelados
+
+O par `contrato + competência` é único **entre os não cancelados**. O recorte
+não é detalhe: um índice cego à situação transforma um erro comum em erro
+permanente.
+
+O caso: o valor do contrato estava errado, as mensalidades foram geradas, o
+contrato foi corrigido. Com índice cego, a competência fica ocupada para
+sempre por um recebível errado — não dá para apagar, porque histórico de
+cobrança não se apaga, e não dá para gerar de novo, porque o índice recusa.
+
+Cancelar sai da conta e libera a competência, sem sumir do histórico. Por
+isso cancelar exige motivo por escrito, e por isso não se cancela o que já
+foi baixado — isso apagaria uma entrada de dinheiro sem devolver nada a
+ninguém.
+
 ## A disciplina
 
 | | |

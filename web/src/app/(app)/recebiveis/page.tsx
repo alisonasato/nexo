@@ -23,6 +23,10 @@ export default function ListagemDeRecebiveis() {
   const [dataDaBaixa, definirDataDaBaixa] = useState(hojeIso());
   const [falha, definirFalha] = useState<string | null>(null);
 
+  /* Qual recebível está com o formulário de cancelamento aberto, e por quê. */
+  const [cancelando, definirCancelando] = useState<string | null>(null);
+  const [motivo, definirMotivo] = useState("");
+
   const recebiveis = useQuery({
     queryKey: ["recebiveis", situacao],
     queryFn: async () => {
@@ -57,6 +61,33 @@ export default function ListagemDeRecebiveis() {
         problemas.length > 0
           ? `${problemas[0].descricao} ${problemas[0].sugestao}`
           : "Não foi possível registrar a baixa.",
+      );
+    },
+  });
+
+  const cancelar = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await api.POST("/recebiveis/{id}/cancelar", {
+        params: { path: { id } },
+        body: { motivo },
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      definirCancelando(null);
+      definirMotivo("");
+      definirFalha(null);
+      clienteDeConsultas.invalidateQueries({ queryKey: ["recebiveis"] });
+    },
+    onError: (erro: unknown) => {
+      const problemas =
+        erro && typeof erro === "object" && "problemas" in erro && Array.isArray(erro.problemas)
+          ? (erro.problemas as components["schemas"]["Problema"][])
+          : [];
+      definirFalha(
+        problemas.length > 0
+          ? `${problemas[0].descricao} ${problemas[0].sugestao}`
+          : "Não foi possível cancelar.",
       );
     },
   });
@@ -106,6 +137,7 @@ export default function ListagemDeRecebiveis() {
             ["", "Todos"],
             ["Aberto", "Em aberto"],
             ["Pago", "Pagos"],
+            ["Cancelado", "Cancelados"],
           ] as const).map(([valor, rotulo]) => (
             <button
               key={rotulo}
@@ -160,6 +192,7 @@ export default function ListagemDeRecebiveis() {
                 {resumo.itens.map((item) => {
                   const vencido = item.situacao === "Aberto" && item.vencimento < hoje;
                   const emBaixa = baixando === item.id;
+                  const emCancelamento = cancelando === item.id;
 
                   return (
                     <tr key={item.id} className="border-b border-borda last:border-0 align-top">
@@ -196,13 +229,26 @@ export default function ListagemDeRecebiveis() {
                             "rounded-full px-2 py-0.5 text-xs font-semibold " +
                             (item.situacao === "Pago"
                               ? "bg-emerald-50 text-emerald-800"
-                              : vencido
-                                ? "bg-red-50 text-red-800"
-                                : "bg-slate-100 text-slate-600")
+                              : item.situacao === "Cancelado"
+                                ? "bg-slate-100 text-slate-500 line-through"
+                                : vencido
+                                  ? "bg-red-50 text-red-800"
+                                  : "bg-slate-100 text-slate-600")
                           }
                         >
-                          {item.situacao === "Pago" ? "Pago" : vencido ? "Vencido" : "Em aberto"}
+                          {item.situacao === "Pago"
+                            ? "Pago"
+                            : item.situacao === "Cancelado"
+                              ? "Cancelado"
+                              : vencido
+                                ? "Vencido"
+                                : "Em aberto"}
                         </span>
+                        {item.motivoDoCancelamento && (
+                          <span className="mt-1 block max-w-48 text-xs text-slate-500">
+                            {item.motivoDoCancelamento}
+                          </span>
+                        )}
                         {item.pagoEm && (
                           <span className="mt-1 block text-xs text-slate-500">
                             {formatarData(item.pagoEm)}
@@ -210,7 +256,51 @@ export default function ListagemDeRecebiveis() {
                         )}
                       </td>
                       <td className="px-4 py-3 text-right">
-                        {item.situacao === "Pago" ? (
+                        {item.situacao === "Cancelado" ? (
+                          <span className="text-xs text-slate-400">—</span>
+                        ) : emCancelamento ? (
+                          <div className="flex flex-col items-end gap-2">
+                            <div className="w-56">
+                              <Entrada
+                                rotulo="Motivo do cancelamento"
+                                autoFocus
+                                value={motivo}
+                                onChange={(evento) => definirMotivo(evento.target.value)}
+                                ajuda="Quem olhar isto daqui a seis meses vai perguntar."
+                              />
+                            </div>
+
+                            <div className="flex gap-2">
+                              <Botao
+                                aparencia="secundario"
+                                type="button"
+                                className="px-3 py-1 text-xs"
+                                onClick={() => {
+                                  definirCancelando(null);
+                                  definirMotivo("");
+                                  definirFalha(null);
+                                }}
+                              >
+                                Voltar
+                              </Botao>
+                              <Botao
+                                aparencia="perigo"
+                                type="button"
+                                className="px-3 py-1 text-xs"
+                                disabled={cancelar.isPending || motivo.trim().length === 0}
+                                onClick={() => cancelar.mutate(item.id)}
+                              >
+                                {cancelar.isPending ? "Cancelando…" : "Confirmar"}
+                              </Botao>
+                            </div>
+
+                            {falha && (
+                              <p role="alert" className="max-w-xs text-right text-xs text-red-700">
+                                {falha}
+                              </p>
+                            )}
+                          </div>
+                        ) : item.situacao === "Pago" ? (
                           <Botao
                             aparencia="secundario"
                             type="button"
@@ -272,25 +362,39 @@ export default function ListagemDeRecebiveis() {
                             )}
                           </div>
                         ) : (
-                          <Botao
-                            aparencia="secundario"
-                            type="button"
-                            className="px-3 py-1 text-xs"
-                            onClick={() => {
-                              definirBaixando(item.id);
-                              definirFalha(null);
-                              /* O valor cobrado já vem preenchido: é o caso comum. */
-                              definirValorDigitado(
-                                item.valor.toLocaleString("pt-BR", {
-                                  minimumFractionDigits: 2,
-                                  maximumFractionDigits: 2,
-                                }),
-                              );
-                              definirDataDaBaixa(hojeIso());
-                            }}
-                          >
-                            Baixar
-                          </Botao>
+                          <div className="flex justify-end gap-2">
+                            <Botao
+                              aparencia="secundario"
+                              type="button"
+                              className="px-3 py-1 text-xs"
+                              onClick={() => {
+                                definirCancelando(item.id);
+                                definirMotivo("");
+                                definirFalha(null);
+                              }}
+                            >
+                              Cancelar
+                            </Botao>
+                            <Botao
+                              aparencia="secundario"
+                              type="button"
+                              className="px-3 py-1 text-xs"
+                              onClick={() => {
+                                definirBaixando(item.id);
+                                definirFalha(null);
+                                /* O valor cobrado já vem preenchido: é o caso comum. */
+                                definirValorDigitado(
+                                  item.valor.toLocaleString("pt-BR", {
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2,
+                                  }),
+                                );
+                                definirDataDaBaixa(hojeIso());
+                              }}
+                            >
+                              Baixar
+                            </Botao>
+                          </div>
                         )}
                       </td>
                     </tr>
