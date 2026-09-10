@@ -44,12 +44,52 @@ public static class ConexaoDoBanco
     /// </summary>
     public static string Normalizar(string valor)
     {
-        var texto = valor.Trim();
+        /*
+         * Aspas coladas por engano ao copiar de um painel são erro comum, e
+         * fazem o driver recusar a string inteira sem dizer por quê.
+         */
+        var texto = valor.Trim().Trim('"', '\'');
+
+        /*
+         * Referência não resolvida.
+         *
+         * No PaaS, apontar uma variável para outro serviço é escrever algo como
+         * ${{Postgres.DATABASE_URL}}. Se o nome do serviço estiver errado, o
+         * texto chega literal — e sem esta checagem ele seguiria adiante até o
+         * driver estourar com "Format of the initialization string does not
+         * conform to specification starting at index 0", que não diz nada a
+         * quem está tentando implantar.
+         */
+        if (texto.StartsWith("${{", StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException(
+                "A variável de conexão chegou como uma referência não resolvida. " +
+                "Isso acontece quando o nome do serviço na referência não existe. " +
+                "Confira o nome exato do serviço de banco no painel e ajuste — por " +
+                "exemplo ${{Postgres.DATABASE_URL}}, com Postgres trocado pelo nome real.");
+        }
 
         var ehUri = texto.StartsWith("postgres://", StringComparison.OrdinalIgnoreCase)
             || texto.StartsWith("postgresql://", StringComparison.OrdinalIgnoreCase);
 
-        if (!ehUri) return texto;
+        if (!ehUri)
+        {
+            /*
+             * Nem URI nem pares chave=valor. Descrever sem citar: o valor traz
+             * a senha do banco, e log é o último lugar onde ela deve aparecer.
+             */
+            if (!texto.Contains('='))
+            {
+                throw new InvalidOperationException(
+                    $"A variável de conexão não está em nenhum formato reconhecido: tem " +
+                    $"{texto.Length} caracteres, não contém '=' e não começa com " +
+                    "'postgresql://'. Esperado ou 'Host=...;Port=...;Database=...' ou " +
+                    "'postgresql://usuario:senha@servidor:5432/banco'. O conteúdo não é " +
+                    "registrado aqui porque contém senha.");
+            }
+
+            return texto;
+        }
 
         var uri = new Uri(texto);
 
