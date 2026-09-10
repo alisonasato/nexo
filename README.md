@@ -29,6 +29,20 @@ web/                     Front em Next.js 16
 - .NET SDK 8
 - Node 20 ou mais novo
 
+## Num clone limpo
+
+As ferramentas do .NET vêm de um manifesto e não existem até serem restauradas.
+Sem isto, `npm run contrato` e `dotnet ef` falham dizendo que o comando não
+existe:
+
+```bash
+dotnet tool restore
+```
+
+```bash
+npm ci --prefix web
+```
+
 ## Rodar
 
 Dois terminais, a partir da raiz:
@@ -70,6 +84,10 @@ chave de assinatura efêmera e do ambiente `Testes`, senão a verificação de
 arranque a derruba. Pior: o CLI do Swashbuckle engole essa exceção e reporta no
 lugar dela que não achou uma classe `Startup`, que o modelo mínimo nem usa. O
 comentário no script conta a história para o próximo que passar por ali.
+
+A integração contínua confere se o documento versionado bate com o que a API
+descreve hoje. Mudar um endpoint e não regerar faz o contrato mentir — e o
+front continua compilando, porque foi gerado do documento velho.
 
 Para conferir que os dois lados compilam:
 

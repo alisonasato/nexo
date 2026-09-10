@@ -1,0 +1,129 @@
+name: verificação
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Uma execução por referência. Push seguido cancela a anterior, que ainda não
+# interessa a ninguém.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  api:
+    name: API e testes
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        # Mesma versão maior do Postgres local. Testar em outra seria testar
+        # outra coisa — a política de RLS é comportamento do banco.
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: senha-do-super-no-ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: preparar o papel e o banco
+        env:
+          PGPASSWORD: senha-do-super-no-ci
+        run: |
+          # O papel da aplicação NÃO pode ser superusuário: superusuário
+          # atravessa a RLS mesmo com FORCE, e os testes de isolamento
+          # passariam a medir coisa nenhuma. É a mesma regra da produção,
+          # e aqui ela é verificada de graça — se alguém trocar por
+          # superusuário, os testes de vazamento entre tenants falham.
+          psql -h localhost -U postgres -c "CREATE ROLE nexo LOGIN PASSWORD 'nexo' NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE;"
+          psql -h localhost -U postgres -c "CREATE DATABASE nexo_testes OWNER nexo;"
+
+      - name: compilar
+        run: dotnet build api/Nexo.sln --configuration Release --nologo
+
+      - name: testar
+        env:
+          NEXO_TESTES_CONEXAO: "Host=localhost;Port=5432;Database=nexo_testes;Username=nexo;Password=nexo"
+        run: dotnet test api/Nexo.sln --configuration Release --no-build --nologo --verbosity quiet
+
+  web:
+    name: Front
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: instalar
+        run: npm ci
+        working-directory: web
+
+      - name: verificar tipos
+        # O `next build` já roda o TypeScript, mas rodar antes dá um erro mais
+        # direto quando é só tipo que quebrou.
+        run: npx tsc --noEmit
+        working-directory: web
+
+      - name: construir
+        run: npm run build
+        working-directory: web
+
+  contrato:
+    name: Contrato em dia
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: instalar
+        run: |
+          # As ferramentas do .NET vêm do manifesto em .config; num clone
+          # limpo elas não existem até isto rodar.
+          dotnet tool restore
+          npm ci --prefix web
+        # O npm roda com --prefix aqui de propósito: o passo seguinte é
+        # `npm run contrato` na raiz, que precisa das dependências em web/.
+
+      - name: regerar o contrato
+        run: npm run contrato
+
+      - name: conferir se ficou igual ao que está versionado
+        run: |
+          # Este é o passo que protege o desenho do projeto. O cliente
+          # TypeScript é gerado do OpenAPI, nunca escrito à mão; se alguém
+          # mudar um endpoint e não regerar, o documento versionado passa a
+          # mentir sobre a API — e o front continua compilando, porque foi
+          # gerado do documento velho.
+          if ! git diff --exit-code --stat api/openapi.json; then
+            echo ""
+            echo "O contrato está desatualizado."
+            echo "Rode 'npm run contrato' e inclua api/openapi.json no commit."
+            exit 1
+          fi

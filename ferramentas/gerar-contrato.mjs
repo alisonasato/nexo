@@ -27,6 +27,26 @@ const ambienteDaExtracao = {
   ...process.env,
   ASPNETCORE_ENVIRONMENT: "Testes",
   Jwt__Chave: "chave-efemera-so-para-extrair-o-documento-openapi",
+
+  /*
+   * Uma string de conexão que não conecta com nada.
+   *
+   * A extração monta a aplicação inteira para ler as rotas, e montar inclui
+   * resolver a configuração do banco — que hoje se recusa a ficar vazia, para
+   * que produção sem banco caia na subida em vez de na primeira consulta.
+   * Nenhuma conexão é aberta aqui: o processo lê as rotas e morre.
+   *
+   * Sem isto, gerar o contrato falha, e a falha é silenciosa para quem
+   * redireciona a saída — foi assim que ela passou despercebida uma vez.
+   */
+  ConnectionStrings__Nexo: "Host=nao-conecta;Database=nao-conecta;Username=x;Password=x",
+
+  /*
+   * Pula migração e provisionamento. A extração executa a aplicação até a
+   * tabela de rotas ficar montada, e sem isto ela tentaria falar com o banco —
+   * gerar o contrato passaria a exigir Postgres no ar, em toda máquina e no CI.
+   */
+  NEXO_EXTRAINDO_CONTRATO: "1",
 };
 
 const passos = [

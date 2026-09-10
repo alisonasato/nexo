@@ -244,10 +244,22 @@ else
 }
 
 /*
- * Migrar acontece em todo ambiente, inclusive produção — é o que faz uma
- * implantação encontrar as tabelas que ela espera. Ver MigracaoNaSubida.
+ * Extrair o documento OpenAPI monta e **executa** a aplicação até aqui, só para
+ * ler a tabela de rotas. Sem esta saída antecipada, gerar o contrato passaria a
+ * exigir um banco no ar — e falharia em qualquer clone limpo, em qualquer CI.
+ *
+ * O que se pula são efeitos de subida, não proteção: nada abaixo disto valida
+ * requisição nem libera acesso.
  */
-await MigracaoNaSubida.AplicarAsync(app.Services);
+var extraindoContrato = Environment.GetEnvironmentVariable("NEXO_EXTRAINDO_CONTRATO") == "1";
+
+if (!extraindoContrato)
+{
+    /*
+     * Migrar acontece em todo ambiente, inclusive produção — é o que faz uma
+     * implantação encontrar as tabelas que ela espera. Ver MigracaoNaSubida.
+     */
+    await MigracaoNaSubida.AplicarAsync(app.Services);
 
 /*
  * Provisionamento do primeiro tenant.
@@ -256,8 +268,9 @@ await MigracaoNaSubida.AplicarAsync(app.Services);
  * E alguém disse o que criar. Em produção sem configuração, nada acontece — de
  * propósito. Ver ProvisionamentoInicial.
  */
-if (ProvisionamentoInicial.Ler(construtor.Configuration, app.Environment) is { } inicial)
-    await ProvisionamentoInicial.ExecutarAsync(app.Services, inicial);
+    if (ProvisionamentoInicial.Ler(construtor.Configuration, app.Environment) is { } inicial)
+        await ProvisionamentoInicial.ExecutarAsync(app.Services, inicial);
+}
 
 app.UseAuthentication();
 app.UseAuthorization();
