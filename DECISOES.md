@@ -81,6 +81,21 @@ dado de negócio — **não tem filtro de tenant nenhum na consulta**. Quem filt
 Fora do escopo: contas a pagar, caixa, estoque, NF-e, escrituração, migração
 de dados do Cuca.
 
+### Total nenhum vem da página
+
+Toda soma que aparece na tela é feita **no banco, sobre o conjunto inteiro**.
+Somar a lista carregada é o jeito mais fácil de produzir um número errado com
+cara de certo: com paginação, "em aberto" passaria a mostrar só o que coube
+na tela, e ninguém desconfiaria — o valor é plausível, só está errado.
+
+Vale para o total em aberto, o vencido, o recebido e o faturamento mensal
+recorrente dos contratos.
+
+E os totais de recebíveis seguem a **competência**, não o filtro de situação.
+Filtrar por "Pagos" e ver "em aberto: R$ 0,00" seria honesto e inútil: a
+pergunta que o escritório faz enquanto olha o que já entrou é quanto ainda
+falta entrar. A lista mostra a fatia escolhida; os totais mostram o mês.
+
 ### Por que o índice de mensalidade ignora cancelados
 
 O par `contrato + competência` é único **entre os não cancelados**. O recorte

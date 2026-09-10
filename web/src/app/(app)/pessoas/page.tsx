@@ -6,11 +6,13 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tansta
 
 import { api } from "@/api/cliente";
 import { Botao } from "@/componentes/controles";
+import { Paginacao } from "@/componentes/paginacao";
 import { formatarDocumento, formatarTelefone } from "@/lib/formato";
 
 export default function ListagemDePessoas() {
   const [busca, definirBusca] = useState("");
   const [termo, definirTermo] = useState("");
+  const [pagina, definirPagina] = useState(1);
 
   /*
    * Inativar pede o segundo clique.
@@ -35,15 +37,19 @@ export default function ListagemDePessoas() {
    * pior justamente para quem tem mais dados.
    */
   useEffect(() => {
-    const relogio = setTimeout(() => definirTermo(busca), 500);
+    const relogio = setTimeout(() => {
+      definirTermo(busca);
+      /* Busca nova recomeça na primeira página: a sétima do termo velho não existe mais. */
+      definirPagina(1);
+    }, 500);
     return () => clearTimeout(relogio);
   }, [busca]);
 
   const pessoas = useQuery({
-    queryKey: ["pessoas", termo],
+    queryKey: ["pessoas", termo, pagina],
     queryFn: async () => {
       const { data, error } = await api.GET("/pessoas", {
-        params: { query: termo ? { busca: termo } : {} },
+        params: { query: { pagina, ...(termo ? { busca: termo } : {}) } },
       });
       if (error || !data) throw new Error("Não foi possível carregar o cadastro.");
       return data;
@@ -172,11 +178,13 @@ export default function ListagemDePessoas() {
               </table>
             </div>
 
-            <p className="text-slate-500">
-              {pessoas.data.total === 1
-                ? "1 pessoa encontrada"
-                : `${pessoas.data.total} pessoas encontradas`}
-            </p>
+            <Paginacao
+              pagina={pessoas.data.pagina}
+              tamanho={pessoas.data.tamanho}
+              total={pessoas.data.total}
+              aoMudar={definirPagina}
+              substantivo={{ singular: "pessoa encontrada", plural: "pessoas encontradas" }}
+            />
           </>
         )}
       </div>

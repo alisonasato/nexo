@@ -270,16 +270,51 @@
         ],
         "summary": "Lista os contratos recorrentes",
         "operationId": "ListarContratos",
+        "parameters": [
+          {
+            "name": "busca",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "situacao",
+            "in": "query",
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/SituacaoContrato"
+                }
+              ]
+            }
+          },
+          {
+            "name": "pagina",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 1
+            }
+          },
+          {
+            "name": "tamanho",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 25
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "OK",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/ContratoNaLista"
-                  }
+                  "$ref": "#/components/schemas/PaginaDeContratos"
                 }
               }
             }
@@ -734,6 +769,24 @@
               "type": "integer",
               "format": "int32"
             }
+          },
+          {
+            "name": "pagina",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 1
+            }
+          },
+          {
+            "name": "tamanho",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 25
+            }
           }
         ],
         "responses": {
@@ -742,7 +795,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ResumoDeRecebiveis"
+                  "$ref": "#/components/schemas/PaginaDeRecebiveis"
                 }
               }
             }
@@ -1382,6 +1435,41 @@
         },
         "additionalProperties": false
       },
+      "PaginaDeContratos": {
+        "required": [
+          "itens",
+          "pagina",
+          "tamanho",
+          "total",
+          "totalMensalAtivo"
+        ],
+        "type": "object",
+        "properties": {
+          "itens": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ContratoNaLista"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "pagina": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "tamanho": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalMensalAtivo": {
+            "type": "number",
+            "format": "double"
+          }
+        },
+        "additionalProperties": false
+      },
       "PaginaDePessoas": {
         "required": [
           "itens",
@@ -1408,6 +1496,51 @@
           "tamanho": {
             "type": "integer",
             "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "PaginaDeRecebiveis": {
+        "required": [
+          "itens",
+          "pagina",
+          "tamanho",
+          "total",
+          "totalEmAberto",
+          "totalRecebido",
+          "totalVencido"
+        ],
+        "type": "object",
+        "properties": {
+          "itens": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecebivelNaLista"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "pagina": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "tamanho": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalEmAberto": {
+            "type": "number",
+            "format": "double"
+          },
+          "totalVencido": {
+            "type": "number",
+            "format": "double"
+          },
+          "totalRecebido": {
+            "type": "number",
+            "format": "double"
           }
         },
         "additionalProperties": false
@@ -1782,41 +1915,6 @@
           },
           "recado": {
             "type": "string"
-          }
-        },
-        "additionalProperties": false
-      },
-      "ResumoDeRecebiveis": {
-        "required": [
-          "itens",
-          "quantidade",
-          "totalEmAberto",
-          "totalRecebido",
-          "totalVencido"
-        ],
-        "type": "object",
-        "properties": {
-          "itens": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/RecebivelNaLista"
-            }
-          },
-          "quantidade": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "totalEmAberto": {
-            "type": "number",
-            "format": "double"
-          },
-          "totalVencido": {
-            "type": "number",
-            "format": "double"
-          },
-          "totalRecebido": {
-            "type": "number",
-            "format": "double"
           }
         },
         "additionalProperties": false

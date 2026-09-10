@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { api } from "@/api/cliente";
 import { Botao, Entrada } from "@/componentes/controles";
+import { Paginacao } from "@/componentes/paginacao";
 import type { components } from "@/api/esquema";
 import { formatarCompetencia, formatarData, formatarValor, lerValor } from "@/lib/dinheiro";
 
@@ -16,6 +17,7 @@ export default function ListagemDeRecebiveis() {
   const clienteDeConsultas = useQueryClient();
 
   const [situacao, definirSituacao] = useState<SituacaoRecebivel | "">("");
+  const [pagina, definirPagina] = useState(1);
 
   /* Qual recebível está com o formulário de baixa aberto. */
   const [baixando, definirBaixando] = useState<string | null>(null);
@@ -28,10 +30,10 @@ export default function ListagemDeRecebiveis() {
   const [motivo, definirMotivo] = useState("");
 
   const recebiveis = useQuery({
-    queryKey: ["recebiveis", situacao],
+    queryKey: ["recebiveis", situacao, pagina],
     queryFn: async () => {
       const { data, error } = await api.GET("/recebiveis", {
-        params: { query: situacao ? { situacao } : {} },
+        params: { query: { pagina, ...(situacao ? { situacao } : {}) } },
       });
       if (error || !data) throw new Error("Não foi possível carregar os recebíveis.");
       return data;
@@ -115,6 +117,11 @@ export default function ListagemDeRecebiveis() {
       <div className="flex flex-1 flex-col gap-5 p-6">
         {resumo && (
           <div className="grid gap-px overflow-hidden rounded-[--radius-cartao] border border-borda bg-borda sm:grid-cols-3">
+            {/*
+              Estes números descrevem o período inteiro, não a página nem o
+              filtro de situação — é a pergunta que o escritório faz enquanto
+              olha uma fatia: quanto do mês ainda falta entrar.
+            */}
             {[
               { rotulo: "Em aberto", valor: resumo.totalEmAberto, tom: "text-slate-800" },
               { rotulo: "Vencido", valor: resumo.totalVencido, tom: "text-red-700" },
@@ -142,7 +149,10 @@ export default function ListagemDeRecebiveis() {
             <button
               key={rotulo}
               type="button"
-              onClick={() => definirSituacao(valor as SituacaoRecebivel | "")}
+              onClick={() => {
+                definirSituacao(valor as SituacaoRecebivel | "");
+                definirPagina(1);
+              }}
               aria-pressed={situacao === valor}
               className={
                 "rounded-full px-3 py-1 text-sm font-medium transition-colors " +
@@ -406,9 +416,13 @@ export default function ListagemDeRecebiveis() {
         )}
 
         {resumo && resumo.itens.length > 0 && (
-          <p className="text-slate-500">
-            {resumo.quantidade === 1 ? "1 recebível" : `${resumo.quantidade} recebíveis`}
-          </p>
+          <Paginacao
+            pagina={resumo.pagina}
+            tamanho={resumo.tamanho}
+            total={resumo.total}
+            aoMudar={definirPagina}
+            substantivo={{ singular: "recebível", plural: "recebíveis" }}
+          />
         )}
       </div>
     </>

@@ -410,6 +410,97 @@ public class CicloDoDinheiro(BancoDeTestes banco) : IDisposable
         Assert.Equal(HttpStatusCode.UnprocessableEntity, estorno.StatusCode);
     }
 
+    [Fact]
+    public async Task Os_totais_somam_o_periodo_inteiro_e_nao_a_pagina()
+    {
+        var cliente = await Contas.Entrar(_aplicacao, await Contas.Criar(banco, _aplicacao));
+
+        await CriarContrato(cliente, valor: 100m, dia: 10);
+        await CriarContrato(cliente, valor: 200m, dia: 10);
+        await CriarContrato(cliente, valor: 300m, dia: 10);
+
+        await Gerar(cliente, 2027, 3);
+
+        var primeiraPagina = await cliente.GetFromJsonAsync<PaginaDeRecebiveis>(
+            "/recebiveis?ano=2027&mes=3&pagina=1&tamanho=2", Json);
+
+        /*
+         * Duas linhas na página, três no período. Se o total viesse da página,
+         * ele diria 300 — um número errado com cara de certo, que ninguém
+         * desconfiaria de olhar.
+         */
+        Assert.Equal(2, primeiraPagina!.Itens.Count);
+        Assert.Equal(3, primeiraPagina.Total);
+        Assert.Equal(600m, primeiraPagina.TotalEmAberto);
+    }
+
+    [Fact]
+    public async Task A_segunda_pagina_traz_o_que_sobrou()
+    {
+        var cliente = await Contas.Entrar(_aplicacao, await Contas.Criar(banco, _aplicacao));
+
+        await CriarContrato(cliente, valor: 100m, dia: 10);
+        await CriarContrato(cliente, valor: 200m, dia: 10);
+        await CriarContrato(cliente, valor: 300m, dia: 10);
+
+        await Gerar(cliente, 2027, 4);
+
+        var segunda = await cliente.GetFromJsonAsync<PaginaDeRecebiveis>(
+            "/recebiveis?ano=2027&mes=4&pagina=2&tamanho=2", Json);
+
+        Assert.Single(segunda!.Itens);
+        Assert.Equal(3, segunda.Total);
+        Assert.Equal(2, segunda.Pagina);
+    }
+
+    [Fact]
+    public async Task Os_totais_seguem_a_competencia_e_nao_o_filtro_de_situacao()
+    {
+        var cliente = await Contas.Entrar(_aplicacao, await Contas.Criar(banco, _aplicacao));
+
+        await CriarContrato(cliente, valor: 400m, dia: 10);
+        await CriarContrato(cliente, valor: 600m, dia: 10);
+        await Gerar(cliente, 2027, 5);
+
+        var doMes = await cliente.GetFromJsonAsync<PaginaDeRecebiveis>(
+            "/recebiveis?ano=2027&mes=5", Json);
+        var umDeles = doMes!.Itens.First();
+
+        await cliente.PostAsJsonAsync($"/recebiveis/{umDeles.Id}/baixar",
+            new DadosDaBaixa(umDeles.Valor, null), Json);
+
+        var soPagos = await cliente.GetFromJsonAsync<PaginaDeRecebiveis>(
+            "/recebiveis?ano=2027&mes=5&situacao=Pago", Json);
+
+        /*
+         * A lista mostra a fatia escolhida — um pago. Os totais mostram o mês
+         * inteiro, porque "quanto ainda falta entrar em maio" é a pergunta que
+         * o escritório faz enquanto olha o que já entrou.
+         */
+        Assert.Single(soPagos!.Itens);
+        Assert.Equal(1000m - umDeles.Valor, soPagos.TotalEmAberto);
+        Assert.Equal(umDeles.Valor, soPagos.TotalRecebido);
+    }
+
+    [Fact]
+    public async Task O_total_mensal_dos_contratos_nao_encolhe_com_a_pagina()
+    {
+        var cliente = await Contas.Entrar(_aplicacao, await Contas.Criar(banco, _aplicacao));
+
+        await CriarContrato(cliente, valor: 100m, dia: 10);
+        await CriarContrato(cliente, valor: 250m, dia: 10);
+        await CriarContrato(cliente, valor: 400m, dia: 10);
+
+        var pagina = await cliente.GetFromJsonAsync<PaginaDeContratos>(
+            "/contratos?pagina=1&tamanho=1", Json);
+
+        Assert.Single(pagina!.Itens);
+        Assert.Equal(3, pagina.Total);
+
+        // Quanto o escritório fatura por mês não muda com o tamanho da página.
+        Assert.Equal(750m, pagina.TotalMensalAtivo);
+    }
+
     /* ------------------------------------------------------------- apoio */
 
     private async Task<Guid> CriarContrato(
@@ -456,8 +547,8 @@ public class CicloDoDinheiro(BancoDeTestes banco) : IDisposable
         return (await resposta.Content.ReadFromJsonAsync<ResultadoDaGeracao>(Json))!;
     }
 
-    private static async Task<ResumoDeRecebiveis> Listar(HttpClient cliente) =>
-        (await cliente.GetFromJsonAsync<ResumoDeRecebiveis>("/recebiveis", Json))!;
+    private static async Task<PaginaDeRecebiveis> Listar(HttpClient cliente) =>
+        (await cliente.GetFromJsonAsync<PaginaDeRecebiveis>("/recebiveis", Json))!;
 
     /// <summary>Um CNPJ novo com dígitos verificadores certos.</summary>
     private static string CnpjValido()

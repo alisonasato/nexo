@@ -78,8 +78,6 @@ e não atrapalha.
 
 - O motor de telas declarativas (Q20). Sai por extração quando a segunda ou
   terceira tela mostrar o que se repete — não antes.
-- Paginação na tela. A API já pagina e devolve o total; a lista mostra só a
-  primeira página, e não há como pedir a seguinte.
 - Reativar uma pessoa inativa pela tela. Hoje só a API faz, por `PUT`.
 - Consulta de CNPJ e CEP por API pública, com a lupa que o protótipo tinha.
   Enquanto não existe, tudo é digitado à mão.
@@ -97,12 +95,13 @@ e não atrapalha.
   a API e a tela ainda não.
 - Gerar mensalidade só dos contratos selecionados. A API aceita a lista de
   ids; a tela sempre manda todos.
+- Busca de contratos na tela. A API já aceita `busca` por código, descrição e
+  cliente; a listagem ainda não tem o campo.
 - Reajuste de contrato por índice, e histórico de valores. Hoje mudar o valor
   reescreve o contrato, sem deixar rastro do que era antes.
 - Juros e multa sobre o vencido. Hoje o vencido só aparece destacado.
 - Corpo de requisição malformado devolve 400 cru, sem o formato de problemas
   que o resto da API usa.
-- Paginação em contratos e recebíveis: as duas telas trazem tudo.
 
 ## Aberto pela preparação para produção
 

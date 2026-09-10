@@ -6,6 +6,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { api } from "@/api/cliente";
 import { Botao, Entrada, Selecao } from "@/componentes/controles";
+import { Paginacao } from "@/componentes/paginacao";
 import { competenciaAtual, formatarValor } from "@/lib/dinheiro";
 
 const situacoes: Record<string, string> = {
@@ -20,11 +21,14 @@ export default function ListagemDeContratos() {
 
   const [ano, definirAno] = useState(hoje.ano);
   const [mes, definirMes] = useState(hoje.mes);
+  const [pagina, definirPagina] = useState(1);
 
   const contratos = useQuery({
-    queryKey: ["contratos"],
+    queryKey: ["contratos", pagina],
     queryFn: async () => {
-      const { data, error } = await api.GET("/contratos");
+      const { data, error } = await api.GET("/contratos", {
+        params: { query: { pagina } },
+      });
       if (error || !data) throw new Error("Não foi possível carregar os contratos.");
       return data;
     },
@@ -40,10 +44,6 @@ export default function ListagemDeContratos() {
     },
     onSuccess: () => clienteDeConsultas.invalidateQueries({ queryKey: ["recebiveis"] }),
   });
-
-  const total = contratos.data
-    ?.filter((contrato) => contrato.situacao === "Ativo")
-    .reduce((soma, contrato) => soma + contrato.valor, 0);
 
   return (
     <>
@@ -131,7 +131,7 @@ export default function ListagemDeContratos() {
           </p>
         )}
 
-        {contratos.data && contratos.data.length === 0 && (
+        {contratos.data && contratos.data.itens.length === 0 && (
           <div className="rounded-[--radius-cartao] border border-dashed border-borda-forte bg-superficie px-6 py-12 text-center">
             <p className="font-medium text-slate-700">Nenhum contrato cadastrado.</p>
             <p className="mt-1 text-slate-500">
@@ -141,7 +141,7 @@ export default function ListagemDeContratos() {
           </div>
         )}
 
-        {contratos.data && contratos.data.length > 0 && (
+        {contratos.data && contratos.data.itens.length > 0 && (
           <>
             <div className="overflow-x-auto rounded-[--radius-cartao] border border-borda bg-superficie shadow-nivel-1">
               <table className="w-full min-w-3xl border-collapse text-left">
@@ -156,7 +156,7 @@ export default function ListagemDeContratos() {
                   </tr>
                 </thead>
                 <tbody>
-                  {contratos.data.map((contrato) => (
+                  {contratos.data.itens.map((contrato) => (
                     <tr key={contrato.id} className="border-b border-borda last:border-0 hover:bg-marca-50">
                       <td className="numeros-tabulares px-4 py-3">
                         <Link
@@ -200,18 +200,23 @@ export default function ListagemDeContratos() {
               </table>
             </div>
 
-            <p className="text-slate-500">
-              {contratos.data.length === 1 ? "1 contrato" : `${contratos.data.length} contratos`}
-              {total !== undefined && (
-                <>
-                  {" · "}
-                  <span className="numeros-tabulares font-medium text-slate-700">
-                    {formatarValor(total)}
-                  </span>{" "}
-                  por mês em contratos ativos
-                </>
-              )}
-            </p>
+            <div className="flex flex-col gap-2">
+              <Paginacao
+                pagina={contratos.data.pagina}
+                tamanho={contratos.data.tamanho}
+                total={contratos.data.total}
+                aoMudar={definirPagina}
+                substantivo={{ singular: "contrato", plural: "contratos" }}
+              />
+
+              {/* Somado no servidor sobre todos os ativos — não sobre esta página. */}
+              <p className="text-slate-500">
+                <span className="numeros-tabulares font-medium text-slate-700">
+                  {formatarValor(contratos.data.totalMensalAtivo)}
+                </span>{" "}
+                por mês em contratos ativos
+              </p>
+            </div>
           </>
         )}
       </div>

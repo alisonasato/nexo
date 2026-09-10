@@ -15,7 +15,7 @@ public static class Contratos
         grupo.MapGet("/", Listar)
             .WithName("ListarContratos")
             .WithSummary("Lista os contratos recorrentes")
-            .Produces<List<ContratoNaLista>>();
+            .Produces<PaginaDeContratos>();
 
         grupo.MapGet("/{id:guid}", Obter)
             .WithName("ObterContrato")
@@ -45,10 +45,58 @@ public static class Contratos
         return rotas;
     }
 
-    private static async Task<IResult> Listar(NexoDbContext banco, CancellationToken cancelamento)
+    /// <summary>
+    /// Lista os contratos, paginados, com o total mensal recorrente.
+    ///
+    /// O <c>TotalMensalAtivo</c> é somado no banco, sobre todos os contratos
+    /// ativos — não sobre a página. Esse número responde "quanto o escritório
+    /// fatura por mês", e somá-lo da página daria uma resposta menor a cada
+    /// cliente novo, sem ninguém notar.
+    /// </summary>
+    private static async Task<IResult> Listar(
+        NexoDbContext banco,
+        CancellationToken cancelamento,
+        [FromQuery] string? busca = null,
+        [FromQuery] SituacaoContrato? situacao = null,
+        [FromQuery] int pagina = 1,
+        [FromQuery] int tamanho = 25)
     {
-        var contratos = await banco.Contratos.AsNoTracking()
+        pagina = Math.Max(1, pagina);
+        tamanho = Math.Clamp(tamanho, 1, 200);
+
+        var consulta = banco.Contratos.AsNoTracking();
+
+        if (!string.IsNullOrWhiteSpace(busca))
+        {
+            var termo = busca.Trim();
+
+            /* Procura-se contrato pelo código, pelo cliente ou pelo que ele cobra. */
+            consulta = consulta.Where(contrato =>
+                EF.Functions.ILike(contrato.Codigo, $"%{termo}%")
+                || EF.Functions.ILike(contrato.Descricao, $"%{termo}%")
+                || EF.Functions.ILike(contrato.Cliente!.Codigo, $"%{termo}%")
+                || EF.Functions.ILike(contrato.Cliente!.Pessoa!.Nome, $"%{termo}%")
+                || EF.Functions.ILike(contrato.Cliente!.Pessoa!.NomeFantasia, $"%{termo}%"));
+        }
+
+        if (situacao is { } filtro) consulta = consulta.Where(contrato => contrato.Situacao == filtro);
+
+        var total = await consulta.CountAsync(cancelamento);
+
+        /*
+         * O total mensal é dos ativos, sempre — não da busca nem da página.
+         * É o número que responde quanto entra por mês, e ele não muda porque
+         * alguém digitou algo na busca.
+         */
+        var totalMensalAtivo = await banco.Contratos.AsNoTracking()
+            .Where(contrato => contrato.Situacao == SituacaoContrato.Ativo)
+            .Select(contrato => (decimal?)contrato.Valor)
+            .SumAsync(cancelamento) ?? 0m;
+
+        var itens = await consulta
             .OrderBy(contrato => contrato.Codigo)
+            .Skip((pagina - 1) * tamanho)
+            .Take(tamanho)
             .Select(contrato => new ContratoNaLista(
                 contrato.Id,
                 contrato.Codigo,
@@ -61,7 +109,7 @@ public static class Contratos
                 contrato.Situacao))
             .ToListAsync(cancelamento);
 
-        return Results.Ok(contratos);
+        return Results.Ok(new PaginaDeContratos(itens, total, pagina, tamanho, totalMensalAtivo));
     }
 
     private static async Task<IResult> Obter(Guid id, NexoDbContext banco, CancellationToken cancelamento)
@@ -309,6 +357,15 @@ public record DadosDeContrato(
     DateOnly? FimDaVigencia,
     SituacaoContrato Situacao,
     string? Observacoes);
+
+/// <param name="Total">Quantos contratos a seleção tem, e não quantos vieram nesta página.</param>
+/// <param name="TotalMensalAtivo">Soma dos contratos ativos, independente de busca e de página.</param>
+public record PaginaDeContratos(
+    List<ContratoNaLista> Itens,
+    int Total,
+    int Pagina,
+    int Tamanho,
+    decimal TotalMensalAtivo);
 
 public record ContratoNaLista(
     Guid Id,

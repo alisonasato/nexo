@@ -17,7 +17,7 @@ public static class Recebiveis
         grupo.MapGet("/", Listar)
             .WithName("ListarRecebiveis")
             .WithSummary("Lista os recebíveis")
-            .Produces<ResumoDeRecebiveis>();
+            .Produces<PaginaDeRecebiveis>();
 
         grupo.MapPost("/{id:guid}/baixar", Baixar)
             .WithName("BaixarRecebivel")
@@ -44,22 +44,67 @@ public static class Recebiveis
         return rotas;
     }
 
+    /// <summary>
+    /// Lista os recebíveis, paginados, com os totais do período.
+    ///
+    /// <para>
+    /// <b>Os totais são somados no banco, sobre o conjunto inteiro — nunca
+    /// sobre a página.</b> Somar a página daria um número errado com cara de
+    /// certo: "em aberto" mostraria só o que coube na tela, e ninguém
+    /// desconfiaria.
+    /// </para>
+    /// <para>
+    /// E os totais seguem a <b>competência</b>, não a situação. Filtrar por
+    /// "Pagos" e ver "em aberto: R$ 0,00" seria honesto e inútil; o escritório
+    /// quer saber quanto o mês tem em aberto enquanto olha o que já entrou.
+    /// A lista mostra a fatia escolhida, os totais mostram o mês.
+    /// </para>
+    /// </summary>
     private static async Task<IResult> Listar(
         NexoDbContext banco,
         CancellationToken cancelamento,
         [FromQuery] SituacaoRecebivel? situacao = null,
         [FromQuery] int? ano = null,
-        [FromQuery] int? mes = null)
+        [FromQuery] int? mes = null,
+        [FromQuery] int pagina = 1,
+        [FromQuery] int tamanho = 25)
     {
-        var consulta = banco.Recebiveis.AsNoTracking();
+        pagina = Math.Max(1, pagina);
+        tamanho = Math.Clamp(tamanho, 1, 200);
 
-        if (situacao is { } filtro) consulta = consulta.Where(r => r.Situacao == filtro);
-        if (ano is { } a) consulta = consulta.Where(r => r.CompetenciaAno == a);
-        if (mes is { } m) consulta = consulta.Where(r => r.CompetenciaMes == m);
+        /* O período: o que os totais enxergam. */
+        var doPeriodo = banco.Recebiveis.AsNoTracking();
+        if (ano is { } a) doPeriodo = doPeriodo.Where(r => r.CompetenciaAno == a);
+        if (mes is { } m) doPeriodo = doPeriodo.Where(r => r.CompetenciaMes == m);
 
-        var itens = await consulta
+        /* A fatia: o que a lista mostra. */
+        var daLista = situacao is { } filtro ? doPeriodo.Where(r => r.Situacao == filtro) : doPeriodo;
+
+        var total = await daLista.CountAsync(cancelamento);
+
+        var hoje = DateOnly.FromDateTime(DateTime.Today);
+        var emAberto = doPeriodo.Where(r => r.Situacao == SituacaoRecebivel.Aberto);
+
+        /*
+         * O molde `(decimal?)` não é enfeite: SUM de conjunto vazio devolve
+         * NULL no SQL, e sem o tipo anulável o EF tenta encaixar isso num
+         * decimal e estoura. Mês sem nenhum recebível é o caso mais comum de
+         * todos — é o mês que ainda não começou.
+         */
+        var totalEmAberto = await emAberto
+            .Select(r => (decimal?)r.Valor).SumAsync(cancelamento) ?? 0m;
+
+        var totalVencido = await emAberto.Where(r => r.Vencimento < hoje)
+            .Select(r => (decimal?)r.Valor).SumAsync(cancelamento) ?? 0m;
+
+        var totalRecebido = await doPeriodo.Where(r => r.Situacao == SituacaoRecebivel.Pago)
+            .Select(r => r.ValorPago).SumAsync(cancelamento) ?? 0m;
+
+        var itens = await daLista
             .OrderBy(recebivel => recebivel.Vencimento)
             .ThenBy(recebivel => recebivel.Cliente!.Codigo)
+            .Skip((pagina - 1) * tamanho)
+            .Take(tamanho)
             .Select(recebivel => new RecebivelNaLista(
                 recebivel.Id,
                 recebivel.Cliente!.Codigo,
@@ -76,21 +121,8 @@ public static class Recebiveis
                 recebivel.MotivoDoCancelamento))
             .ToListAsync(cancelamento);
 
-        var hoje = DateOnly.FromDateTime(DateTime.Today);
-
-        /*
-         * Os totais são derivados da lista, não guardados em lugar nenhum.
-         * Total gravado é total que fica errado: basta uma baixa mexer no
-         * recebível e esquecer de mexer no somatório.
-         */
-        var aberto = itens.Where(i => i.Situacao == SituacaoRecebivel.Aberto).ToList();
-
-        return Results.Ok(new ResumoDeRecebiveis(
-            itens,
-            itens.Count,
-            aberto.Sum(i => i.Valor),
-            aberto.Where(i => i.Vencimento < hoje).Sum(i => i.Valor),
-            itens.Where(i => i.Situacao == SituacaoRecebivel.Pago).Sum(i => i.ValorPago ?? 0m)));
+        return Results.Ok(new PaginaDeRecebiveis(
+            itens, total, pagina, tamanho, totalEmAberto, totalVencido, totalRecebido));
     }
 
     private static async Task<IResult> Baixar(
@@ -269,12 +301,15 @@ public record RecebivelNaLista(
     string OrigemDaBaixa,
     string MotivoDoCancelamento);
 
-/// <param name="TotalEmAberto">Soma do que ainda não entrou.</param>
+/// <param name="Total">Quantos recebíveis a seleção tem, e não quantos vieram nesta página.</param>
+/// <param name="TotalEmAberto">Soma do que ainda não entrou, no período — independente do filtro de situação.</param>
 /// <param name="TotalVencido">Parte do aberto cujo vencimento já passou.</param>
 /// <param name="TotalRecebido">Soma do que de fato entrou, e não do que era devido.</param>
-public record ResumoDeRecebiveis(
+public record PaginaDeRecebiveis(
     List<RecebivelNaLista> Itens,
-    int Quantidade,
+    int Total,
+    int Pagina,
+    int Tamanho,
     decimal TotalEmAberto,
     decimal TotalVencido,
     decimal TotalRecebido);
