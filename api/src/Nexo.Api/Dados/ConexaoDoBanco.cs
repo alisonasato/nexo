@@ -32,6 +32,23 @@ public static class ConexaoDoBanco
         var doAmbiente = configuracao["DATABASE_URL"];
         if (!string.IsNullOrWhiteSpace(doAmbiente)) return Normalizar(doAmbiente);
 
+        /*
+         * Existir e estar vazia é um problema diferente de não existir, e o
+         * conserto é outro — mas a mensagem genérica trata os dois igual e faz
+         * procurar no lugar errado.
+         *
+         * Variável vazia é o que sobra quando uma referência a outro serviço
+         * não resolve: o PaaS cria a chave e não põe nada dentro.
+         */
+        if (doAmbiente is not null)
+        {
+            throw new InvalidOperationException(
+                "A variável DATABASE_URL existe, mas está vazia. Isso acontece quando ela " +
+                "aponta para outro serviço por referência e a referência não resolve — " +
+                "quase sempre porque o nome do serviço está errado. Confira o nome exato do " +
+                "serviço de banco no painel, ou cole o valor da conexão direto na variável.");
+        }
+
         throw new InvalidOperationException(
             $"Configure ConnectionStrings__{Nome} ou DATABASE_URL. " +
             "Aceita tanto a forma do Npgsql (Host=…;Port=…;Database=…;Username=…;Password=…) " +
@@ -64,6 +81,14 @@ public static class ConexaoDoBanco
             .Select(chave => chave?.ToString() ?? string.Empty)
             .Where(nome => pistas.Any(pista => nome.ToUpperInvariant().Contains(pista)))
             .OrderBy(nome => nome, StringComparer.Ordinal)
+            /*
+             * Marcar as vazias. "Presente" e "presente e sem nada dentro" são
+             * problemas diferentes, e sem a marca a lista faz procurar no lugar
+             * errado — foi o que aconteceu numa implantação real.
+             */
+            .Select(nome => string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable(nome))
+                ? nome + " (vazia)"
+                : nome)
             .ToList();
 
         return encontradas.Count == 0

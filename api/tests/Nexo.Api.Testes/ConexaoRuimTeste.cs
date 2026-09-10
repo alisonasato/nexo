@@ -81,6 +81,25 @@ public class ConexaoRuimTeste
     }
 
     [Fact]
+    public void Variavel_presente_e_vazia_e_um_erro_diferente_de_variavel_ausente()
+    {
+        /*
+         * O caso de uma implantação real: o PaaS criou DATABASE_URL apontando
+         * para outro serviço, a referência não resolveu, e sobrou a chave sem
+         * nada dentro. A mensagem generica mandava procurar no lugar errado.
+         */
+        var configuracao = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["DATABASE_URL"] = "" })
+            .Build();
+
+        var erro = Assert.Throws<InvalidOperationException>(
+            () => ConexaoDoBanco.Resolver(configuracao));
+
+        Assert.Contains("existe, mas está vazia", erro.Message);
+        Assert.Contains("nome do serviço", erro.Message);
+    }
+
+    [Fact]
     public void A_forma_de_pares_continua_passando_intacta()
     {
         const string pares = "Host=localhost;Port=5432;Database=nexo;Username=nexo;Password=nexo";
