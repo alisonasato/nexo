@@ -52,6 +52,18 @@ Troque `Postgres` pelo nome que o seu serviço de banco tem. Sem isso, a API sob
 e morre dizendo que falta configurar a conexão — que é a verificação de arranque
 funcionando, mas custa uma implantação para descobrir.
 
+**Use o autocompletar, não digite a referência.** Ao clicar no campo de valor, a
+Railway abre uma lista com os serviços e as variáveis de cada um. Digitar
+`${{Postgres.DATABASE_URL}}` à mão erra o nome do serviço com facilidade — e o
+resultado é traiçoeiro: a Railway cria a variável e **deixa vazia**. A
+aplicação então reclama que falta configurar a conexão, enquanto o painel
+mostra a variável ali, presente. Foi o que custou várias implantações na
+primeira vez.
+
+**Se travar, cole o valor.** Abra o serviço do Postgres, aba Variables, revele
+o `DATABASE_URL` e cole o valor direto na variável do `api`. Perde a atualização
+automática se a credencial girar, e destrava na hora.
+
 Use `DATABASE_URL`, e **não** `DATABASE_PUBLIC_URL`: na Railway o primeiro já é a
 rede privada; o público passa por proxy TCP e cobra egress.
 
