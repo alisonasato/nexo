@@ -75,6 +75,17 @@ jobs:
         run: npm ci
         working-directory: web
 
+      - name: gerar o cliente do contrato
+        # `esquema.d.ts` é gerado, e por isso não é versionado — num checkout
+        # limpo ele não existe, e sem ele todo import de @/api/esquema quebra.
+        # Foi assim que este job falhou na primeira execução: passava aqui, na
+        # máquina onde o arquivo já estava no disco.
+        #
+        # Gerar aqui precisa só do api/openapi.json, que É versionado, e do
+        # Node. Não puxa .NET para o job do front.
+        run: npm run tipos
+        working-directory: web
+
       - name: verificar tipos
         # O `next build` já roda o TypeScript, mas rodar antes dá um erro mais
         # direto quando é só tipo que quebrou.

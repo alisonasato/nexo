@@ -43,6 +43,16 @@ dotnet tool restore
 npm ci --prefix web
 ```
 
+O cliente TypeScript da API também é gerado, e por isso não é versionado. Ele
+sai do `api/openapi.json`, que é versionado — então basta o Node:
+
+```bash
+npm --prefix web run tipos
+```
+
+Sem isso, todo import de `@/api/esquema` quebra. Use `npm run contrato` na raiz
+quando quiser regerar a partir do código da API, e não do documento gravado.
+
 ## Rodar
 
 Dois terminais, a partir da raiz:
