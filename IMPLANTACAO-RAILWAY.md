@@ -67,12 +67,43 @@ psql "$DATABASE_URL" -c "SELECT rolname, rolsuper, rolbypassrls FROM pg_roles WH
 Se não forem, crie um papel comum, dê a ele posse das tabelas e use-o na string
 de conexão da aplicação.
 
+## Criar um serviço a partir do repositório
+
+Os dois serviços saem do **mesmo repositório**. Isso parece errado na hora de
+fazer, e é o desenho: cada um olha uma pasta diferente do mesmo código.
+
+O **root directory não é campo do formulário de criação**. Ele aparece só
+depois, nas Settings do serviço já criado — procurar por ele antes é procurar
+o que não existe.
+
+1. No canvas do projeto, **New**
+2. **Connect Repo**, e escolha o repositório
+3. **O primeiro build vai falhar**, e é esperado: sem root directory, a Railway
+   olha a raiz do repositório e não sabe o que construir
+4. Abra o serviço → **Settings** → **Root Directory**
+5. **Variables** → as da tabela correspondente
+6. Reimplante
+
+### Se o repositório não aparece na lista
+
+Na ordem, do mais barato para o mais drástico:
+
+1. **Add → GitHub Repository → Refresh**, para forçar a atualização do cache.
+   É o caso mais comum quando o repositório foi criado depois da conexão.
+2. Em [github.com/settings/installations](https://github.com/settings/installations),
+   abra o **Railway**. Se estiver em *Only select repositories*, acrescente o
+   repositório. **Ser público não basta** — a Railway lista o que o app dela
+   enxerga, e o app só enxerga o que foi autorizado.
+3. Confira se a conta Railway está mesmo ligada ao GitHub. Conta criada com
+   e-mail e senha não tem ligação nenhuma, e nenhuma lista vai aparecer.
+4. Último recurso: desinstalar e reinstalar o app da Railway no GitHub.
+
 ## Serviço `api`
 
 | Ajuste | Valor |
 |---|---|
-| Root directory | `api/src/Nexo.Api` |
-| Domínio público | **nenhum** — só rede privada |
+| Root directory (em Settings) | `api/src/Nexo.Api` |
+| Domínio público | **nenhum** — só rede privada. Se a Railway criar um, remova. |
 
 Variáveis:
 
@@ -109,9 +140,11 @@ respond".
 
 ## Serviço `web`
 
+Criado do mesmo jeito, **a partir do mesmo repositório**.
+
 | Ajuste | Valor |
 |---|---|
-| Root directory | `web` |
+| Root directory (em Settings) | `web` |
 | Domínio público | **sim** — é o único endereço que existe para o usuário |
 
 Variáveis:
