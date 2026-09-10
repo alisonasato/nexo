@@ -12,7 +12,19 @@ export const metadata: Metadata = {
   description: "ERP — back-office de escritório contábil.",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+/*
+ * O tipo das props é escrito à mão, e não `LayoutProps<"/">`.
+ *
+ * `LayoutProps` é um global que o Next **gera** durante o build, dentro de
+ * `.next/types`. Num clone limpo esse diretório não existe, e o `tsc` falha
+ * com "Cannot find name 'LayoutProps'" antes de qualquer build acontecer — o
+ * que quebra a verificação de tipos no CI e para quem acabou de clonar.
+ *
+ * É a mesma razão pela qual as páginas com parâmetro declaram
+ * `{ params: Promise<...> }` à mão. Este arquivo veio do create-next-app e
+ * ficou para trás quando as outras foram corrigidas.
+ */
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html
       lang="pt-BR"
