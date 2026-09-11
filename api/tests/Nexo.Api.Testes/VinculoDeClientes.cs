@@ -144,7 +144,7 @@ public class VinculoDeClientes(BancoDeTestes banco) : IDisposable
             Id = clienteId,
             TenantId = tenantId,
             PessoaId = pessoaId,
-            Codigo = "C-0001",
+            Codigo = "1",
             Responsavel = "Shoiti",
             Observacoes = Anotacao,
         });

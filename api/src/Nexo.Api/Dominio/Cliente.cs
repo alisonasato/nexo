@@ -30,7 +30,7 @@ public class Cliente
     public Guid PessoaId { get; set; }
     public Pessoa? Pessoa { get; set; }
 
-    /// <summary>Código sequencial visível, no formato C-0001.</summary>
+    /// <summary>Código sequencial visível, número puro: 1, 2, 13.</summary>
     public string Codigo { get; set; } = string.Empty;
 
     public RegimeTributario RegimeTributario { get; set; } = RegimeTributario.SimplesNacional;

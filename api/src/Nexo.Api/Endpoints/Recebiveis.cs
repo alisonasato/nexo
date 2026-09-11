@@ -109,6 +109,9 @@ public static class Recebiveis
 
         var itens = await daLista
             .OrderBy(recebivel => recebivel.Vencimento)
+            /* Tamanho antes do texto: o código do cliente é número puro, e sem
+               isso o 10 viria antes do 2 dentro do mesmo vencimento. */
+            .ThenBy(recebivel => recebivel.Cliente!.Codigo.Length)
             .ThenBy(recebivel => recebivel.Cliente!.Codigo)
             .Skip((pagina - 1) * tamanho)
             .Take(tamanho)

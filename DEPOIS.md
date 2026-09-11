@@ -32,7 +32,6 @@ e não atrapalha.
 - Seleção de linhas e painel de colunas na listagem de produtos.
 - Comissão padrão por categoria de produto.
 - Comissão fixa em reais, além do percentual.
-- Unificar `Cliente.codigo` (`C-0001`) com `Contrato.codigo` (`C0001`).
 - Geração de lançamento a partir da venda.
 
 ## Aberto pelos passos 1 e 2

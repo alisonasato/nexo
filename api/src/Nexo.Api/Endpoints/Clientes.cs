@@ -67,8 +67,17 @@ public static class Clientes
         var consulta = banco.Clientes.AsNoTracking();
         if (!incluirInativos) consulta = consulta.Where(cliente => cliente.Ativo);
 
+        /*
+         * Ordena por tamanho e depois por texto, e isso não é firula.
+         *
+         * O código do cliente é número puro, sem zeros à esquerda. Ordenado só
+         * como texto, o 10 vem antes do 2 — e a lista fica embaralhada a partir
+         * do décimo cliente, que é cedo. Comparar o tamanho primeiro devolve a
+         * ordem numérica sem precisar converter nada.
+         */
         var clientes = await consulta
-            .OrderBy(cliente => cliente.Codigo)
+            .OrderBy(cliente => cliente.Codigo.Length)
+            .ThenBy(cliente => cliente.Codigo)
             .Select(cliente => new ClienteNaLista(
                 cliente.Id,
                 cliente.Codigo,
@@ -126,7 +135,9 @@ public static class Clientes
             Id = Guid.NewGuid(),
             TenantId = tenant,
             PessoaId = dados.PessoaId,
-            Codigo = Codigos.Proximo("C-", codigos),
+            /* Número puro, sem prefixo e sem zeros: é o código que o escritório
+               fala ao telefone. O do contrato segue com C e preenchimento. */
+            Codigo = Codigos.Proximo(string.Empty, codigos, digitos: 0),
             RegimeTributario = dados.RegimeTributario,
             Responsavel = (dados.Responsavel ?? string.Empty).Trim(),
             Observacoes = (dados.Observacoes ?? string.Empty).Trim(),
