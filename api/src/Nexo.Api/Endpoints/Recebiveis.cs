@@ -111,14 +111,14 @@ public static class Recebiveis
             .OrderBy(recebivel => recebivel.Vencimento)
             /* Tamanho antes do texto: o código do cliente é número puro, e sem
                isso o 10 viria antes do 2 dentro do mesmo vencimento. */
-            .ThenBy(recebivel => recebivel.Cliente!.Codigo.Length)
-            .ThenBy(recebivel => recebivel.Cliente!.Codigo)
+            .ThenBy(recebivel => recebivel.Pessoa!.Codigo.Length)
+            .ThenBy(recebivel => recebivel.Pessoa!.Codigo)
             .Skip((pagina - 1) * tamanho)
             .Take(tamanho)
             .Select(recebivel => new RecebivelNaLista(
                 recebivel.Id,
-                recebivel.Cliente!.Codigo,
-                recebivel.Cliente.Pessoa!.Nome,
+                recebivel.Pessoa!.Codigo,
+                recebivel.Pessoa!.Nome,
                 recebivel.Descricao,
                 recebivel.CompetenciaAno,
                 recebivel.CompetenciaMes,
@@ -170,7 +170,7 @@ public static class Recebiveis
         {
             Id = Guid.NewGuid(),
             TenantId = tenant,
-            ClienteId = dados.ClienteId,
+            PessoaId = dados.PessoaId,
             ContratoId = null,
             CompetenciaAno = dados.CompetenciaAno,
             CompetenciaMes = dados.CompetenciaMes,
@@ -185,8 +185,7 @@ public static class Recebiveis
         banco.Recebiveis.Add(recebivel);
         await banco.SaveChangesAsync(cancelamento);
 
-        await banco.Entry(recebivel).Reference(r => r.Cliente).LoadAsync(cancelamento);
-        await banco.Entry(recebivel.Cliente!).Reference(c => c.Pessoa).LoadAsync(cancelamento);
+        await banco.Entry(recebivel).Reference(r => r.Pessoa).LoadAsync(cancelamento);
 
         return Results.Created($"/recebiveis/{recebivel.Id}", Detalhar(recebivel));
     }
@@ -198,14 +197,27 @@ public static class Recebiveis
     {
         var problemas = new List<Problema>();
 
-        var cliente = await banco.Clientes.AsNoTracking()
-            .FirstOrDefaultAsync(c => c.Id == dados.ClienteId, cancelamento);
+        /*
+         * Não basta a pessoa existir: ela precisa carregar o papel de cliente.
+         * Sem essa conferência, um fornecedor ou um colaborador entraria num
+         * contrato por engano de escolha na lista, e o erro só apareceria na
+         * hora de cobrar.
+         */
+        var pessoa = await banco.Pessoas.AsNoTracking()
+            .Include(p => p.Papeis)
+            .FirstOrDefaultAsync(p => p.Id == dados.PessoaId, cancelamento);
 
-        if (cliente is null)
+        if (pessoa is null)
         {
-            problemas.Add(new Problema("clienteId", "Cobrança sem cliente",
-                "O cliente informado não existe.",
-                "Escolha um cliente da lista. Se ele ainda não é cliente, crie o vínculo primeiro."));
+            problemas.Add(new Problema("pessoaId", "Cobrança sem cliente",
+                "A pessoa informada não existe neste cadastro.",
+                "Escolha alguém da lista."));
+        }
+        else if (pessoa.Papeis.All(p => p.Papel != Papel.Cliente))
+        {
+            problemas.Add(new Problema("pessoaId", "Cobrança sem cliente",
+                $"“{pessoa.Nome}” não está marcada como cliente.",
+                "Abra o cadastro dela e marque o papel Cliente."));
         }
 
         if (string.IsNullOrWhiteSpace(dados.Descricao))
@@ -252,7 +264,7 @@ public static class Recebiveis
         CancellationToken cancelamento)
     {
         var recebivel = await banco.Recebiveis
-            .Include(r => r.Cliente).ThenInclude(c => c!.Pessoa)
+            .Include(r => r.Pessoa)
             .FirstOrDefaultAsync(r => r.Id == id, cancelamento);
 
         if (recebivel is null) return Results.NotFound();
@@ -310,7 +322,7 @@ public static class Recebiveis
         CancellationToken cancelamento)
     {
         var recebivel = await banco.Recebiveis
-            .Include(r => r.Cliente).ThenInclude(c => c!.Pessoa)
+            .Include(r => r.Pessoa)
             .FirstOrDefaultAsync(r => r.Id == id, cancelamento);
 
         if (recebivel is null) return Results.NotFound();
@@ -354,7 +366,7 @@ public static class Recebiveis
     private static async Task<IResult> Estornar(Guid id, NexoDbContext banco, CancellationToken cancelamento)
     {
         var recebivel = await banco.Recebiveis
-            .Include(r => r.Cliente).ThenInclude(c => c!.Pessoa)
+            .Include(r => r.Pessoa)
             .FirstOrDefaultAsync(r => r.Id == id, cancelamento);
 
         if (recebivel is null) return Results.NotFound();
@@ -384,8 +396,8 @@ public static class Recebiveis
 
     private static RecebivelNaLista Detalhar(Recebivel recebivel) => new(
         recebivel.Id,
-        recebivel.Cliente!.Codigo,
-        recebivel.Cliente.Pessoa!.Nome,
+        recebivel.Pessoa!.Codigo,
+        recebivel.Pessoa!.Nome,
         recebivel.Descricao,
         recebivel.CompetenciaAno,
         recebivel.CompetenciaMes,
@@ -406,7 +418,7 @@ public static class Recebiveis
 /// <param name="CompetenciaAno">O ano a que o serviço se refere, não o do vencimento.</param>
 /// <param name="CompetenciaMes">O mês a que o serviço se refere, de 1 a 12.</param>
 public record DadosDoAvulso(
-    Guid ClienteId,
+    Guid PessoaId,
     string Descricao,
     decimal Valor,
     DateOnly Vencimento,
@@ -418,8 +430,8 @@ public record DadosDoCancelamento(string? Motivo);
 
 public record RecebivelNaLista(
     Guid Id,
-    string CodigoDoCliente,
-    string NomeDoCliente,
+    string CodigoDaPessoa,
+    string NomeDaPessoa,
     string Descricao,
     int CompetenciaAno,
     int CompetenciaMes,

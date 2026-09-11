@@ -28,10 +28,19 @@ public class Endereco
 /// <summary>
 /// Uma pessoa física ou jurídica com quem o escritório se relaciona.
 ///
-/// É um cadastro só, e não um por papel: a mesma empresa pode ser cliente e
-/// fornecedora, e dois cadastros com o mesmo CNPJ são o mesmo cadastro
-/// digitado duas vezes. O que muda de um papel para outro é o vínculo, que
-/// vive em outra tabela — quando existir.
+/// <para>
+/// <b>É um cadastro só, e o papel é rótulo.</b> A mesma empresa pode ser
+/// cliente e fornecedora ao mesmo tempo, e dois cadastros com o mesmo CNPJ são
+/// o mesmo cadastro digitado duas vezes. Os papéis vivem em
+/// <see cref="PessoaPapel"/>, e uma pessoa pode ter quantos couberem.
+/// </para>
+/// <para>
+/// Houve uma tabela <c>clientes</c> aqui, apontando para esta. Ela carregava
+/// código, regime tributário e responsável — e nenhum dos três era do vínculo:
+/// o regime é o regime da empresa na Receita, cliente ou não; o responsável é
+/// quem no escritório cuida dela; o código é o número dela. Campo que continua
+/// verdadeiro depois de o papel acabar é da pessoa, e por isso desceram para cá.
+/// </para>
 /// </summary>
 public class Pessoa
 {
@@ -39,6 +48,9 @@ public class Pessoa
 
     /// <summary>Dono da linha. A política de RLS compara este campo.</summary>
     public Guid TenantId { get; set; }
+
+    /// <summary>Código sequencial visível, número puro: 1, 2, 13.</summary>
+    public string Codigo { get; set; } = string.Empty;
 
     public TipoPessoa Tipo { get; set; }
 
@@ -62,8 +74,24 @@ public class Pessoa
     public string Observacoes { get; set; } = string.Empty;
 
     /// <summary>
+    /// O regime na Receita. É da empresa, e vale seja ela cliente, fornecedora
+    /// ou nenhum dos dois.
+    /// </summary>
+    public RegimeTributario RegimeTributario { get; set; } = RegimeTributario.SimplesNacional;
+
+    /// <summary>Quem no escritório cuida desta pessoa.</summary>
+    public string Responsavel { get; set; } = string.Empty;
+
+    public ICollection<PessoaPapel> Papeis { get; set; } = [];
+
+    /// <summary>
     /// Inativo em vez de apagado. Quem já apareceu num contrato ou numa
     /// cobrança não pode sumir do histórico.
+    ///
+    /// <para>
+    /// Diferente de perder um papel: deixar de ser cliente é não ter mais o
+    /// rótulo, e a pessoa segue ativa no cadastro. Inativar é sair do cadastro.
+    /// </para>
     /// </summary>
     public bool Ativo { get; set; } = true;
 

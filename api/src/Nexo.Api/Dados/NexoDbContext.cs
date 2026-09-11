@@ -11,7 +11,7 @@ public class NexoDbContext(DbContextOptions<NexoDbContext> opcoes)
     public DbSet<Tenant> Tenants => Set<Tenant>();
     public DbSet<Empresa> Empresas => Set<Empresa>();
     public DbSet<Pessoa> Pessoas => Set<Pessoa>();
-    public DbSet<Cliente> Clientes => Set<Cliente>();
+    public DbSet<PessoaPapel> PessoaPapeis => Set<PessoaPapel>();
     public DbSet<Contrato> Contratos => Set<Contrato>();
     public DbSet<Recebivel> Recebiveis => Set<Recebivel>();
 
@@ -88,24 +88,35 @@ public class NexoDbContext(DbContextOptions<NexoDbContext> opcoes)
 
             /* A busca da listagem ordena por nome; o índice evita varrer tudo. */
             pessoa.HasIndex(p => new { p.TenantId, p.Nome });
+
+            pessoa.Property(p => p.Codigo).HasMaxLength(20);
+            pessoa.Property(p => p.Responsavel).HasMaxLength(200);
+            pessoa.HasIndex(p => new { p.TenantId, p.Codigo }).IsUnique();
         });
 
-        modelo.Entity<Cliente>(cliente =>
+        modelo.Entity<PessoaPapel>(papel =>
         {
-            cliente.HasKey(c => c.Id);
-            cliente.Property(c => c.Codigo).HasMaxLength(20);
-            cliente.Property(c => c.Responsavel).HasMaxLength(200);
-            cliente.Property(c => c.Observacoes).HasMaxLength(4000);
-            cliente.Property(c => c.CriadoEm).HasDefaultValueSql("now()");
+            /*
+             * A chave é o par pessoa e papel: a linha existir É o fato. Não há
+             * id próprio porque não há nada a identificar além dela mesma, e
+             * não há como a mesma pessoa ter o mesmo papel duas vezes.
+             */
+            papel.HasKey(p => new { p.PessoaId, p.Papel });
+            papel.Property(p => p.CriadoEm).HasDefaultValueSql("now()");
 
-            /* Uma pessoa é cliente do escritório no máximo uma vez. */
-            cliente.HasIndex(c => new { c.TenantId, c.PessoaId }).IsUnique();
-            cliente.HasIndex(c => new { c.TenantId, c.Codigo }).IsUnique();
+            /* Listar quem é cliente é a consulta mais comum desta tabela. */
+            papel.HasIndex(p => new { p.TenantId, p.Papel });
 
-            cliente.HasOne(c => c.Pessoa)
-                .WithMany()
-                .HasForeignKey(c => c.PessoaId)
-                .OnDelete(DeleteBehavior.Restrict);
+            /*
+             * Cascata aqui, e não Restrict: o rótulo não tem vida própria. Se a
+             * pessoa fosse apagada, guardar o papel dela seria guardar a sombra
+             * de um cadastro que não existe. Quem impede a pessoa de sumir é o
+             * Restrict de contrato e recebível, que apontam para ela.
+             */
+            papel.HasOne(p => p.Pessoa)
+                .WithMany(p => p.Papeis)
+                .HasForeignKey(p => p.PessoaId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         modelo.Entity<Contrato>(contrato =>
@@ -125,11 +136,11 @@ public class NexoDbContext(DbContextOptions<NexoDbContext> opcoes)
             contrato.Property(c => c.Valor).HasPrecision(14, 2);
 
             contrato.HasIndex(c => new { c.TenantId, c.Codigo }).IsUnique();
-            contrato.HasIndex(c => new { c.TenantId, c.ClienteId });
+            contrato.HasIndex(c => new { c.TenantId, c.PessoaId });
 
-            contrato.HasOne(c => c.Cliente)
+            contrato.HasOne(c => c.Pessoa)
                 .WithMany()
-                .HasForeignKey(c => c.ClienteId)
+                .HasForeignKey(c => c.PessoaId)
                 .OnDelete(DeleteBehavior.Restrict);
         });
 
@@ -165,9 +176,9 @@ public class NexoDbContext(DbContextOptions<NexoDbContext> opcoes)
 
             recebivel.HasIndex(r => new { r.TenantId, r.Situacao, r.Vencimento });
 
-            recebivel.HasOne(r => r.Cliente)
+            recebivel.HasOne(r => r.Pessoa)
                 .WithMany()
-                .HasForeignKey(r => r.ClienteId)
+                .HasForeignKey(r => r.PessoaId)
                 .OnDelete(DeleteBehavior.Restrict);
 
             recebivel.HasOne(r => r.Contrato)

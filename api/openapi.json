@@ -137,187 +137,6 @@
         }
       }
     },
-    "/clientes": {
-      "get": {
-        "tags": [
-          "Clientes"
-        ],
-        "summary": "Lista os clientes do escritório",
-        "operationId": "ListarClientes",
-        "parameters": [
-          {
-            "name": "incluirInativos",
-            "in": "query",
-            "schema": {
-              "type": "boolean",
-              "default": false
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/ClienteNaLista"
-                  }
-                }
-              }
-            }
-          }
-        }
-      },
-      "post": {
-        "tags": [
-          "Clientes"
-        ],
-        "summary": "Torna uma pessoa cliente do escritório",
-        "operationId": "CriarCliente",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "allOf": [
-                  {
-                    "$ref": "#/components/schemas/DadosDeCliente"
-                  }
-                ]
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "201": {
-            "description": "Created",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ClienteNaLista"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Unprocessable Content",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RespostaComProblemas"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/clientes/{id}": {
-      "put": {
-        "tags": [
-          "Clientes"
-        ],
-        "summary": "Altera o vínculo",
-        "operationId": "AlterarCliente",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "allOf": [
-                  {
-                    "$ref": "#/components/schemas/DadosDeCliente"
-                  }
-                ]
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ClienteNaLista"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found"
-          }
-        }
-      },
-      "delete": {
-        "tags": [
-          "Clientes"
-        ],
-        "summary": "Inativa o vínculo",
-        "description": "Não apaga: o cliente sai da lista e continua no histórico dos contratos e das cobranças.",
-        "operationId": "InativarCliente",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "No Content"
-          },
-          "404": {
-            "description": "Not Found"
-          }
-        }
-      }
-    },
-    "/clientes/{id}/reativar": {
-      "post": {
-        "tags": [
-          "Clientes"
-        ],
-        "summary": "Desfaz a inativação",
-        "operationId": "ReativarCliente",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "No Content"
-          },
-          "404": {
-            "description": "Not Found"
-          }
-        }
-      }
-    },
     "/consultas/cep/{cep}": {
       "get": {
         "tags": [
@@ -687,6 +506,17 @@
             "in": "query",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "name": "papel",
+            "in": "query",
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Papel"
+                }
+              ]
             }
           },
           {
@@ -1213,74 +1043,15 @@
   },
   "components": {
     "schemas": {
-      "ClienteNaLista": {
-        "required": [
-          "ativo",
-          "codigo",
-          "documento",
-          "id",
-          "nome",
-          "nomeFantasia",
-          "pessoaId",
-          "regimeTributario",
-          "responsavel"
-        ],
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "codigo": {
-            "type": "string"
-          },
-          "pessoaId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "nome": {
-            "type": "string"
-          },
-          "nomeFantasia": {
-            "type": "string"
-          },
-          "documento": {
-            "type": "string"
-          },
-          "regimeTributario": {
-            "enum": [
-              "Mei",
-              "SimplesNacional",
-              "LucroPresumido",
-              "LucroReal",
-              "TerceiroSetor",
-              "PessoaFisica"
-            ],
-            "type": "string",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/RegimeTributario"
-              }
-            ]
-          },
-          "responsavel": {
-            "type": "string"
-          },
-          "ativo": {
-            "type": "boolean"
-          }
-        },
-        "additionalProperties": false
-      },
       "ContratoDetalhado": {
         "required": [
-          "clienteId",
           "codigo",
           "descricao",
           "diaDeVencimento",
           "id",
           "inicioDaVigencia",
           "observacoes",
+          "pessoaId",
           "situacao",
           "valor"
         ],
@@ -1293,7 +1064,7 @@
           "codigo": {
             "type": "string"
           },
-          "clienteId": {
+          "pessoaId": {
             "type": "string",
             "format": "uuid"
           },
@@ -1338,13 +1109,13 @@
       },
       "ContratoNaLista": {
         "required": [
-          "clienteId",
           "codigo",
-          "codigoDoCliente",
+          "codigoDaPessoa",
           "descricao",
           "diaDeVencimento",
           "id",
-          "nomeDoCliente",
+          "nomeDaPessoa",
+          "pessoaId",
           "situacao",
           "valor"
         ],
@@ -1357,14 +1128,14 @@
           "codigo": {
             "type": "string"
           },
-          "clienteId": {
+          "pessoaId": {
             "type": "string",
             "format": "uuid"
           },
-          "codigoDoCliente": {
+          "codigoDaPessoa": {
             "type": "string"
           },
-          "nomeDoCliente": {
+          "nomeDaPessoa": {
             "type": "string"
           },
           "descricao": {
@@ -1412,59 +1183,17 @@
         },
         "additionalProperties": false
       },
-      "DadosDeCliente": {
-        "required": [
-          "ativo",
-          "pessoaId",
-          "regimeTributario"
-        ],
-        "type": "object",
-        "properties": {
-          "pessoaId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "regimeTributario": {
-            "enum": [
-              "Mei",
-              "SimplesNacional",
-              "LucroPresumido",
-              "LucroReal",
-              "TerceiroSetor",
-              "PessoaFisica"
-            ],
-            "type": "string",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/RegimeTributario"
-              }
-            ]
-          },
-          "responsavel": {
-            "type": "string",
-            "nullable": true
-          },
-          "observacoes": {
-            "type": "string",
-            "nullable": true
-          },
-          "ativo": {
-            "type": "boolean"
-          }
-        },
-        "additionalProperties": false
-      },
       "DadosDeContrato": {
         "required": [
-          "clienteId",
           "diaDeVencimento",
           "inicioDaVigencia",
+          "pessoaId",
           "situacao",
           "valor"
         ],
         "type": "object",
         "properties": {
-          "clienteId": {
+          "pessoaId": {
             "type": "string",
             "format": "uuid"
           },
@@ -1548,6 +1277,7 @@
       "DadosDePessoa": {
         "required": [
           "ativo",
+          "regimeTributario",
           "tipo"
         ],
         "type": "object",
@@ -1563,6 +1293,33 @@
                 "$ref": "#/components/schemas/TipoPessoa"
               }
             ]
+          },
+          "regimeTributario": {
+            "enum": [
+              "Mei",
+              "SimplesNacional",
+              "LucroPresumido",
+              "LucroReal",
+              "TerceiroSetor",
+              "PessoaFisica"
+            ],
+            "type": "string",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RegimeTributario"
+              }
+            ]
+          },
+          "responsavel": {
+            "type": "string",
+            "nullable": true
+          },
+          "papeis": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Papel"
+            },
+            "nullable": true
           },
           "nome": {
             "type": "string",
@@ -1616,16 +1373,16 @@
       },
       "DadosDoAvulso": {
         "required": [
-          "clienteId",
           "competenciaAno",
           "competenciaMes",
           "descricao",
+          "pessoaId",
           "valor",
           "vencimento"
         ],
         "type": "object",
         "properties": {
-          "clienteId": {
+          "pessoaId": {
             "type": "string",
             "format": "uuid"
           },
@@ -1892,6 +1649,15 @@
         },
         "additionalProperties": false
       },
+      "Papel": {
+        "enum": [
+          "Cliente",
+          "Fornecedor",
+          "Vendedor",
+          "Colaborador"
+        ],
+        "type": "string"
+      },
       "PedidoDeEntrada": {
         "required": [
           "email",
@@ -1954,6 +1720,7 @@
         "required": [
           "ativo",
           "celular",
+          "codigo",
           "criadoEm",
           "documento",
           "email",
@@ -1964,6 +1731,9 @@
           "nome",
           "nomeFantasia",
           "observacoes",
+          "papeis",
+          "regimeTributario",
+          "responsavel",
           "telefone",
           "tipo"
         ],
@@ -1972,6 +1742,34 @@
           "id": {
             "type": "string",
             "format": "uuid"
+          },
+          "codigo": {
+            "type": "string"
+          },
+          "papeis": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Papel"
+            }
+          },
+          "regimeTributario": {
+            "enum": [
+              "Mei",
+              "SimplesNacional",
+              "LucroPresumido",
+              "LucroReal",
+              "TerceiroSetor",
+              "PessoaFisica"
+            ],
+            "type": "string",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RegimeTributario"
+              }
+            ]
+          },
+          "responsavel": {
+            "type": "string"
           },
           "tipo": {
             "enum": [
@@ -2034,11 +1832,13 @@
           "ativo",
           "celular",
           "cidade",
+          "codigo",
           "documento",
           "email",
           "id",
           "nome",
           "nomeFantasia",
+          "papeis",
           "tipo",
           "uf"
         ],
@@ -2047,6 +1847,15 @@
           "id": {
             "type": "string",
             "format": "uuid"
+          },
+          "codigo": {
+            "type": "string"
+          },
+          "papeis": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Papel"
+            }
           },
           "tipo": {
             "enum": [
@@ -2113,13 +1922,13 @@
       },
       "RecebivelNaLista": {
         "required": [
-          "codigoDoCliente",
+          "codigoDaPessoa",
           "competenciaAno",
           "competenciaMes",
           "descricao",
           "id",
           "motivoDoCancelamento",
-          "nomeDoCliente",
+          "nomeDaPessoa",
           "origemDaBaixa",
           "situacao",
           "valor",
@@ -2131,10 +1940,10 @@
             "type": "string",
             "format": "uuid"
           },
-          "codigoDoCliente": {
+          "codigoDaPessoa": {
             "type": "string"
           },
-          "nomeDoCliente": {
+          "nomeDaPessoa": {
             "type": "string"
           },
           "descricao": {

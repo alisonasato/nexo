@@ -7,13 +7,19 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tansta
 import { api } from "@/api/cliente";
 import { Botao } from "@/componentes/controles";
 import { Paginacao } from "@/componentes/paginacao";
+import type { components } from "@/api/esquema";
 import { formatarDocumento, formatarTelefone } from "@/lib/formato";
+
+type Papel = components["schemas"]["Papel"];
+
+const papeis: Papel[] = ["Cliente", "Fornecedor", "Vendedor", "Colaborador"];
 
 export default function ListagemDePessoas() {
   const [busca, definirBusca] = useState("");
   const [termo, definirTermo] = useState("");
   const [pagina, definirPagina] = useState(1);
   const [incluirInativas, definirIncluirInativas] = useState(false);
+  const [papel, definirPapel] = useState<Papel | "">("");
 
   /*
    * Inativar pede o segundo clique; reativar não.
@@ -48,13 +54,14 @@ export default function ListagemDePessoas() {
   }, [busca]);
 
   const pessoas = useQuery({
-    queryKey: ["pessoas", termo, pagina, incluirInativas],
+    queryKey: ["pessoas", termo, papel, pagina, incluirInativas],
     queryFn: async () => {
       const { data, error } = await api.GET("/pessoas", {
         params: {
           query: {
             pagina,
             ...(termo ? { busca: termo } : {}),
+            ...(papel ? { papel } : {}),
             ...(incluirInativas ? { incluirInativos: true } : {}),
           },
         },
@@ -128,6 +135,28 @@ export default function ListagemDePessoas() {
           {pessoas.isFetching && <span className="text-xs text-slate-500">buscando…</span>}
         </div>
 
+        <div className="flex flex-wrap items-center gap-2">
+          {(["", ...papeis] as (Papel | "")[]).map((valor) => (
+            <button
+              key={valor || "todos"}
+              type="button"
+              onClick={() => {
+                definirPapel(valor);
+                definirPagina(1);
+              }}
+              aria-pressed={papel === valor}
+              className={
+                "rounded-full px-3 py-1 text-sm font-medium transition-colors " +
+                (papel === valor
+                  ? "bg-marca-600 text-white"
+                  : "border border-borda-forte bg-superficie text-slate-700 hover:bg-slate-50")
+              }
+            >
+              {valor || "Todos"}
+            </button>
+          ))}
+        </div>
+
         {pessoas.isError && (
           <p role="alert" className="rounded-[--radius-controle] bg-red-50 px-4 py-3 text-red-700">
             {pessoas.error.message} Verifique se a API está no ar e tente de novo.
@@ -155,6 +184,7 @@ export default function ListagemDePessoas() {
               <table className="w-full min-w-3xl border-collapse text-left">
                 <thead>
                   <tr className="border-b border-borda text-xs tracking-wide text-slate-500 uppercase">
+                    <th scope="col" className="px-4 py-3 font-semibold">Código</th>
                     <th scope="col" className="px-4 py-3 font-semibold">Nome</th>
                     <th scope="col" className="px-4 py-3 font-semibold">Documento</th>
                     <th scope="col" className="px-4 py-3 font-semibold">Contato</th>
@@ -167,6 +197,9 @@ export default function ListagemDePessoas() {
                 <tbody>
                   {pessoas.data.itens.map((pessoa) => (
                     <tr key={pessoa.id} className="border-b border-borda last:border-0 hover:bg-marca-50">
+                      <td className="numeros-tabulares px-4 py-3 font-medium text-slate-800">
+                        {pessoa.codigo}
+                      </td>
                       <td className="px-4 py-3">
                         <Link
                           href={`/pessoas/${pessoa.id}`}
@@ -179,6 +212,18 @@ export default function ListagemDePessoas() {
                             inativa
                           </span>
                         )}
+
+                        {/* Os papéis na própria linha: é o que a listagem de
+                            clientes mostrava, agora sem tela separada. */}
+                        {pessoa.papeis.map((papelDaPessoa) => (
+                          <span
+                            key={papelDaPessoa}
+                            className="ml-2 rounded-full bg-marca-50 px-2 py-0.5 text-xs font-medium text-marca-700"
+                          >
+                            {papelDaPessoa}
+                          </span>
+                        ))}
+
                         {pessoa.nomeFantasia && (
                           <span className="block text-slate-500">{pessoa.nomeFantasia}</span>
                         )}

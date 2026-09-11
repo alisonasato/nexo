@@ -448,7 +448,6 @@ app.MapSaude();
 app.MapAcesso();
 app.MapEmpresas();
 app.MapPessoas();
-app.MapClientes();
 app.MapContratos();
 app.MapRecebiveis();
 app.MapConsultas();

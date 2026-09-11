@@ -72,62 +72,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/clientes": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Lista os clientes do escritório */
-        get: operations["ListarClientes"];
-        put?: never;
-        /** Torna uma pessoa cliente do escritório */
-        post: operations["CriarCliente"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/clientes/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /** Altera o vínculo */
-        put: operations["AlterarCliente"];
-        post?: never;
-        /**
-         * Inativa o vínculo
-         * @description Não apaga: o cliente sai da lista e continua no histórico dos contratos e das cobranças.
-         */
-        delete: operations["InativarCliente"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/clientes/{id}/reativar": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Desfaz a inativação */
-        post: operations["ReativarCliente"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/consultas/cep/{cep}": {
         parameters: {
             query?: never;
@@ -403,26 +347,12 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        ClienteNaLista: {
-            /** Format: uuid */
-            id: string;
-            codigo: string;
-            /** Format: uuid */
-            pessoaId: string;
-            nome: string;
-            nomeFantasia: string;
-            documento: string;
-            /** @enum {string} */
-            regimeTributario: "Mei" | "SimplesNacional" | "LucroPresumido" | "LucroReal" | "TerceiroSetor" | "PessoaFisica";
-            responsavel: string;
-            ativo: boolean;
-        };
         ContratoDetalhado: {
             /** Format: uuid */
             id: string;
             codigo: string;
             /** Format: uuid */
-            clienteId: string;
+            pessoaId: string;
             descricao: string;
             /** Format: double */
             valor: number;
@@ -441,9 +371,9 @@ export interface components {
             id: string;
             codigo: string;
             /** Format: uuid */
-            clienteId: string;
-            codigoDoCliente: string;
-            nomeDoCliente: string;
+            pessoaId: string;
+            codigoDaPessoa: string;
+            nomeDaPessoa: string;
             descricao: string;
             /** Format: double */
             valor: number;
@@ -458,18 +388,9 @@ export interface components {
             /** Format: date */
             pagoEm?: string | null;
         };
-        DadosDeCliente: {
-            /** Format: uuid */
-            pessoaId: string;
-            /** @enum {string} */
-            regimeTributario: "Mei" | "SimplesNacional" | "LucroPresumido" | "LucroReal" | "TerceiroSetor" | "PessoaFisica";
-            responsavel?: string | null;
-            observacoes?: string | null;
-            ativo: boolean;
-        };
         DadosDeContrato: {
             /** Format: uuid */
-            clienteId: string;
+            pessoaId: string;
             descricao?: string | null;
             /** Format: double */
             valor: number;
@@ -495,6 +416,10 @@ export interface components {
         DadosDePessoa: {
             /** @enum {string} */
             tipo: "Fisica" | "Juridica";
+            /** @enum {string} */
+            regimeTributario: "Mei" | "SimplesNacional" | "LucroPresumido" | "LucroReal" | "TerceiroSetor" | "PessoaFisica";
+            responsavel?: string | null;
+            papeis?: components["schemas"]["Papel"][] | null;
             nome?: string | null;
             nomeFantasia?: string | null;
             documento?: string | null;
@@ -509,7 +434,7 @@ export interface components {
         };
         DadosDoAvulso: {
             /** Format: uuid */
-            clienteId: string;
+            pessoaId: string;
             descricao: string;
             /** Format: double */
             valor: number;
@@ -589,6 +514,8 @@ export interface components {
             /** Format: double */
             totalRecebido: number;
         };
+        /** @enum {string} */
+        Papel: "Cliente" | "Fornecedor" | "Vendedor" | "Colaborador";
         PedidoDeEntrada: {
             email: string;
             senha: string;
@@ -607,6 +534,11 @@ export interface components {
         PessoaDetalhada: {
             /** Format: uuid */
             id: string;
+            codigo: string;
+            papeis: components["schemas"]["Papel"][];
+            /** @enum {string} */
+            regimeTributario: "Mei" | "SimplesNacional" | "LucroPresumido" | "LucroReal" | "TerceiroSetor" | "PessoaFisica";
+            responsavel: string;
             /** @enum {string} */
             tipo: "Fisica" | "Juridica";
             nome: string;
@@ -626,6 +558,8 @@ export interface components {
         PessoaNaLista: {
             /** Format: uuid */
             id: string;
+            codigo: string;
+            papeis: components["schemas"]["Papel"][];
             /** @enum {string} */
             tipo: "Fisica" | "Juridica";
             nome: string;
@@ -646,8 +580,8 @@ export interface components {
         RecebivelNaLista: {
             /** Format: uuid */
             id: string;
-            codigoDoCliente: string;
-            nomeDoCliente: string;
+            codigoDaPessoa: string;
+            nomeDaPessoa: string;
             descricao: string;
             /** Format: int32 */
             competenciaAno: number;
@@ -827,148 +761,6 @@ export interface operations {
             };
             /** @description Unauthorized */
             401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    ListarClientes: {
-        parameters: {
-            query?: {
-                incluirInativos?: boolean;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ClienteNaLista"][];
-                };
-            };
-        };
-    };
-    CriarCliente: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["DadosDeCliente"];
-            };
-        };
-        responses: {
-            /** @description Created */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ClienteNaLista"];
-                };
-            };
-            /** @description Unprocessable Content */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RespostaComProblemas"];
-                };
-            };
-        };
-    };
-    AlterarCliente: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["DadosDeCliente"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ClienteNaLista"];
-                };
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    InativarCliente: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description No Content */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    ReativarCliente: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description No Content */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Not Found */
-            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -1257,6 +1049,7 @@ export interface operations {
         parameters: {
             query?: {
                 busca?: string;
+                papel?: components["schemas"]["Papel"];
                 incluirInativos?: boolean;
                 pagina?: number;
                 tamanho?: number;

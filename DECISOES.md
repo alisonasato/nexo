@@ -155,20 +155,43 @@ concreta, com primitivos pequenos em `web/src/componentes/controles.tsx`.
 O motor sai por **extração**, quando a segunda ou terceira tela mostrar o que
 de fato se repete — e não antes.
 
-## Sobre centralizar o cadastro de pessoas
+## O cadastro de pessoas, com papéis
 
-Analisado em 11 de setembro de 2026, e **deixado como está**, de propósito.
+Analisado em 11 de setembro de 2026, e **unificado no mesmo dia**.
 
-O cadastro já é central onde precisa ser. `Pessoa` é o registro, e `Cliente` é
-um **vínculo**: aponta para uma pessoa e acrescenta o que só vale para o papel
-de cliente. O mesmo CNPJ pode ser cliente e fornecedor sem virar dois cadastros,
-porque o que muda de papel para papel é o vínculo. Quando fornecedor existir,
-ele nasce como mais uma tabela de vínculo, e o cadastro não muda.
+Havia uma tabela `clientes` apontando para `pessoas`. A análise foi campo a
+campo, e o resultado foi mais claro do que eu esperava: dos cinco campos do
+vínculo, dois já existiam em `Pessoa` e os outros três eram da pessoa. **Regime
+tributário** é o regime da empresa na Receita, cliente ou não. **Responsável** é
+quem no escritório cuida dela. **Código** é o número dela. Não sobrou nada que
+fosse do relacionamento — o vínculo carregava dado que nunca foi dele.
+
+O que sobrou de verdadeiro cabe numa linha que existe ou não existe, e virou
+`pessoa_papeis`: Cliente, Fornecedor, Vendedor, Colaborador. Uma pessoa acumula
+quantos couberem, que é o caso real da gráfica que imprime os carnês e é cliente
+do escritório.
+
+**Papel é tipo fechado, não tabela.** É como o resto do sistema trata lista
+fechada, e uma tabela de papéis abriria a porta para existir no banco um papel
+que o código não sabe tratar, cobrando uma junção em toda consulta para comprar
+flexibilidade que ninguém pediu. Quando um papel precisar de dado próprio — a
+comissão do vendedor, por exemplo —, ele ganha tabela própria pendurada na
+associativa, e não coluna nula em `pessoas`.
+
+**Ter o papel é ter a linha.** Não existe papel inativo: seria um terceiro
+estado entre ser e não ser, e ninguém saberia o que ele significa numa
+listagem. Deixar de ser cliente é perder o rótulo, e a pessoa segue no cadastro
+com o mesmo código. Diferente de inativar, que é sair.
+
+A migração converteu os clientes que existiam e numerou quem não era cliente,
+porque o código passou a ser da pessoa e o índice é único por escritório.
+Cliente inativo não virou papel: ele já queria dizer "deixou de ser cliente".
 
 Sobrou uma incoerência, e ela é real: **`Empresa` é um cadastro paralelo.**
 Guarda razão social, nome fantasia e CNPJ — que são nome, nome fantasia e
 documento de `Pessoa` — e não se liga a ela. E tem menos: não tem endereço nem
-contato, que a NFS-e vai exigir do estabelecimento.
+contato, que a NFS-e vai exigir do estabelecimento. A unificação de `clientes`
+não a alcançou, e foi decisão, não esquecimento.
 
 **Não foi corrigida agora**, e o motivo não é preguiça. `Empresa` não é um
 terceiro: é o escritório, e a corrente tenant → empresa é a espinha do

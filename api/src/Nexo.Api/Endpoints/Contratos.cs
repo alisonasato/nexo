@@ -74,9 +74,9 @@ public static class Contratos
             consulta = consulta.Where(contrato =>
                 EF.Functions.ILike(contrato.Codigo, $"%{termo}%")
                 || EF.Functions.ILike(contrato.Descricao, $"%{termo}%")
-                || EF.Functions.ILike(contrato.Cliente!.Codigo, $"%{termo}%")
-                || EF.Functions.ILike(contrato.Cliente!.Pessoa!.Nome, $"%{termo}%")
-                || EF.Functions.ILike(contrato.Cliente!.Pessoa!.NomeFantasia, $"%{termo}%"));
+                || EF.Functions.ILike(contrato.Pessoa!.Codigo, $"%{termo}%")
+                || EF.Functions.ILike(contrato.Pessoa!.Nome, $"%{termo}%")
+                || EF.Functions.ILike(contrato.Pessoa!.NomeFantasia, $"%{termo}%"));
         }
 
         if (situacao is { } filtro) consulta = consulta.Where(contrato => contrato.Situacao == filtro);
@@ -100,9 +100,9 @@ public static class Contratos
             .Select(contrato => new ContratoNaLista(
                 contrato.Id,
                 contrato.Codigo,
-                contrato.ClienteId,
-                contrato.Cliente!.Codigo,
-                contrato.Cliente.Pessoa!.Nome,
+                contrato.PessoaId,
+                contrato.Pessoa!.Codigo,
+                contrato.Pessoa!.Nome,
                 contrato.Descricao,
                 contrato.Valor,
                 contrato.DiaDeVencimento,
@@ -233,7 +233,7 @@ public static class Contratos
             {
                 Id = Guid.NewGuid(),
                 TenantId = tenant,
-                ClienteId = contrato.ClienteId,
+                PessoaId = contrato.PessoaId,
                 ContratoId = contrato.Id,
                 CompetenciaAno = pedido.Ano,
                 CompetenciaMes = pedido.Mes,
@@ -282,14 +282,27 @@ public static class Contratos
     {
         var problemas = new List<Problema>();
 
-        var cliente = await banco.Clientes.AsNoTracking()
-            .FirstOrDefaultAsync(c => c.Id == dados.ClienteId, cancelamento);
+        /*
+         * Não basta a pessoa existir: ela precisa carregar o papel de cliente.
+         * Sem essa conferência, um fornecedor ou um colaborador entraria num
+         * contrato por engano de escolha na lista, e o erro só apareceria na
+         * hora de cobrar.
+         */
+        var pessoa = await banco.Pessoas.AsNoTracking()
+            .Include(p => p.Papeis)
+            .FirstOrDefaultAsync(p => p.Id == dados.PessoaId, cancelamento);
 
-        if (cliente is null)
+        if (pessoa is null)
         {
-            problemas.Add(new Problema("clienteId", "Contrato sem cliente",
-                "O cliente informado não existe.",
-                "Escolha um cliente da lista. Se ele ainda não é cliente, crie o vínculo primeiro."));
+            problemas.Add(new Problema("pessoaId", "Contrato sem cliente",
+                "A pessoa informada não existe neste cadastro.",
+                "Escolha alguém da lista."));
+        }
+        else if (pessoa.Papeis.All(p => p.Papel != Papel.Cliente))
+        {
+            problemas.Add(new Problema("pessoaId", "Contrato sem cliente",
+                $"“{pessoa.Nome}” não está marcada como cliente.",
+                "Abra o cadastro dela e marque o papel Cliente."));
         }
 
         if (string.IsNullOrWhiteSpace(dados.Descricao))
@@ -325,7 +338,7 @@ public static class Contratos
 
     private static void Aplicar(DadosDeContrato dados, Contrato contrato)
     {
-        contrato.ClienteId = dados.ClienteId;
+        contrato.PessoaId = dados.PessoaId;
         contrato.Descricao = (dados.Descricao ?? string.Empty).Trim();
         contrato.Valor = dados.Valor;
         contrato.DiaDeVencimento = dados.DiaDeVencimento;
@@ -338,7 +351,7 @@ public static class Contratos
     private static ContratoDetalhado Detalhar(Contrato contrato) => new(
         contrato.Id,
         contrato.Codigo,
-        contrato.ClienteId,
+        contrato.PessoaId,
         contrato.Descricao,
         contrato.Valor,
         contrato.DiaDeVencimento,
@@ -349,7 +362,7 @@ public static class Contratos
 }
 
 public record DadosDeContrato(
-    Guid ClienteId,
+    Guid PessoaId,
     string? Descricao,
     decimal Valor,
     int DiaDeVencimento,
@@ -370,9 +383,9 @@ public record PaginaDeContratos(
 public record ContratoNaLista(
     Guid Id,
     string Codigo,
-    Guid ClienteId,
-    string CodigoDoCliente,
-    string NomeDoCliente,
+    Guid PessoaId,
+    string CodigoDaPessoa,
+    string NomeDaPessoa,
     string Descricao,
     decimal Valor,
     int DiaDeVencimento,
@@ -381,7 +394,7 @@ public record ContratoNaLista(
 public record ContratoDetalhado(
     Guid Id,
     string Codigo,
-    Guid ClienteId,
+    Guid PessoaId,
     string Descricao,
     decimal Valor,
     int DiaDeVencimento,

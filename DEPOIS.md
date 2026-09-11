@@ -72,10 +72,10 @@ e não atrapalha.
   centralização do cadastro encontrou, e é independente dela.
 - Endereço e contato da empresa. `Empresa` não tem nenhum dos dois, e a NFS-e
   vai exigir os dois do estabelecimento.
-- `Empresa` como vínculo com `Pessoa`, como `Cliente` já é. A incoerência está
-  analisada em DECISOES.md, com o argumento contra: `Empresa` é a espinha do
-  isolamento, não um terceiro. A hora de mexer é junto com a NFS-e, que é o que
-  cobra o endereço — e enquanto isso a migração encarece a cada escritório novo.
+- `Empresa` como vínculo com `Pessoa`, como os papéis agora são. A incoerência
+  está analisada em DECISOES.md, com o argumento contra: `Empresa` é a espinha
+  do isolamento, não um terceiro. A hora de mexer é junto com a NFS-e, que é o
+  que cobra o endereço — e enquanto isso a migração encarece a cada escritório.
 - `Usuario.Nome` é texto solto, e não um vínculo com `Pessoa`. Não paga nada
   enquanto houver um usuário por escritório; vale junto com convidar alguém.
 - Troca de empresa em tela. O `empresa_id` vai no token com a empresa padrão
@@ -90,6 +90,15 @@ e não atrapalha.
 - CNPJ alfanumérico. A validação implementada é a numérica clássica;
   conferir a regra vigente antes de o primeiro cliente digitar um.
 - Ordenar a listagem por outra coluna que não o nome.
+
+## Aberto pelos papéis
+
+- Dado por papel. Hoje o rótulo é só o rótulo: vendedor não tem comissão,
+  fornecedor não tem condição de pagamento. Quando um papel precisar de campo
+  próprio, ele ganha tabela própria pendurada na associativa — e não coluna
+  nula em `pessoas`.
+- Impedir inativar pessoa que ainda carrega papel, ou pelo menos avisar. Hoje
+  inativar não confere nada, e o cliente some da lista sem o escritório saber.
 
 ## Aberto pelo passo 5
 

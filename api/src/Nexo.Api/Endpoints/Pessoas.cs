@@ -64,6 +64,7 @@ public static class Pessoas
         NexoDbContext banco,
         CancellationToken cancelamento,
         [FromQuery] string? busca = null,
+        [FromQuery] Papel? papel = null,
         [FromQuery] bool incluirInativos = false,
         [FromQuery] int pagina = 1,
         [FromQuery] int tamanho = 25)
@@ -71,10 +72,14 @@ public static class Pessoas
         pagina = Math.Max(1, pagina);
         tamanho = Math.Clamp(tamanho, 1, 200);
 
-        var consulta = banco.Pessoas.AsNoTracking();
+        IQueryable<Pessoa> consulta = banco.Pessoas.AsNoTracking().Include(pessoa => pessoa.Papeis);
 
         if (!incluirInativos)
             consulta = consulta.Where(pessoa => pessoa.Ativo);
+
+        /* Filtrar por papel é o que substitui a antiga listagem de clientes. */
+        if (papel is { } procurado)
+            consulta = consulta.Where(pessoa => pessoa.Papeis.Any(p => p.Papel == procurado));
 
         if (!string.IsNullOrWhiteSpace(busca))
         {
@@ -102,6 +107,8 @@ public static class Pessoas
             .Take(tamanho)
             .Select(pessoa => new PessoaNaLista(
                 pessoa.Id,
+                pessoa.Codigo,
+                pessoa.Papeis.Select(p => p.Papel).ToList(),
                 pessoa.Tipo,
                 pessoa.Nome,
                 pessoa.NomeFantasia,
@@ -119,6 +126,7 @@ public static class Pessoas
     private static async Task<IResult> Obter(Guid id, NexoDbContext banco, CancellationToken cancelamento)
     {
         var pessoa = await banco.Pessoas.AsNoTracking()
+            .Include(pessoa => pessoa.Papeis)
             .FirstOrDefaultAsync(pessoa => pessoa.Id == id, cancelamento);
 
         return pessoa is null ? Results.NotFound() : Results.Ok(Detalhar(pessoa));
@@ -140,9 +148,19 @@ public static class Pessoas
         if (problemas.Count > 0)
             return Results.Json(new RespostaComProblemas(problemas), statusCode: 422);
 
+        /*
+         * Os códigos já usados são lidos sob a política de RLS: a sequência é
+         * por escritório, e um tenant nunca enxerga o número do outro.
+         */
+        var codigos = await banco.Pessoas.AsNoTracking()
+            .Select(outra => outra.Codigo)
+            .ToListAsync(cancelamento);
+
+        pessoa.Codigo = Codigos.Proximo(string.Empty, codigos, digitos: 0);
         pessoa.CriadoEm = DateTimeOffset.UtcNow;
         pessoa.AtualizadoEm = pessoa.CriadoEm;
 
+        AjustarPapeis(pessoa, dados.Papeis, tenant);
         banco.Pessoas.Add(pessoa);
         await banco.SaveChangesAsync(cancelamento);
 
@@ -155,10 +173,14 @@ public static class Pessoas
         NexoDbContext banco,
         CancellationToken cancelamento)
     {
-        var pessoa = await banco.Pessoas.FirstOrDefaultAsync(pessoa => pessoa.Id == id, cancelamento);
+        var pessoa = await banco.Pessoas
+            .Include(pessoa => pessoa.Papeis)
+            .FirstOrDefaultAsync(pessoa => pessoa.Id == id, cancelamento);
+
         if (pessoa is null) return Results.NotFound();
 
         Aplicar(dados, pessoa);
+        AjustarPapeis(pessoa, dados.Papeis, pessoa.TenantId);
 
         var problemas = await Conferir(pessoa, banco, cancelamento);
         if (problemas.Count > 0)
@@ -224,6 +246,34 @@ public static class Pessoas
         return ValidadorDePessoa.Validar(pessoa, outra);
     }
 
+    /// <summary>
+    /// Acerta os papéis para ficarem exatamente os informados.
+    ///
+    /// <para>
+    /// Tira o que saiu e põe o que entrou, em vez de apagar tudo e recriar. A
+    /// diferença aparece no <c>CriadoEm</c>: recriando, um papel que ninguém
+    /// mexeu ganharia data de hoje, e a única pergunta que esse campo responde
+    /// — desde quando esta pessoa é cliente — passaria a mentir.
+    /// </para>
+    /// <para>
+    /// Lista nula quer dizer "não mexi nos papéis", e é diferente de lista
+    /// vazia, que quer dizer "tire todos". Sem essa distinção, um cliente
+    /// enviado por um cliente HTTP antigo perderia os rótulos em silêncio.
+    /// </para>
+    /// </summary>
+    private static void AjustarPapeis(Pessoa pessoa, IReadOnlyList<Papel>? desejados, Guid tenant)
+    {
+        if (desejados is null) return;
+
+        var alvo = desejados.Distinct().ToHashSet();
+
+        foreach (var sobrando in pessoa.Papeis.Where(p => !alvo.Contains(p.Papel)).ToList())
+            pessoa.Papeis.Remove(sobrando);
+
+        foreach (var novo in alvo.Where(p => pessoa.Papeis.All(atual => atual.Papel != p)))
+            pessoa.Papeis.Add(new PessoaPapel { TenantId = tenant, PessoaId = pessoa.Id, Papel = novo });
+    }
+
     private static void Aplicar(DadosDePessoa dados, Pessoa pessoa)
     {
         pessoa.Tipo = dados.Tipo;
@@ -245,6 +295,8 @@ public static class Pessoas
         pessoa.Telefone = Documento.ApenasDigitos(dados.Telefone);
         pessoa.Celular = Documento.ApenasDigitos(dados.Celular);
         pessoa.Observacoes = (dados.Observacoes ?? string.Empty).Trim();
+        pessoa.RegimeTributario = dados.RegimeTributario;
+        pessoa.Responsavel = (dados.Responsavel ?? string.Empty).Trim();
         pessoa.Ativo = dados.Ativo;
 
         pessoa.Endereco = new Endereco
@@ -261,6 +313,10 @@ public static class Pessoas
 
     private static PessoaDetalhada Detalhar(Pessoa pessoa) => new(
         pessoa.Id,
+        pessoa.Codigo,
+        pessoa.Papeis.Select(p => p.Papel).OrderBy(p => p).ToList(),
+        pessoa.RegimeTributario,
+        pessoa.Responsavel,
         pessoa.Tipo,
         pessoa.Nome,
         pessoa.NomeFantasia,
@@ -294,6 +350,9 @@ public record DadosDeEndereco(
 
 public record DadosDePessoa(
     TipoPessoa Tipo,
+    RegimeTributario RegimeTributario,
+    string? Responsavel,
+    IReadOnlyList<Papel>? Papeis,
     string? Nome,
     string? NomeFantasia,
     string? Documento,
@@ -308,6 +367,8 @@ public record DadosDePessoa(
 
 public record PessoaNaLista(
     Guid Id,
+    string Codigo,
+    IReadOnlyList<Papel> Papeis,
     TipoPessoa Tipo,
     string Nome,
     string NomeFantasia,
@@ -320,6 +381,10 @@ public record PessoaNaLista(
 
 public record PessoaDetalhada(
     Guid Id,
+    string Codigo,
+    IReadOnlyList<Papel> Papeis,
+    RegimeTributario RegimeTributario,
+    string Responsavel,
     TipoPessoa Tipo,
     string Nome,
     string NomeFantasia,

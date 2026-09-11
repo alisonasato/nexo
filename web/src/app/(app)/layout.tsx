@@ -8,7 +8,6 @@ import { useSair, useSessao } from "@/sessao/usar-sessao";
 
 const menu = [
   { href: "/pessoas", rotulo: "Pessoas" },
-  { href: "/clientes", rotulo: "Clientes" },
   { href: "/contratos", rotulo: "Contratos" },
   { href: "/recebiveis", rotulo: "Recebíveis" },
 ];

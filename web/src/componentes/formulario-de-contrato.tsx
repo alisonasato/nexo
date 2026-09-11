@@ -18,7 +18,7 @@ function hojeIso(): string {
 }
 
 const vazio: DadosDeContrato = {
-  clienteId: "",
+  pessoaId: "",
   descricao: "Honorários contábeis",
   valor: 0,
   diaDeVencimento: 10,
@@ -51,11 +51,13 @@ export function FormularioDeContrato({ id }: { id?: string }) {
   const [valorEmDigitos, definirDigitos] = useState("");
 
   const clientes = useQuery({
-    queryKey: ["clientes"],
+    queryKey: ["pessoas", "clientes"],
     queryFn: async () => {
-      const { data, error } = await api.GET("/clientes");
+      const { data, error } = await api.GET("/pessoas", {
+        params: { query: { papel: "Cliente", tamanho: 200 } },
+      });
       if (error || !data) throw new Error("Não foi possível carregar os clientes.");
-      return data;
+      return data.itens;
     },
   });
 
@@ -109,11 +111,11 @@ export function FormularioDeContrato({ id }: { id?: string }) {
       <div className="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
         <p className="font-medium text-slate-700">Não há clientes ainda.</p>
         <p className="max-w-md text-slate-500">
-          Um contrato é o acordo com um cliente. Cadastre a pessoa e depois marque-a como cliente
-          do escritório.
+          Um contrato é o acordo com um cliente. Cadastre a pessoa e marque nela o papel
+          Cliente.
         </p>
-        <Link href="/clientes" className="font-semibold text-marca-700 hover:underline">
-          Ir para Clientes
+        <Link href="/pessoas" className="font-semibold text-marca-700 hover:underline">
+          Ir para Pessoas
         </Link>
       </div>
     );
@@ -152,10 +154,10 @@ export function FormularioDeContrato({ id }: { id?: string }) {
           <div className="sm:col-span-2">
             <Selecao
               rotulo="Cliente"
-              value={dados.clienteId}
-              onChange={(evento) => alterar("clienteId", evento.target.value)}
-              erro={erroDe("clienteId")}
-              ajuda={sugestaoDe("clienteId")}
+              value={dados.pessoaId}
+              onChange={(evento) => alterar("pessoaId", evento.target.value)}
+              erro={erroDe("pessoaId")}
+              ajuda={sugestaoDe("pessoaId")}
             >
               <option value="">Escolha um cliente…</option>
               {clientes.data?.map((cliente) => (

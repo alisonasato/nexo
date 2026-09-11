@@ -7,7 +7,7 @@ using Nexo.Api.Endpoints;
 namespace Nexo.Api.Testes;
 
 /// <summary>
-/// O código do cliente: número puro, sem prefixo e sem zeros à esquerda.
+/// O código da pessoa: número puro, sem prefixo e sem zeros à esquerda.
 ///
 /// <para>
 /// É escolha de quem usa, não detalhe técnico — o código do cliente é o que se
@@ -22,7 +22,7 @@ namespace Nexo.Api.Testes;
 /// </para>
 /// </summary>
 [Collection(nameof(ColecaoDoBanco))]
-public class CodigoDoCliente(BancoDeTestes banco) : IDisposable
+public class CodigoDaPessoa(BancoDeTestes banco) : IDisposable
 {
     private readonly AplicacaoDeTestes _aplicacao = new(banco.Conexao);
 
@@ -61,8 +61,8 @@ public class CodigoDoCliente(BancoDeTestes banco) : IDisposable
         /* Doze clientes: o bastante para o texto e o número discordarem. */
         for (var i = 0; i < 12; i++) await CriarCliente(http);
 
-        var clientes = await http.GetFromJsonAsync<List<ClienteNaLista>>("/clientes", Json);
-        var codigos = clientes!.Select(cliente => cliente.Codigo).ToList();
+        var pagina = await http.GetFromJsonAsync<PaginaDePessoas>("/pessoas?papel=Cliente&tamanho=50", Json);
+        var codigos = pagina!.Itens.Select(pessoa => pessoa.Codigo).OrderBy(c => c.Length).ThenBy(c => c).ToList();
 
         Assert.Equal(
             ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"],
@@ -73,23 +73,18 @@ public class CodigoDoCliente(BancoDeTestes banco) : IDisposable
          * 12, 2, 3… que é a ordem de dicionário, correta para texto e errada
          * para quem procura o cliente 2.
          */
-        Assert.Equal(codigos.OrderBy(int.Parse), codigos);
+        Assert.Equal(codigos.OrderBy(c => int.Parse(c)), codigos);
     }
 
     private static async Task CriarCliente(HttpClient http)
     {
-        var pessoa = await http.PostAsJsonAsync("/pessoas", new DadosDePessoa(
-            TipoPessoa.Juridica, "Cliente " + Guid.NewGuid().ToString("N")[..8], string.Empty,
+        var resposta = await http.PostAsJsonAsync("/pessoas", new DadosDePessoa(
+            TipoPessoa.Juridica, RegimeTributario.SimplesNacional, string.Empty, [Papel.Cliente],
+            "Cliente " + Guid.NewGuid().ToString("N")[..8], string.Empty,
             CnpjValido(), string.Empty, string.Empty, string.Empty, string.Empty, string.Empty,
             null, string.Empty, true), Json);
-        pessoa.EnsureSuccessStatusCode();
 
-        var criada = await pessoa.Content.ReadFromJsonAsync<PessoaDetalhada>(Json);
-
-        var vinculo = await http.PostAsJsonAsync("/clientes", new DadosDeCliente(
-            criada!.Id, RegimeTributario.SimplesNacional, string.Empty, string.Empty, true), Json);
-
-        vinculo.EnsureSuccessStatusCode();
+        resposta.EnsureSuccessStatusCode();
     }
 
     /// <summary>Um CNPJ novo com dígitos verificadores certos.</summary>

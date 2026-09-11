@@ -224,7 +224,8 @@ public class CadastroDePessoas(BancoDeTestes banco) : IDisposable
     /* ------------------------------------------------------------- apoio */
 
     private static DadosDePessoa Dados(TipoPessoa tipo, string nome, string documento) => new(
-        tipo, nome, string.Empty, documento, string.Empty, string.Empty,
+        tipo, RegimeTributario.SimplesNacional, string.Empty, [],
+        nome, string.Empty, documento, string.Empty, string.Empty,
         string.Empty, string.Empty, string.Empty, null, string.Empty, true);
 
     /// <summary>

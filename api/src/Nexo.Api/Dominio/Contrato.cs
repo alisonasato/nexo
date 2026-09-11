@@ -19,8 +19,9 @@ public class Contrato
     public Guid Id { get; set; }
     public Guid TenantId { get; set; }
 
-    public Guid ClienteId { get; set; }
-    public Cliente? Cliente { get; set; }
+    /// <summary>A pessoa com quem o acordo existe. Ela carrega o papel de cliente. </summary>
+    public Guid PessoaId { get; set; }
+    public Pessoa? Pessoa { get; set; }
 
     /// <summary>Código sequencial visível, no formato C0001.</summary>
     public string Codigo { get; set; } = string.Empty;

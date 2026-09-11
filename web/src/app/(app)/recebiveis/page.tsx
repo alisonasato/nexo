@@ -121,14 +121,17 @@ export default function ListagemDeRecebiveis() {
     },
   });
 
-  /* Só os ativos: cobrança nova para cliente desligado é quase sempre engano. */
+  /* Só quem carrega o papel de cliente: cobrar um fornecedor por engano de
+     escolha na lista é erro que só aparece na hora de receber. */
   const clientes = useQuery({
-    queryKey: ["clientes", false],
+    queryKey: ["pessoas", "clientes"],
     enabled: lancando,
     queryFn: async () => {
-      const { data, error } = await api.GET("/clientes");
+      const { data, error } = await api.GET("/pessoas", {
+        params: { query: { papel: "Cliente", tamanho: 200 } },
+      });
       if (error || !data) throw new Error("Não foi possível carregar os clientes.");
-      return data;
+      return data.itens;
     },
   });
 
@@ -136,7 +139,7 @@ export default function ListagemDeRecebiveis() {
     mutationFn: async () => {
       const { data, error } = await api.POST("/recebiveis", {
         body: {
-          clienteId: clienteDoAvulso,
+          pessoaId: clienteDoAvulso,
           descricao: descricaoDoAvulso,
           valor: valorDosDigitos(valorDoAvulso),
           vencimento: vencimentoDoAvulso,
@@ -381,9 +384,9 @@ export default function ListagemDeRecebiveis() {
                     <tr key={item.id} className="border-b border-borda last:border-0 align-top">
                       <td className="px-4 py-3">
                         <span className="numeros-tabulares text-slate-500">
-                          {item.codigoDoCliente}
+                          {item.codigoDaPessoa}
                         </span>{" "}
-                        <span className="text-slate-800">{item.nomeDoCliente}</span>
+                        <span className="text-slate-800">{item.nomeDaPessoa}</span>
                         <span className="block text-slate-500">{item.descricao}</span>
                       </td>
                       <td className="px-4 py-3 text-slate-700">

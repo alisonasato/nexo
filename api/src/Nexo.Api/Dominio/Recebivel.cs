@@ -37,8 +37,9 @@ public class Recebivel
     public Guid Id { get; set; }
     public Guid TenantId { get; set; }
 
-    public Guid ClienteId { get; set; }
-    public Cliente? Cliente { get; set; }
+    /// <summary>A pessoa com quem o acordo existe. Ela carrega o papel de cliente. </summary>
+    public Guid PessoaId { get; set; }
+    public Pessoa? Pessoa { get; set; }
 
     /// <summary>Nulo quando o valor é avulso, sem contrato por trás.</summary>
     public Guid? ContratoId { get; set; }

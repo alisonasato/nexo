@@ -89,7 +89,6 @@ public class CicloDoDinheiro(BancoDeTestes banco) : IDisposable
         var conta = await Contas.Criar(banco, _aplicacao);
 
         var pessoaId = Guid.NewGuid();
-        var clienteId = Guid.NewGuid();
         var contratoId = Guid.NewGuid();
 
         await using (var contexto = banco.Criar(conta.TenantId))
@@ -97,15 +96,15 @@ public class CicloDoDinheiro(BancoDeTestes banco) : IDisposable
             contexto.Pessoas.Add(new Pessoa
             {
                 Id = pessoaId, TenantId = conta.TenantId, Tipo = TipoPessoa.Juridica,
-                Nome = "Cliente do índice", Documento = CnpjValido(),
+                Nome = "Cliente do índice", Documento = CnpjValido(), Codigo = "9001",
             });
-            contexto.Clientes.Add(new Cliente
+            contexto.PessoaPapeis.Add(new PessoaPapel
             {
-                Id = clienteId, TenantId = conta.TenantId, PessoaId = pessoaId, Codigo = "C-9001",
+                TenantId = conta.TenantId, PessoaId = pessoaId, Papel = Papel.Cliente,
             });
             contexto.Contratos.Add(new Contrato
             {
-                Id = contratoId, TenantId = conta.TenantId, ClienteId = clienteId,
+                Id = contratoId, TenantId = conta.TenantId, PessoaId = pessoaId,
                 Codigo = "C9001", Descricao = "Honorários", Valor = 100m,
                 DiaDeVencimento = 10, InicioDaVigencia = new DateOnly(2025, 1, 1),
             });
@@ -114,7 +113,7 @@ public class CicloDoDinheiro(BancoDeTestes banco) : IDisposable
 
         Recebivel Mensalidade() => new()
         {
-            Id = Guid.NewGuid(), TenantId = conta.TenantId, ClienteId = clienteId,
+            Id = Guid.NewGuid(), TenantId = conta.TenantId, PessoaId = pessoaId,
             ContratoId = contratoId, CompetenciaAno = 2026, CompetenciaMes = 9,
             Descricao = "Honorários", Valor = 100m, Vencimento = new DateOnly(2026, 9, 10),
         };
@@ -310,7 +309,7 @@ public class CicloDoDinheiro(BancoDeTestes banco) : IDisposable
          * ocupada para sempre por um recebivel errado.
          */
         await cliente.PutAsJsonAsync($"/contratos/{contratoId}", new DadosDeContrato(
-            await ClienteDoContrato(cliente, contratoId),
+            await PessoaDoContrato(cliente, contratoId),
             "Honorários contábeis", 780m, 10,
             new DateOnly(2025, 1, 1), null, SituacaoContrato.Ativo, string.Empty), Json);
 
@@ -511,10 +510,10 @@ public class CicloDoDinheiro(BancoDeTestes banco) : IDisposable
         DateOnly? inicio = null,
         DateOnly? fim = null)
     {
-        var clienteId = await CriarCliente(cliente);
+        var pessoaId = await CriarCliente(cliente);
 
         var contrato = await cliente.PostAsJsonAsync("/contratos", new DadosDeContrato(
-            clienteId, "Honorários contábeis", valor, dia,
+            pessoaId, "Honorários contábeis", valor, dia,
             inicio ?? new DateOnly(2025, 1, 1), fim, situacao, string.Empty), Json);
         contrato.EnsureSuccessStatusCode();
 
@@ -523,10 +522,10 @@ public class CicloDoDinheiro(BancoDeTestes banco) : IDisposable
     }
 
     /// <summary>O cliente de um contrato, para poder alterá-lo sem inventar o vínculo.</summary>
-    private static async Task<Guid> ClienteDoContrato(HttpClient cliente, Guid contratoId)
+    private static async Task<Guid> PessoaDoContrato(HttpClient cliente, Guid contratoId)
     {
         var contrato = await cliente.GetFromJsonAsync<ContratoDetalhado>($"/contratos/{contratoId}", Json);
-        return contrato!.ClienteId;
+        return contrato!.PessoaId;
     }
 
     private async Task<ResultadoDaGeracao> Gerar(HttpClient cliente, int ano, int mes)
@@ -689,7 +688,7 @@ public class CicloDoDinheiro(BancoDeTestes banco) : IDisposable
         Assert.Equal(HttpStatusCode.UnprocessableEntity, resposta.StatusCode);
 
         var corpo = await resposta.Content.ReadFromJsonAsync<RespostaComProblemas>(Json);
-        Assert.Equal("clienteId", Assert.Single(corpo!.Problemas).Campo);
+        Assert.Equal("pessoaId", Assert.Single(corpo!.Problemas).Campo);
 
         Assert.Empty((await Listar(httpA)).Itens);
     }
@@ -724,22 +723,19 @@ public class CicloDoDinheiro(BancoDeTestes banco) : IDisposable
     private static async Task<PaginaDeRecebiveis> Listar(HttpClient cliente) =>
         (await cliente.GetFromJsonAsync<PaginaDeRecebiveis>("/recebiveis", Json))!;
 
-    /// <summary>Uma pessoa nova e o vínculo de cliente, pela borda HTTP.</summary>
+    /// <summary>Uma pessoa nova já marcada como cliente, pela borda HTTP.</summary>
     private static async Task<Guid> CriarCliente(HttpClient cliente)
     {
-        var pessoa = await cliente.PostAsJsonAsync("/pessoas", new DadosDePessoa(
-            TipoPessoa.Juridica, "Cliente " + Guid.NewGuid().ToString("N")[..8], string.Empty,
+        var resposta = await cliente.PostAsJsonAsync("/pessoas", new DadosDePessoa(
+            TipoPessoa.Juridica, RegimeTributario.SimplesNacional, string.Empty, [Papel.Cliente],
+            "Cliente " + Guid.NewGuid().ToString("N")[..8], string.Empty,
             CnpjValido(), string.Empty, string.Empty, string.Empty, string.Empty, string.Empty,
             null, string.Empty, true), Json);
-        pessoa.EnsureSuccessStatusCode();
-        var criada = await pessoa.Content.ReadFromJsonAsync<PessoaDetalhada>(Json);
 
-        var vinculo = await cliente.PostAsJsonAsync("/clientes", new DadosDeCliente(
-            criada!.Id, RegimeTributario.SimplesNacional, "Responsável", string.Empty, true), Json);
-        vinculo.EnsureSuccessStatusCode();
+        resposta.EnsureSuccessStatusCode();
 
-        var clienteCriado = await vinculo.Content.ReadFromJsonAsync<ClienteNaLista>(Json);
-        return clienteCriado!.Id;
+        var criada = await resposta.Content.ReadFromJsonAsync<PessoaDetalhada>(Json);
+        return criada!.Id;
     }
 
     /// <summary>Um CNPJ novo com dígitos verificadores certos.</summary>

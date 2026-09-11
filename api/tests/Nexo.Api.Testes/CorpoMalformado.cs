@@ -30,7 +30,7 @@ public class CorpoMalformado(BancoDeTestes banco) : IDisposable
     {
         var cliente = await Contas.Entrar(_aplicacao, await Contas.Criar(banco, _aplicacao));
 
-        var resposta = await cliente.PostAsync("/clientes", Json("{ isto nao e json"));
+        var resposta = await cliente.PostAsync("/pessoas", Json("{ isto nao e json"));
 
         Assert.Equal(HttpStatusCode.BadRequest, resposta.StatusCode);
 

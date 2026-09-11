@@ -268,7 +268,7 @@ export default function ListagemDeContratos() {
                   ? "Tente o código, um pedaço da descrição ou o nome do cliente."
                   : situacao
                     ? "Nenhum contrato nessa situação."
-                    : "Um contrato precisa de um cliente. Se ainda não há clientes, cadastre a pessoa e marque-a como cliente do escritório."}
+                    : "Um contrato precisa de alguém marcado como cliente. Abra Pessoas, cadastre, e marque o papel Cliente."}
             </p>
           </div>
         )}
@@ -324,9 +324,9 @@ export default function ListagemDeContratos() {
                       </td>
                       <td className="px-4 py-3 text-slate-700">
                         <span className="numeros-tabulares text-slate-500">
-                          {contrato.codigoDoCliente}
+                          {contrato.codigoDaPessoa}
                         </span>{" "}
-                        {contrato.nomeDoCliente}
+                        {contrato.nomeDaPessoa}
                       </td>
                       <td className="px-4 py-3 text-slate-700">{contrato.descricao}</td>
                       <td className="numeros-tabulares px-4 py-3 text-right font-medium text-slate-800">

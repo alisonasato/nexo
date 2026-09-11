@@ -12,6 +12,28 @@ import { apenasDigitos } from "@/lib/formato";
 import { mascararCep, mascararCnpj, mascararCpf, mascararTelefone } from "@/lib/mascaras";
 
 type DadosDePessoa = components["schemas"]["DadosDePessoa"];
+type Papel = components["schemas"]["Papel"];
+type RegimeTributario = components["schemas"]["RegimeTributario"];
+
+/*
+ * Os quatro papéis, na ordem em que o escritório pensa neles. Cliente primeiro
+ * porque é o que quase todo cadastro vai receber.
+ */
+const papeis: Record<Papel, string> = {
+  Cliente: "Cliente",
+  Fornecedor: "Fornecedor",
+  Vendedor: "Vendedor",
+  Colaborador: "Colaborador",
+};
+
+const regimes: Record<RegimeTributario, string> = {
+  Mei: "MEI",
+  SimplesNacional: "Simples Nacional",
+  LucroPresumido: "Lucro Presumido",
+  LucroReal: "Lucro Real",
+  TerceiroSetor: "Terceiro Setor",
+  PessoaFisica: "Pessoa Física",
+};
 type Problema = components["schemas"]["Problema"];
 
 const UFS = [
@@ -42,6 +64,9 @@ function recadoDaFalha(status: number, oQue: string, oQuePreencher: string): str
 
 const vazia: DadosDePessoa = {
   tipo: "Juridica",
+  regimeTributario: "SimplesNacional",
+  responsavel: "",
+  papeis: [],
   nome: "",
   nomeFantasia: "",
   documento: "",
@@ -327,6 +352,39 @@ export function FormularioDePessoa({ id }: { id?: string }) {
         )}
 
         <section className="flex flex-col gap-4 rounded-[--radius-cartao] border border-borda bg-superficie p-5">
+          <div>
+            <h2 className="text-xs font-semibold tracking-wide text-slate-500 uppercase">
+              Papéis
+            </h2>
+            <p className="mt-1 text-slate-500">
+              O que esta pessoa é para o escritório. Pode ser mais de um: a gráfica que imprime
+              os carnês costuma ser fornecedora e cliente ao mesmo tempo.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap gap-x-6 gap-y-3">
+            {(Object.entries(papeis) as [Papel, string][]).map(([valor, rotulo]) => (
+              <label key={valor} className="flex items-center gap-2 text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={(dados.papeis ?? []).includes(valor)}
+                  onChange={(evento) =>
+                    alterar(
+                      "papeis",
+                      evento.target.checked
+                        ? [...(dados.papeis ?? []), valor]
+                        : (dados.papeis ?? []).filter((atual) => atual !== valor),
+                    )
+                  }
+                  className="size-4 rounded border-borda-forte accent-marca-600"
+                />
+                {rotulo}
+              </label>
+            ))}
+          </div>
+        </section>
+
+        <section className="flex flex-col gap-4 rounded-[--radius-cartao] border border-borda bg-superficie p-5">
           <h2 className="text-xs font-semibold tracking-wide text-slate-500 uppercase">
             Identificação
           </h2>
@@ -403,6 +461,32 @@ export function FormularioDePessoa({ id }: { id?: string }) {
                 />
               </>
             )}
+
+            {/*
+              Regime e responsável ficam aqui, e não num bloco de cliente, porque
+              não são do papel: o regime é o da empresa na Receita, cliente ou
+              não, e o responsável é quem no escritório cuida dela.
+            */}
+            <Selecao
+              rotulo="Regime tributário"
+              value={dados.regimeTributario}
+              onChange={(evento) =>
+                alterar("regimeTributario", evento.target.value as RegimeTributario)
+              }
+            >
+              {Object.entries(regimes).map(([valor, rotulo]) => (
+                <option key={valor} value={valor}>
+                  {rotulo}
+                </option>
+              ))}
+            </Selecao>
+
+            <Entrada
+              rotulo="Responsável"
+              value={dados.responsavel ?? ""}
+              onChange={(evento) => alterar("responsavel", evento.target.value)}
+              ajuda="Quem cuida desta pessoa no escritório."
+            />
           </div>
         </section>
 
