@@ -44,6 +44,47 @@ public class TrocaDeSenha(BancoDeTestes banco) : IDisposable
     }
 
     [Fact]
+    public async Task Trocar_a_senha_derruba_a_sessao_aberta_em_outro_navegador()
+    {
+        var conta = await Contas.Criar(banco, _aplicacao);
+
+        /* Duas sessões da mesma pessoa: o computador do escritório e o de casa. */
+        var noEscritorio = await Contas.Entrar(_aplicacao, conta);
+        var emCasa = await Contas.Entrar(_aplicacao, conta);
+
+        Assert.Equal(HttpStatusCode.OK, (await emCasa.GetAsync("/autenticacao/eu")).StatusCode);
+
+        var troca = await noEscritorio.PostAsJsonAsync("/autenticacao/trocar-senha",
+            new PedidoDeTrocaDeSenha(conta.Senha, "OutraSenhaForte@2027"));
+        Assert.Equal(HttpStatusCode.NoContent, troca.StatusCode);
+
+        /*
+         * Este é o ponto. O token de casa continua assinado por nós e dentro do
+         * prazo — só o carimbo não bate mais com o banco. Sem a conferência a
+         * cada requisição, ele seguiria abrindo tudo por até oito horas, que é
+         * exatamente o que quem troca a senha por suspeita de vazamento não
+         * quer.
+         */
+        Assert.Equal(HttpStatusCode.Unauthorized, (await emCasa.GetAsync("/autenticacao/eu")).StatusCode);
+    }
+
+    [Fact]
+    public async Task Quem_trocou_a_senha_segue_dentro_sem_entrar_de_novo()
+    {
+        var conta = await Contas.Criar(banco, _aplicacao);
+        var cliente = await Contas.Entrar(_aplicacao, conta);
+
+        var troca = await cliente.PostAsJsonAsync("/autenticacao/trocar-senha",
+            new PedidoDeTrocaDeSenha(conta.Senha, "OutraSenhaForte@2027"));
+
+        /* O cookie novo vem na mesma resposta, já com o carimbo novo dentro. */
+        cliente.DefaultRequestHeaders.Remove("Cookie");
+        cliente.DefaultRequestHeaders.Add("Cookie", Contas.CabecalhoDeCookie(troca).Split(';')[0]);
+
+        Assert.Equal(HttpStatusCode.OK, (await cliente.GetAsync("/autenticacao/eu")).StatusCode);
+    }
+
+    [Fact]
     public async Task A_resposta_traz_um_cookie_novo()
     {
         var conta = await Contas.Criar(banco, _aplicacao);

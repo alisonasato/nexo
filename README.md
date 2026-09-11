@@ -190,6 +190,13 @@ O token é um JWT que viaja em **cookie `httpOnly`**, nunca no cabeçalho
 acesso ao dinheiro, e o que o JavaScript não alcança ele não rouba. O cookie é
 `SameSite=Lax`, o que de quebra impede que outro site dispare POST autenticado.
 
+**Trocar a senha derruba as outras sessões.** Junto com o tenant viaja o
+carimbo de segurança do Identity, e ele é conferido contra o banco a cada
+requisição. Um token autocontido não tem como ser apagado de longe; o que muda
+é o carimbo, e o token velho passa a não bater. Quem trocou a senha continua
+dentro, porque recebe um cookie novo na mesma resposta. Custa uma consulta por
+requisição, medida em 0,2 ms: leitura por chave primária numa tabela sem RLS.
+
 Dentro do token vão `tenant_id` e `empresa_id`. O `tenant_id` é lido a cada
 abertura de conexão e vira `app.tenant_id` na sessão do Postgres — é ele que a
 política de RLS compara. A corrente é: cookie, token, claim, interceptor,

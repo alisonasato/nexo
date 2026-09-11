@@ -52,11 +52,6 @@ e não atrapalha.
 - Cadastro de cliente novo. Hoje existe o provisionamento do **primeiro**
   tenant, por configuração, e mais nada. Como um segundo escritório vira
   cliente do Nexo é um fluxo que ainda não foi desenhado.
-- **Invalidar sessões abertas ao trocar a senha.** A troca existe, mas o token
-  é autocontido: uma sessão aberta em outro navegador segue valendo por até
-  oito horas. No dia em que a troca for por suspeita de vazamento, isso passa a
-  importar — e a resposta é validar o carimbo de segurança do Identity a cada
-  requisição, ao custo de uma consulta ao banco.
 - **Recuperar senha esquecida.** Não existe. Hoje a saída é reprovisionar, o
   que exige banco vazio — ou seja, não é saída nenhuma. Depende de e-mail
   transacional, que o projeto ainda não tem.
@@ -66,9 +61,10 @@ e não atrapalha.
   e-mails diferentes. É limitação conhecida, não descuido.
 - Renovação de sessão. O token vale oito horas e acabou: não há refresh nem
   expiração deslizante, então quem passa do prazo entra de novo.
-- Revogação. Como o token é autocontido, desligar um usuário no banco não
-  invalida o token que ele já tem, até expirar. Se isso passar a importar,
-  vira lista de revogados ou sessão com estado.
+- Desligar um usuário. O mecanismo de revogação já existe — a conferência do
+  carimbo a cada requisição derruba a sessão no ato, e trocar o carimbo é uma
+  linha (`UpdateSecurityStampAsync`). O que falta é a tela e a decisão de quem
+  pode desligar quem, que só faz sentido junto com papéis e permissões.
 - Troca de empresa em tela. O `empresa_id` vai no token com a empresa padrão
   do usuário; trocar de estabelecimento sem sair e entrar ainda não existe.
 - Papéis e permissões. O Identity já tem a tabela de papéis, e nada os usa:

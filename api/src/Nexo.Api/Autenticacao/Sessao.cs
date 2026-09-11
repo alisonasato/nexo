@@ -14,6 +14,18 @@ public static class Sessao
     public const string ClaimEmpresa = "empresa_id";
 
     /// <summary>
+    /// O carimbo de segurança do Identity, copiado para dentro do token.
+    ///
+    /// <para>
+    /// É o que faz trocar a senha derrubar as outras sessões. O token é
+    /// autocontido e ninguém consegue apagá-lo de longe — mas o Identity troca
+    /// este carimbo a cada mudança de senha, então o token antigo passa a
+    /// carregar um valor que não bate mais com o banco, e cai na porta.
+    /// </para>
+    /// </summary>
+    public const string ClaimCarimbo = "carimbo";
+
+    /// <summary>
     /// O token vive num cookie <c>httpOnly</c> (decisão Q29), e não no
     /// cabeçalho <c>Authorization</c>: um XSS num ERP é acesso ao dinheiro, e
     /// o que o JavaScript não alcança ele não rouba.

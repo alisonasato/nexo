@@ -21,6 +21,14 @@ public sealed class GeradorDeToken(IOptions<OpcoesDeToken> opcoes)
             new(JwtRegisteredClaimNames.Email, usuario.Email ?? string.Empty),
             new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
             new(Sessao.ClaimTenant, usuario.TenantId.ToString()),
+
+            /*
+             * O carimbo do Identity entra aqui e é conferido a cada requisição.
+             * Sem ele, trocar a senha não derruba sessão nenhuma: o token é
+             * autocontido e seguiria valendo até expirar, que é o contrário do
+             * que quem troca a senha por suspeita de vazamento espera.
+             */
+            new(Sessao.ClaimCarimbo, usuario.SecurityStamp ?? string.Empty),
         };
 
         if (usuario.EmpresaPadraoId is { } empresa)

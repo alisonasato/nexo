@@ -155,6 +155,51 @@ construtor.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
                     contexto.Token = token;
                 return Task.CompletedTask;
             },
+
+            /*
+             * Assinatura válida não basta: o carimbo precisa bater com o banco.
+             *
+             * Sem esta conferência, trocar a senha não derruba nada. O token é
+             * autocontido — não há lista de sessões para apagar —, então uma
+             * sessão aberta em outro navegador seguiria valendo até expirar. No
+             * dia em que a troca for por suspeita de vazamento, é exatamente
+             * essa sessão que precisa cair, e é a única que importa.
+             *
+             * Custa uma consulta por requisição, e é uma consulta por chave
+             * primária numa tabela sem RLS. Foi decisão consciente: conferir de
+             * vez em quando, como o cookie do Identity faz por padrão, deixa uma
+             * janela em que a senha já mudou e a sessão antiga ainda abre porta.
+             */
+            OnTokenValidated = async contexto =>
+            {
+                var carimbo = contexto.Principal?.FindFirst(Sessao.ClaimCarimbo)?.Value;
+                var sujeito = contexto.Principal?.FindFirst(JwtRegisteredClaimNames.Sub)?.Value;
+
+                if (string.IsNullOrEmpty(carimbo) || !Guid.TryParse(sujeito, out var usuarioId))
+                {
+                    /* Token nosso, assinado por nós, sem o que precisamos: é de
+                       antes desta conferência existir. Cai como qualquer outro. */
+                    contexto.Fail("Token sem carimbo de segurança.");
+                    return;
+                }
+
+                /*
+                 * Escopo próprio para não encostar no DbContext da requisição,
+                 * que ainda nem começou a servir o endpoint.
+                 */
+                using var escopo = contexto.HttpContext.RequestServices
+                    .GetRequiredService<IServiceScopeFactory>().CreateScope();
+
+                var banco = escopo.ServiceProvider.GetRequiredService<NexoDbContext>();
+
+                var atual = await banco.Users.AsNoTracking()
+                    .Where(usuario => usuario.Id == usuarioId)
+                    .Select(usuario => usuario.SecurityStamp)
+                    .FirstOrDefaultAsync(contexto.HttpContext.RequestAborted);
+
+                if (atual is null || atual != carimbo)
+                    contexto.Fail("Sessão encerrada: a senha mudou desde que este acesso começou.");
+            },
         };
 
         /*
