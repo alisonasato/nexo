@@ -78,7 +78,6 @@ e não atrapalha.
 
 - O motor de telas declarativas (Q20). Sai por extração quando a segunda ou
   terceira tela mostrar o que se repete — não antes.
-- Reativar uma pessoa inativa pela tela. Hoje só a API faz, por `PUT`.
 - Consulta de CNPJ e CEP por API pública, com a lupa que o protótipo tinha.
   Enquanto não existe, tudo é digitado à mão.
 - Máscara ao digitar documento, telefone e CEP. Hoje formata só na leitura.
@@ -90,13 +89,13 @@ e não atrapalha.
 
 - **Cobrança automática pelo PSP.** Não é dívida técnica: é a decisão de
   qual PSP e a conta nele, que só você pode tomar. Detalhes em DECISOES.md.
-- Reativar e inativar cliente pela tela. A API altera; a tela só cria e lista.
 - Recebível avulso, fora de contrato. O modelo já aceita (`contratoId` nulo),
   a API e a tela ainda não.
 - Gerar mensalidade só dos contratos selecionados. A API aceita a lista de
   ids; a tela sempre manda todos.
-- Busca de contratos na tela. A API já aceita `busca` por código, descrição e
-  cliente; a listagem ainda não tem o campo.
+- Filtrar contratos por situação na tela. A API já aceita `situacao`; a
+  listagem mistura ativos, suspensos e encerrados. Virou incômodo agora que a
+  busca existe: achar um contrato ficou fácil, separar os encerrados não.
 - Reajuste de contrato por índice, e histórico de valores. Hoje mudar o valor
   reescreve o contrato, sem deixar rastro do que era antes.
 - Juros e multa sobre o vencido. Hoje o vencido só aparece destacado.
@@ -105,12 +104,6 @@ e não atrapalha.
 
 ## Aberto pela preparação para produção
 
-- **Dockerfile da API e do front.** Não escritos porque esta máquina não tem
-  Docker e eu não conseguiria construí-los. Configuração de implantação não
-  testada é pior do que nenhuma.
-- **CI.** `npm run verificar` e `npm run testar` são manuais. Os testes
-  precisam de Postgres, o que um serviço de contêiner no CI resolve — mas
-  isso pressupõe repositório publicado, que ainda não existe.
 - **Tabelas do Identity em PascalCase** (`AspNetUsers`), enquanto as de
   negócio são `snake_case`. O Identity fixa os nomes e a convenção não os
   alcança. O EF cita os identificadores, então nada quebra; incomoda quem

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { api } from "@/api/cliente";
@@ -36,11 +36,23 @@ export default function ListagemDeClientes() {
   const [regime, definirRegime] = useState<RegimeTributario>("SimplesNacional");
   const [responsavel, definirResponsavel] = useState("");
   const [problemas, definirProblemas] = useState<Problema[]>([]);
+  const [incluirInativos, definirIncluirInativos] = useState(false);
+
+  /* Mesma assimetria da tela de pessoas: desligar confirma, religar não. */
+  const [confirmando, definirConfirmando] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!confirmando) return;
+    const relogio = setTimeout(() => definirConfirmando(null), 5000);
+    return () => clearTimeout(relogio);
+  }, [confirmando]);
 
   const clientes = useQuery({
-    queryKey: ["clientes"],
+    queryKey: ["clientes", incluirInativos],
     queryFn: async () => {
-      const { data, error } = await api.GET("/clientes");
+      const { data, error } = await api.GET("/clientes", {
+        params: { query: incluirInativos ? { incluirInativos: true } : {} },
+      });
       if (error || !data) throw new Error("Não foi possível carregar os clientes.");
       return data;
     },
@@ -80,8 +92,52 @@ export default function ListagemDeClientes() {
     onError: (erro) => definirProblemas(problemasDaResposta(erro)),
   });
 
-  /* Quem já é cliente não aparece na lista de escolha: o vínculo é único. */
-  const jaSaoClientes = new Set(clientes.data?.map((cliente) => cliente.pessoaId));
+  /*
+   * Desligar e religar têm endereço próprio na API, e não saem por um PUT com
+   * `ativo` trocado: a listagem não traz `observacoes`, então o PUT daqui
+   * mandaria o campo vazio e apagaria a anotação do vínculo.
+   */
+  const inativar = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await api.DELETE("/clientes/{id}", { params: { path: { id } } });
+      if (error) throw new Error("Não foi possível inativar este cliente.");
+    },
+    onSuccess: () => {
+      definirConfirmando(null);
+      clienteDeConsultas.invalidateQueries({ queryKey: ["clientes"] });
+    },
+  });
+
+  const reativar = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await api.POST("/clientes/{id}/reativar", { params: { path: { id } } });
+      if (error) throw new Error("Não foi possível reativar este cliente.");
+    },
+    onSuccess: () => clienteDeConsultas.invalidateQueries({ queryKey: ["clientes"] }),
+  });
+
+  /*
+   * Os vínculos que já existem, inativos inclusive.
+   *
+   * Não dá para reaproveitar a listagem da tela: ela obedece ao "Mostrar
+   * inativos", e com a caixa desmarcada um cliente desligado sumiria daqui —
+   * a pessoa voltaria a aparecer como disponível, e o vínculo novo seria
+   * recusado com "já é cliente" só depois de preencher o formulário. O
+   * vínculo é único independente de estar ligado ou não.
+   */
+  const vinculados = useQuery({
+    queryKey: ["clientes", "todos-os-vinculos"],
+    enabled: abrindo,
+    queryFn: async () => {
+      const { data, error } = await api.GET("/clientes", {
+        params: { query: { incluirInativos: true } },
+      });
+      if (error || !data) throw new Error("Não foi possível conferir os vínculos existentes.");
+      return data;
+    },
+  });
+
+  const jaSaoClientes = new Set(vinculados.data?.map((cliente) => cliente.pessoaId));
   const disponiveis = pessoas.data?.itens.filter((pessoa) => !jaSaoClientes.has(pessoa.id)) ?? [];
 
   return (
@@ -134,7 +190,7 @@ export default function ListagemDeClientes() {
                   onChange={(evento) => definirPessoaId(evento.target.value)}
                 >
                   <option value="">
-                    {pessoas.isPending ? "Carregando…" : "Escolha uma pessoa…"}
+                    {pessoas.isPending || vinculados.isPending ? "Carregando…" : "Escolha uma pessoa…"}
                   </option>
                   {disponiveis.map((pessoa) => (
                     <option key={pessoa.id} value={pessoa.id}>
@@ -165,12 +221,22 @@ export default function ListagemDeClientes() {
             </div>
 
             <div className="flex justify-end">
-              <Botao type="submit" disabled={vincular.isPending || !pessoaId}>
+              <Botao type="submit" disabled={vincular.isPending || vinculados.isPending || !pessoaId}>
                 {vincular.isPending ? "Vinculando…" : "Tornar cliente"}
               </Botao>
             </div>
           </form>
         )}
+
+        <label className="flex w-fit items-center gap-2 text-slate-600">
+          <input
+            type="checkbox"
+            checked={incluirInativos}
+            onChange={(evento) => definirIncluirInativos(evento.target.checked)}
+            className="size-4 rounded border-borda-forte accent-marca-600"
+          />
+          Mostrar inativos
+        </label>
 
         {clientes.isPending && <p className="text-slate-500">Carregando os clientes…</p>}
 
@@ -193,6 +259,9 @@ export default function ListagemDeClientes() {
                   <th scope="col" className="px-4 py-3 font-semibold">Documento</th>
                   <th scope="col" className="px-4 py-3 font-semibold">Regime</th>
                   <th scope="col" className="px-4 py-3 font-semibold">Responsável</th>
+                  <th scope="col" className="px-4 py-3 font-semibold">
+                    <span className="sr-only">Ações</span>
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -203,6 +272,11 @@ export default function ListagemDeClientes() {
                     </td>
                     <td className="px-4 py-3 text-slate-700">
                       {cliente.nome}
+                      {!cliente.ativo && (
+                        <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
+                          inativo
+                        </span>
+                      )}
                       {cliente.nomeFantasia && (
                         <span className="block text-slate-500">{cliente.nomeFantasia}</span>
                       )}
@@ -214,6 +288,33 @@ export default function ListagemDeClientes() {
                       {regimes[cliente.regimeTributario] ?? cliente.regimeTributario}
                     </td>
                     <td className="px-4 py-3 text-slate-700">{cliente.responsavel || "—"}</td>
+                    <td className="px-4 py-3 text-right">
+                      {cliente.ativo ? (
+                        <Botao
+                          aparencia={confirmando === cliente.id ? "perigo" : "secundario"}
+                          type="button"
+                          disabled={inativar.isPending}
+                          onClick={() =>
+                            confirmando === cliente.id
+                              ? inativar.mutate(cliente.id)
+                              : definirConfirmando(cliente.id)
+                          }
+                          className="px-3 py-1 text-xs"
+                        >
+                          {confirmando === cliente.id ? "Confirmar?" : "Inativar"}
+                        </Botao>
+                      ) : (
+                        <Botao
+                          aparencia="secundario"
+                          type="button"
+                          disabled={reativar.isPending}
+                          onClick={() => reativar.mutate(cliente.id)}
+                          className="px-3 py-1 text-xs"
+                        >
+                          Reativar
+                        </Botao>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>

@@ -1,0 +1,18 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "nexo-web",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "cwd": "web",
+      "port": 3000
+    },
+    {
+      "name": "nexo-api",
+      "runtimeExecutable": "dotnet",
+      "runtimeArgs": ["run", "--project", "api/src/Nexo.Api", "--urls", "http://localhost:5240"],
+      "port": 5240
+    }
+  ]
+}

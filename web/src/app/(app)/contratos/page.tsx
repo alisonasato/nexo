@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { api } from "@/api/cliente";
 import { Botao, Entrada, Selecao } from "@/componentes/controles";
@@ -22,16 +22,29 @@ export default function ListagemDeContratos() {
   const [ano, definirAno] = useState(hoje.ano);
   const [mes, definirMes] = useState(hoje.mes);
   const [pagina, definirPagina] = useState(1);
+  const [busca, definirBusca] = useState("");
+  const [termo, definirTermo] = useState("");
+
+  /* Mesmo meio segundo de espera da tela de pessoas: uma ida ao servidor por
+     pausa, não por tecla. */
+  useEffect(() => {
+    const relogio = setTimeout(() => {
+      definirTermo(busca);
+      definirPagina(1);
+    }, 500);
+    return () => clearTimeout(relogio);
+  }, [busca]);
 
   const contratos = useQuery({
-    queryKey: ["contratos", pagina],
+    queryKey: ["contratos", termo, pagina],
     queryFn: async () => {
       const { data, error } = await api.GET("/contratos", {
-        params: { query: { pagina } },
+        params: { query: { pagina, ...(termo ? { busca: termo } : {}) } },
       });
       if (error || !data) throw new Error("Não foi possível carregar os contratos.");
       return data;
     },
+    placeholderData: keepPreviousData,
   });
 
   const gerar = useMutation({
@@ -123,6 +136,18 @@ export default function ListagemDeContratos() {
           )}
         </section>
 
+        <div className="flex items-center gap-3">
+          <input
+            type="search"
+            value={busca}
+            onChange={(evento) => definirBusca(evento.target.value)}
+            placeholder="Buscar por código, descrição ou cliente"
+            aria-label="Buscar contratos"
+            className="w-full max-w-md rounded-[--radius-controle] border border-borda-forte bg-superficie px-3 py-2 placeholder:text-slate-400 focus:border-marca-500"
+          />
+          {contratos.isFetching && <span className="text-xs text-slate-500">buscando…</span>}
+        </div>
+
         {contratos.isPending && <p className="text-slate-500">Carregando os contratos…</p>}
 
         {contratos.isError && (
@@ -133,10 +158,13 @@ export default function ListagemDeContratos() {
 
         {contratos.data && contratos.data.itens.length === 0 && (
           <div className="rounded-[--radius-cartao] border border-dashed border-borda-forte bg-superficie px-6 py-12 text-center">
-            <p className="font-medium text-slate-700">Nenhum contrato cadastrado.</p>
+            <p className="font-medium text-slate-700">
+              {termo ? "Nenhum contrato encontrado." : "Nenhum contrato cadastrado."}
+            </p>
             <p className="mt-1 text-slate-500">
-              Um contrato precisa de um cliente. Se ainda não há clientes, cadastre a pessoa e
-              marque-a como cliente do escritório.
+              {termo
+                ? "Tente o código, um pedaço da descrição ou o nome do cliente."
+                : "Um contrato precisa de um cliente. Se ainda não há clientes, cadastre a pessoa e marque-a como cliente do escritório."}
             </p>
           </div>
         )}
@@ -215,6 +243,10 @@ export default function ListagemDeContratos() {
                   {formatarValor(contratos.data.totalMensalAtivo)}
                 </span>{" "}
                 por mês em contratos ativos
+                {/* Dizer isto em voz alta enquanto há busca: o número não é a
+                    soma do que está na tela, e parecer que é seria pior do que
+                    não mostrar nada. */}
+                {termo && " — todos, não só os encontrados"}
               </p>
             </div>
           </>

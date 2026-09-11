@@ -13,14 +13,16 @@ export default function ListagemDePessoas() {
   const [busca, definirBusca] = useState("");
   const [termo, definirTermo] = useState("");
   const [pagina, definirPagina] = useState(1);
+  const [incluirInativas, definirIncluirInativas] = useState(false);
 
   /*
-   * Inativar pede o segundo clique.
+   * Inativar pede o segundo clique; reativar não.
    *
-   * É reversível no dado — a pessoa continua no banco —, mas não pela tela: não
-   * há como reativar por aqui ainda. Um clique só, sem confirmação e sem
-   * desfazer, tira um cliente da lista por engano de mira. O botão vira
-   * "Confirmar?" e volta ao normal em cinco segundos.
+   * A assimetria é de propósito. Inativar some com a pessoa da lista, e um
+   * clique de mira errada faria isso sem aviso — o botão vira "Confirmar?" e
+   * volta ao normal em cinco segundos. Reativar só devolve o que já existia, e
+   * quem errar o alvo desfaz com um clique. Pedir confirmação nos dois lados
+   * ensinaria a clicar duas vezes sem ler, que é como confirmação vira ruído.
    */
   const [confirmando, definirConfirmando] = useState<string | null>(null);
 
@@ -46,10 +48,16 @@ export default function ListagemDePessoas() {
   }, [busca]);
 
   const pessoas = useQuery({
-    queryKey: ["pessoas", termo, pagina],
+    queryKey: ["pessoas", termo, pagina, incluirInativas],
     queryFn: async () => {
       const { data, error } = await api.GET("/pessoas", {
-        params: { query: { pagina, ...(termo ? { busca: termo } : {}) } },
+        params: {
+          query: {
+            pagina,
+            ...(termo ? { busca: termo } : {}),
+            ...(incluirInativas ? { incluirInativos: true } : {}),
+          },
+        },
       });
       if (error || !data) throw new Error("Não foi possível carregar o cadastro.");
       return data;
@@ -67,6 +75,14 @@ export default function ListagemDePessoas() {
       definirConfirmando(null);
       clienteDeConsultas.invalidateQueries({ queryKey: ["pessoas"] });
     },
+  });
+
+  const reativar = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await api.POST("/pessoas/{id}/reativar", { params: { path: { id } } });
+      if (error) throw new Error("Não foi possível reativar este cadastro.");
+    },
+    onSuccess: () => clienteDeConsultas.invalidateQueries({ queryKey: ["pessoas"] }),
   });
 
   return (
@@ -95,6 +111,20 @@ export default function ListagemDePessoas() {
             aria-label="Buscar pessoas"
             className="w-full max-w-md rounded-[--radius-controle] border border-borda-forte bg-superficie px-3 py-2 placeholder:text-slate-400 focus:border-marca-500"
           />
+          <label className="flex shrink-0 items-center gap-2 text-slate-600">
+            <input
+              type="checkbox"
+              checked={incluirInativas}
+              onChange={(evento) => {
+                definirIncluirInativas(evento.target.checked);
+                /* A página sete sem os inativos não é a página sete com eles. */
+                definirPagina(1);
+              }}
+              className="size-4 rounded border-borda-forte accent-marca-600"
+            />
+            Mostrar inativas
+          </label>
+
           {pessoas.isFetching && <span className="text-xs text-slate-500">buscando…</span>}
         </div>
 
@@ -144,6 +174,11 @@ export default function ListagemDePessoas() {
                         >
                           {pessoa.nome}
                         </Link>
+                        {!pessoa.ativo && (
+                          <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
+                            inativa
+                          </span>
+                        )}
                         {pessoa.nomeFantasia && (
                           <span className="block text-slate-500">{pessoa.nomeFantasia}</span>
                         )}
@@ -158,19 +193,31 @@ export default function ListagemDePessoas() {
                         {pessoa.cidade ? `${pessoa.cidade}${pessoa.uf ? "/" + pessoa.uf : ""}` : "—"}
                       </td>
                       <td className="px-4 py-3 text-right">
-                        <Botao
-                          aparencia={confirmando === pessoa.id ? "perigo" : "secundario"}
-                          type="button"
-                          disabled={inativar.isPending}
-                          onClick={() =>
-                            confirmando === pessoa.id
-                              ? inativar.mutate(pessoa.id)
-                              : definirConfirmando(pessoa.id)
-                          }
-                          className="px-3 py-1 text-xs"
-                        >
-                          {confirmando === pessoa.id ? "Confirmar?" : "Inativar"}
-                        </Botao>
+                        {pessoa.ativo ? (
+                          <Botao
+                            aparencia={confirmando === pessoa.id ? "perigo" : "secundario"}
+                            type="button"
+                            disabled={inativar.isPending}
+                            onClick={() =>
+                              confirmando === pessoa.id
+                                ? inativar.mutate(pessoa.id)
+                                : definirConfirmando(pessoa.id)
+                            }
+                            className="px-3 py-1 text-xs"
+                          >
+                            {confirmando === pessoa.id ? "Confirmar?" : "Inativar"}
+                          </Botao>
+                        ) : (
+                          <Botao
+                            aparencia="secundario"
+                            type="button"
+                            disabled={reativar.isPending}
+                            onClick={() => reativar.mutate(pessoa.id)}
+                            className="px-3 py-1 text-xs"
+                          >
+                            Reativar
+                          </Botao>
+                        )}
                       </td>
                     </tr>
                   ))}
