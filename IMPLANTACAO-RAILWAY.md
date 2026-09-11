@@ -226,6 +226,25 @@ Variáveis:
 
 Se você nomear o serviço da API com outro nome, troque o `api` do endereço.
 
+### Precisa ser o endereço privado, e não o público
+
+Pôr aqui o domínio público da API **quebra o login**, e não parece erro de
+configuração nenhum: a tela de entrar abre, `/api/saude` responde, e nenhuma
+tela protegida funciona.
+
+Aconteceu nesta implantação. O rastro é este: a Railway atende `http://` no
+domínio público e devolve **301** mandando para `https://`. O Next não resolve
+esse redirecionamento sozinho, ele repassa para o navegador. O navegador então
+sai do domínio do `web` e vai para o domínio da API, onde o cookie do token não
+existe — cookie é por host, que é a razão de a Q29 exigir domínio único.
+
+Verificado: pedir `/saude` em `http://` no domínio público da API devolve o
+mesmo `301` e o mesmo `Location` que chegavam ao navegador através do
+`/api/saude` do front.
+
+O endereço privado não tem proxy no caminho, então não redireciona nada. Ele
+está no serviço da API, em Settings, Networking, Private Networking.
+
 Não existe `NEXT_PUBLIC_API_URL`, e a ausência é o desenho: o navegador nunca
 conhece o endereço da API. Ele chama `/api/...` no domínio do `web`, e o
 servidor do Next repassa pela rede privada.
