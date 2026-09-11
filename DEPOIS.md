@@ -75,8 +75,6 @@ e não atrapalha.
 
 - O motor de telas declarativas (Q20). Sai por extração quando a segunda ou
   terceira tela mostrar o que se repete — não antes.
-- Máscara no valor em dinheiro. O campo aceita `1.234,56` e `1234.56` na
-  leitura, mas não se formata enquanto se digita como os outros agora fazem.
 - CNPJ alfanumérico. A validação implementada é a numérica clássica;
   conferir a regra vigente antes de o primeiro cliente digitar um.
 - Ordenar a listagem por outra coluna que não o nome.

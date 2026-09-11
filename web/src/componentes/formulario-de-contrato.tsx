@@ -6,9 +6,9 @@ import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { api } from "@/api/cliente";
-import { AreaDeTexto, Botao, Entrada, Selecao } from "@/componentes/controles";
+import { AreaDeTexto, Botao, Entrada, EntradaMascarada, Selecao } from "@/componentes/controles";
 import type { components } from "@/api/esquema";
-import { formatarValor, lerValor } from "@/lib/dinheiro";
+import { digitosDoValor, formatarValor, mascararDinheiro, valorDosDigitos } from "@/lib/dinheiro";
 
 type DadosDeContrato = components["schemas"]["DadosDeContrato"];
 type Problema = components["schemas"]["Problema"];
@@ -43,8 +43,12 @@ export function FormularioDeContrato({ id }: { id?: string }) {
   const [dados, definirDados] = useState<DadosDeContrato>(vazio);
   const [problemas, definirProblemas] = useState<Problema[]>([]);
 
-  /* O valor tem estado próprio: enquanto se digita "1.2", o número ainda não existe. */
-  const [valorDigitado, definirValorDigitado] = useState("");
+  /*
+   * O valor guarda dígitos, e a máscara os mostra em reais. Entram pelos
+   * centavos: 1 vira 0,01, depois 0,12, depois 1,23. Assim a vírgula nunca é
+   * digitada, e não sobra ambiguidade nenhuma para interpretar.
+   */
+  const [valorEmDigitos, definirDigitos] = useState("");
 
   const clientes = useQuery({
     queryKey: ["clientes"],
@@ -69,9 +73,7 @@ export function FormularioDeContrato({ id }: { id?: string }) {
     if (!existente.data) return;
     const { id: _id, codigo: _codigo, ...resto } = existente.data;
     definirDados(resto);
-    definirValorDigitado(
-      resto.valor.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
-    );
+    definirDigitos(digitosDoValor(resto.valor));
   }, [existente.data]);
 
   const salvar = useMutation({
@@ -122,7 +124,7 @@ export function FormularioDeContrato({ id }: { id?: string }) {
       className="flex flex-1 flex-col"
       onSubmit={(evento) => {
         evento.preventDefault();
-        salvar.mutate({ ...dados, valor: lerValor(valorDigitado) });
+        salvar.mutate({ ...dados, valor: valorDosDigitos(valorEmDigitos) });
       }}
     >
       <header className="border-b border-borda bg-superficie px-6 py-4">
@@ -174,22 +176,19 @@ export function FormularioDeContrato({ id }: { id?: string }) {
             />
           </div>
 
-          <Entrada
+          <EntradaMascarada
             rotulo="Valor mensal"
-            inputMode="decimal"
-            className="numeros-tabulares text-right"
-            value={valorDigitado}
-            onChange={(evento) => definirValorDigitado(evento.target.value)}
-            onBlur={() => {
-              const numero = lerValor(valorDigitado);
-              definirValorDigitado(
-                numero
-                  ? numero.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-                  : "",
-              );
-            }}
+            className="text-right"
+            digitos={valorEmDigitos}
+            mascara={mascararDinheiro}
+            aoMudar={definirDigitos}
             erro={erroDe("valor")}
-            ajuda={sugestaoDe("valor") ?? (valorDigitado ? formatarValor(lerValor(valorDigitado)) : "Em reais.")}
+            ajuda={
+              sugestaoDe("valor") ??
+              (valorEmDigitos
+                ? formatarValor(valorDosDigitos(valorEmDigitos))
+                : "Digite só os números: os centavos entram primeiro.")
+            }
           />
 
           <Entrada

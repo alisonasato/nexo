@@ -4,15 +4,17 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { api } from "@/api/cliente";
-import { Botao, Entrada, Selecao } from "@/componentes/controles";
+import { Botao, Entrada, EntradaMascarada, Selecao } from "@/componentes/controles";
 import { Paginacao } from "@/componentes/paginacao";
 import type { components } from "@/api/esquema";
 import {
   competenciaAtual,
+  digitosDoValor,
   formatarCompetencia,
   formatarData,
   formatarValor,
-  lerValor,
+  mascararDinheiro,
+  valorDosDigitos,
 } from "@/lib/dinheiro";
 
 type SituacaoRecebivel = components["schemas"]["SituacaoRecebivel"];
@@ -69,7 +71,7 @@ export default function ListagemDeRecebiveis() {
     mutationFn: async (id: string) => {
       const { data, error } = await api.POST("/recebiveis/{id}/baixar", {
         params: { path: { id } },
-        body: { valorPago: lerValor(valorDigitado), pagoEm: dataDaBaixa },
+        body: { valorPago: valorDosDigitos(valorDigitado), pagoEm: dataDaBaixa },
       });
       if (error) throw error;
       return data;
@@ -136,7 +138,7 @@ export default function ListagemDeRecebiveis() {
         body: {
           clienteId: clienteDoAvulso,
           descricao: descricaoDoAvulso,
-          valor: lerValor(valorDoAvulso),
+          valor: valorDosDigitos(valorDoAvulso),
           vencimento: vencimentoDoAvulso,
           competenciaAno: anoDoAvulso,
           competenciaMes: mesDoAvulso,
@@ -234,13 +236,14 @@ export default function ListagemDeRecebiveis() {
                 />
               </div>
 
-              <Entrada
+              <EntradaMascarada
                 rotulo="Valor"
-                inputMode="decimal"
                 required
-                value={valorDoAvulso}
-                onChange={(evento) => definirValorDoAvulso(evento.target.value)}
-                ajuda="1.234,56"
+                className="text-right"
+                digitos={valorDoAvulso}
+                mascara={mascararDinheiro}
+                aoMudar={definirValorDoAvulso}
+                ajuda="Os centavos entram primeiro."
               />
 
               <Entrada
@@ -494,13 +497,13 @@ export default function ListagemDeRecebiveis() {
                           <div className="flex flex-col items-end gap-2">
                             <div className="flex flex-wrap items-end justify-end gap-2">
                               <div className="w-32">
-                                <Entrada
+                                <EntradaMascarada
                                   rotulo="Recebido"
-                                  inputMode="decimal"
-                                  className="numeros-tabulares text-right"
+                                  className="text-right"
                                   autoFocus
-                                  value={valorDigitado}
-                                  onChange={(evento) => definirValorDigitado(evento.target.value)}
+                                  digitos={valorDigitado}
+                                  mascara={mascararDinheiro}
+                                  aoMudar={definirValorDigitado}
                                 />
                               </div>
                               <div className="w-40">
@@ -563,12 +566,7 @@ export default function ListagemDeRecebiveis() {
                                 definirBaixando(item.id);
                                 definirFalha(null);
                                 /* O valor cobrado já vem preenchido: é o caso comum. */
-                                definirValorDigitado(
-                                  item.valor.toLocaleString("pt-BR", {
-                                    minimumFractionDigits: 2,
-                                    maximumFractionDigits: 2,
-                                  }),
-                                );
+                                definirValorDigitado(digitosDoValor(item.valor));
                                 definirDataDaBaixa(hojeIso());
                               }}
                             >
