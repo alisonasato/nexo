@@ -148,16 +148,22 @@ primeira tentativa daqui, e o `/saude` denunciou respondendo
 - **HSTS não aparece em localhost.** O middleware exclui `localhost` e `127.0.0.1`
   por padrão. Testar com outro `Host` mostra o cabeçalho.
 
-## O que não foi verificado aqui
+## O que já rodou em produção de verdade
 
-Honestidade sobre os limites desta máquina:
+Esta seção era uma lista de limites desta máquina. A implantação na Railway
+transformou quase tudo em fato verificado:
 
-- **Não há Docker**, então nenhum `Dockerfile` foi escrito. Escrever um sem
-  conseguir construí-lo seria entregar configuração não testada, que é pior do
-  que não entregar.
-- **Não há conta em PaaS**, então build, deploy, variáveis e domínio não foram
-  exercitados de verdade.
-- **Não há proxy de verdade na frente.** A reescrita de rota foi verificada com
-  o front em modo produção (`next build` e `next start`), chamando a API pelo
-  domínio dele — login e rota protegida funcionaram. O que falta exercitar é o
-  proxy do PaaS na frente disso, com TLS e domínio real.
+- **Build e deploy da API pelo `Dockerfile`**, que passou a existir porque o
+  Railpack não reconhece .NET. O front não tem `Dockerfile`: o Railpack detecta
+  Node e constrói sozinho.
+- **Proxy de verdade na frente**, com TLS e domínio público.
+- **A reescrita de rota atravessa o proxy.** No domínio do front,
+  `/api/saude` responde `"ambiente":"Production"` e
+  `/api/autenticacao/entrar` com credencial errada devolve 401 com o JSON da
+  aplicação. Tudo na mesma origem, sem redirecionamento no caminho.
+- **O papel do banco sem `BYPASSRLS`**, com a conferência da subida passando.
+
+O que continua sem verificação:
+
+- **Restaurar backup.** A Railway faz backup do banco; recuperar a partir de um
+  nunca foi exercitado. Backup que nunca foi restaurado é hipótese, não backup.
