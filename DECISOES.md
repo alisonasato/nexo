@@ -166,3 +166,9 @@ de fato se repete — e não antes.
    - **Cobrança automática pelo PSP** — parada, e não por falta de tempo:
      depende de escolher o PSP e ter conta nele. Ver abaixo.
 6. **Cobrança e baixa automática.** Depende de uma conta em PSP.
+
+**No ar desde 10 de setembro de 2026**, na Railway: três serviços — front com
+domínio público, API só na rede privada, e Postgres. O papel do banco não é
+superusuário e não tem `BYPASSRLS`, então a RLS vale também em produção. O
+passo a passo e as armadilhas estão em
+[IMPLANTACAO-RAILWAY.md](IMPLANTACAO-RAILWAY.md).
