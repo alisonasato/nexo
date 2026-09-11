@@ -83,26 +83,50 @@ psql -c "SELECT rolname, rolsuper, rolbypassrls FROM pg_roles WHERE rolname = 'n
 
 Os dois últimos precisam ser `f`.
 
-## A única saída para fora
+## As saídas para fora
 
-A aplicação chama **um** serviço de terceiro: o ViaCEP, para preencher endereço
-a partir do CEP. A chamada sai do servidor, não do navegador.
+A aplicação chama **dois** serviços de terceiro, os dois para poupar digitação.
+As chamadas saem do servidor, não do navegador.
 
 | Variável | Padrão | Para quê |
 |---|---|---|
-| `Servicos__Cep__Endereco` | `https://viacep.com.br/` | Trocar por um espelho, ou apontar para o vazio |
+| `Servicos__Cep__Endereco` | `https://viacep.com.br/` | Endereço a partir do CEP |
+| `Servicos__Cnpj__Endereco` | `https://brasilapi.com.br/` | Razão social e endereço a partir do CNPJ |
 
-Nada depende dela. O serviço fora do ar devolve 503 no `/enderecos/{cep}`, a
-tela pede para digitar à mão, e o cadastro salva igual. Verificado apontando a
-variável para um endereço inalcançável: a mensagem certa apareceu e o cadastro
-foi salvo com o endereço digitado.
+**Nada depende delas.** Serviço fora do ar devolve 503, a tela pede para digitar
+à mão, e o cadastro salva igual. Verificado apontando a variável para um
+endereço inalcançável: a mensagem certa apareceu e o cadastro foi salvo com o
+endereço digitado.
 
-O tempo de espera é de quatro segundos, e é curto de propósito. Isto é um
-atalho de digitação: se demorar mais do que digitar o endereço, deixou de ser
-atalho.
+Os tempos de espera são curtos de propósito, quatro e seis segundos. Isto é
+atalho de digitação: se demorar mais do que digitar, deixou de ser atalho.
 
-Se a rede de saída do PaaS for restrita, libere `viacep.com.br` ou aponte a
-variável para outro lugar. Esquecer disso não quebra nada, só desliga o atalho.
+### Limite de requisições, e o cache
+
+A BrasilAPI é pública e gratuita, e **responde 429 num dia movimentado**. Isso
+tem código próprio, porque é diferente de estar fora do ar: a tela diz "espere
+alguns segundos" em vez de mandar desistir.
+
+Para reduzir a chance de esbarrar nela, as respostas ficam guardadas na memória
+do processo:
+
+| O que | Por quanto tempo |
+|---|---|
+| Encontrado | 12 horas |
+| Não encontrado | 5 minutos |
+| Fora do ar, ou limite atingido | **nunca** |
+
+Falha não se guarda, e essa é a regra que importa. Guardar um 503 transformaria
+um tropeço de dez segundos numa tarde sem o atalho, e ninguém ligaria uma coisa
+à outra. Medido com o ViaCEP real: a primeira consulta levou 941 ms, a segunda
+14 ms.
+
+O cache é do processo e some quando o contêiner reinicia. É o bastante para o
+caso que existe, que é cadastrar vários clientes do mesmo prédio numa tarde.
+
+Se a rede de saída do PaaS for restrita, libere `viacep.com.br` e
+`brasilapi.com.br`, ou aponte as variáveis para outro lugar. Esquecer disso não
+quebra nada, só desliga os atalhos.
 
 ## Um domínio só, e isso é estrutural
 

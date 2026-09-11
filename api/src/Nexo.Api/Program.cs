@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -89,7 +90,7 @@ construtor.Services.AddDbContext<NexoDbContext>((provedor, opcoes) => opcoes
  * por um espelho, e por um destino inalcançável, que é o único jeito de
  * exercitar o caminho de "serviço fora do ar".
  */
-construtor.Services.AddHttpClient<IConsultaDeCnpj, ConsultaDeCnpjBrasilApi>(cliente =>
+construtor.Services.AddHttpClient<ConsultaDeCnpjBrasilApi>(cliente =>
 {
     cliente.BaseAddress = new Uri(
         construtor.Configuration["Servicos:Cnpj:Endereco"] ?? "https://brasilapi.com.br/");
@@ -99,13 +100,31 @@ construtor.Services.AddHttpClient<IConsultaDeCnpj, ConsultaDeCnpjBrasilApi>(clie
     cliente.Timeout = TimeSpan.FromSeconds(6);
 });
 
-construtor.Services.AddHttpClient<IConsultaDeCep, ConsultaDeCepViaCep>(cliente =>
+construtor.Services.AddHttpClient<ConsultaDeCepViaCep>(cliente =>
 {
     cliente.BaseAddress = new Uri(
         construtor.Configuration["Servicos:Cep:Endereco"] ?? "https://viacep.com.br/");
 
     cliente.Timeout = TimeSpan.FromSeconds(4);
 });
+
+/*
+ * O cache fica por fora, envolvendo quem fala com a rede.
+ *
+ * Assim quem escreveu a consulta não precisa saber que existe cache, e quem
+ * troca o serviço de fora não mexe na regra do que se guarda. O teto de
+ * entradas existe porque cache sem limite é vazamento de memória com nome
+ * bonito.
+ */
+construtor.Services.AddMemoryCache(opcoes => opcoes.SizeLimit = Cache.Entradas);
+
+construtor.Services.AddScoped<IConsultaDeCnpj>(provedor => new ConsultaDeCnpjComCache(
+    provedor.GetRequiredService<ConsultaDeCnpjBrasilApi>(),
+    provedor.GetRequiredService<IMemoryCache>()));
+
+construtor.Services.AddScoped<IConsultaDeCep>(provedor => new ConsultaDeCepComCache(
+    provedor.GetRequiredService<ConsultaDeCepViaCep>(),
+    provedor.GetRequiredService<IMemoryCache>()));
 
 /* --------------------------------------------------------- autenticação */
 
