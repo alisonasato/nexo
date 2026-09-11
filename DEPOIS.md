@@ -80,7 +80,8 @@ e não atrapalha.
   terceira tela mostrar o que se repete — não antes.
 - Consulta de CNPJ e CEP por API pública, com a lupa que o protótipo tinha.
   Enquanto não existe, tudo é digitado à mão.
-- Máscara ao digitar documento, telefone e CEP. Hoje formata só na leitura.
+- Máscara no valor em dinheiro. O campo aceita `1.234,56` e `1234.56` na
+  leitura, mas não se formata enquanto se digita como os outros agora fazem.
 - CNPJ alfanumérico. A validação implementada é a numérica clássica;
   conferir a regra vigente antes de o primeiro cliente digitar um.
 - Ordenar a listagem por outra coluna que não o nome.

@@ -6,9 +6,10 @@ import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { api } from "@/api/cliente";
-import { AreaDeTexto, Botao, Entrada, Selecao } from "@/componentes/controles";
+import { AreaDeTexto, Botao, Entrada, EntradaMascarada, Selecao } from "@/componentes/controles";
 import type { components } from "@/api/esquema";
 import { apenasDigitos } from "@/lib/formato";
+import { mascararCep, mascararCnpj, mascararCpf, mascararTelefone } from "@/lib/mascaras";
 
 type DadosDePessoa = components["schemas"]["DadosDePessoa"];
 type Problema = components["schemas"]["Problema"];
@@ -114,6 +115,22 @@ export function FormularioDePessoa({ id }: { id?: string }) {
     definirDados((atual) => ({ ...atual, [campo]: valor }));
   }
 
+  /**
+   * Trocar o tipo apara o documento para o tamanho do novo.
+   *
+   * Sem isto, um CNPJ digitado antes de trocar para Física continuaria com
+   * quatorze dígitos no estado enquanto a tela mostraria onze: o campo diria
+   * uma coisa e o envio faria outra. Divergência entre o que se vê e o que se
+   * manda é o tipo de erro que ninguém procura, porque a tela parece certa.
+   */
+  function alterarTipo(tipo: DadosDePessoa["tipo"]) {
+    definirDados((atual) => ({
+      ...atual,
+      tipo,
+      documento: apenasDigitos(atual.documento ?? "").slice(0, tipo === "Fisica" ? 11 : 14),
+    }));
+  }
+
   function alterarEndereco(campo: keyof NonNullable<DadosDePessoa["endereco"]>, valor: string) {
     definirDados((atual) => ({
       ...atual,
@@ -187,20 +204,24 @@ export function FormularioDePessoa({ id }: { id?: string }) {
             <Selecao
               rotulo="Tipo"
               value={dados.tipo}
-              onChange={(evento) => alterar("tipo", evento.target.value as DadosDePessoa["tipo"])}
+              onChange={(evento) => alterarTipo(evento.target.value as DadosDePessoa["tipo"])}
             >
               <option value="Juridica">Jurídica</option>
               <option value="Fisica">Física</option>
             </Selecao>
 
-            <Entrada
+            {/*
+              A máscara vem do tipo escolhido, e não do tamanho do que foi
+              digitado. Adivinhar pelo tamanho faria a pontuação pular de CPF
+              para CNPJ no décimo segundo dígito, no meio da digitação.
+            */}
+            <EntradaMascarada
               rotulo={ehFisica ? "CPF" : "CNPJ"}
-              inputMode="numeric"
-              className="numeros-tabulares"
-              value={dados.documento ?? ""}
-              onChange={(evento) => alterar("documento", apenasDigitos(evento.target.value))}
+              digitos={dados.documento ?? ""}
+              mascara={ehFisica ? mascararCpf : mascararCnpj}
+              aoMudar={(digitos) => alterar("documento", digitos)}
               erro={erroDe("documento")}
-              ajuda={sugestaoDe("documento") ?? "Só os números."}
+              ajuda={sugestaoDe("documento")}
             />
 
             <div className="sm:col-span-2">
@@ -256,22 +277,22 @@ export function FormularioDePessoa({ id }: { id?: string }) {
               />
             </div>
 
-            <Entrada
+            <EntradaMascarada
               rotulo="Telefone"
               inputMode="tel"
-              className="numeros-tabulares"
-              value={dados.telefone ?? ""}
-              onChange={(evento) => alterar("telefone", evento.target.value)}
+              digitos={apenasDigitos(dados.telefone ?? "")}
+              mascara={mascararTelefone}
+              aoMudar={(digitos) => alterar("telefone", digitos)}
               erro={erroDe("telefone")}
               ajuda={sugestaoDe("telefone")}
             />
 
-            <Entrada
+            <EntradaMascarada
               rotulo="Celular"
               inputMode="tel"
-              className="numeros-tabulares"
-              value={dados.celular ?? ""}
-              onChange={(evento) => alterar("celular", evento.target.value)}
+              digitos={apenasDigitos(dados.celular ?? "")}
+              mascara={mascararTelefone}
+              aoMudar={(digitos) => alterar("celular", digitos)}
               erro={erroDe("celular")}
               ajuda={sugestaoDe("celular")}
             />
@@ -282,12 +303,11 @@ export function FormularioDePessoa({ id }: { id?: string }) {
           <h2 className="text-xs font-semibold tracking-wide text-slate-500 uppercase">Endereço</h2>
 
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
-            <Entrada
+            <EntradaMascarada
               rotulo="CEP"
-              inputMode="numeric"
-              className="numeros-tabulares"
-              value={dados.endereco?.cep ?? ""}
-              onChange={(evento) => alterarEndereco("cep", apenasDigitos(evento.target.value))}
+              digitos={dados.endereco?.cep ?? ""}
+              mascara={mascararCep}
+              aoMudar={(digitos) => alterarEndereco("cep", digitos)}
               erro={erroDe("endereco.cep")}
               ajuda={sugestaoDe("endereco.cep")}
             />

@@ -236,8 +236,14 @@ public static class Pessoas
         pessoa.InscricaoEstadual = (dados.InscricaoEstadual ?? string.Empty).Trim();
         pessoa.InscricaoMunicipal = (dados.InscricaoMunicipal ?? string.Empty).Trim();
         pessoa.Email = (dados.Email ?? string.Empty).Trim();
-        pessoa.Telefone = (dados.Telefone ?? string.Empty).Trim();
-        pessoa.Celular = (dados.Celular ?? string.Empty).Trim();
+        /*
+         * Telefone entra como dígito, igual ao documento e ao CEP. A regra já
+         * valia para os outros dois, e deixar o telefone de fora abriria duas
+         * formas do mesmo dado no banco — quem guarda `(11) 98765-4321` e quem
+         * guarda `11987654321` — e a busca teria de conhecer as duas.
+         */
+        pessoa.Telefone = Documento.ApenasDigitos(dados.Telefone);
+        pessoa.Celular = Documento.ApenasDigitos(dados.Celular);
         pessoa.Observacoes = (dados.Observacoes ?? string.Empty).Trim();
         pessoa.Ativo = dados.Ativo;
 

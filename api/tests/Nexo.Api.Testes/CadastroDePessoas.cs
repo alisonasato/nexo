@@ -187,6 +187,31 @@ public class CadastroDePessoas(BancoDeTestes banco) : IDisposable
     }
 
     [Fact]
+    public async Task Telefone_entra_com_pontuacao_e_e_guardado_so_com_digitos()
+    {
+        var cliente = await Contas.Entrar(_aplicacao, await Contas.Criar(banco, _aplicacao));
+
+        var dados = Dados(TipoPessoa.Fisica, "Marta Nogueira", CpfValido()) with
+        {
+            Telefone = "(11) 3456-7890",
+            Celular = "(11) 98765-4321",
+        };
+
+        var criada = await cliente.PostAsJsonAsync("/pessoas", dados, Json);
+        criada.EnsureSuccessStatusCode();
+
+        var pessoa = await criada.Content.ReadFromJsonAsync<PessoaDetalhada>(Json);
+
+        /*
+         * A tela manda dígito, mas a API é o contrato: quem chamar direto pode
+         * mandar o que quiser. Guardar as duas formas do mesmo telefone daria
+         * dois dados onde há um, e a busca teria de conhecer as duas.
+         */
+        Assert.Equal("1134567890", pessoa!.Telefone);
+        Assert.Equal("11987654321", pessoa.Celular);
+    }
+
+    [Fact]
     public async Task Sem_sessao_o_cadastro_e_recusado()
     {
         var cliente = _aplicacao.CreateClient();

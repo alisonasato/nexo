@@ -1,7 +1,16 @@
 "use client";
 
-import type { InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from "react";
-import { useId } from "react";
+import type {
+  ChangeEvent,
+  InputHTMLAttributes,
+  ReactNode,
+  SelectHTMLAttributes,
+  TextareaHTMLAttributes,
+} from "react";
+import { useId, useLayoutEffect, useRef } from "react";
+
+import { apenasDigitos } from "@/lib/formato";
+import { indiceApos } from "@/lib/mascaras";
 
 /**
  * Os primitivos de formulário.
@@ -75,6 +84,100 @@ export function Entrada({ rotulo, erro, ajuda, className, ...resto }: PropsDeEnt
           aria-invalid={temErro || undefined}
           aria-describedby={descritoPor}
           className={`${baseDoCampo} ${bordaDoCampo(temErro)} ${className ?? ""}`}
+        />
+      )}
+    </Campo>
+  );
+}
+
+type PropsDeEntradaMascarada = Omit<
+  InputHTMLAttributes<HTMLInputElement>,
+  "id" | "value" | "onChange"
+> & {
+  rotulo: string;
+  erro?: string;
+  ajuda?: string;
+  /** O que está guardado: só dígitos. */
+  digitos: string;
+  /** Como esses dígitos aparecem enquanto a pessoa digita. */
+  mascara: (texto: string) => string;
+  /** Recebe os dígitos já limpos e limitados pela máscara. */
+  aoMudar: (digitos: string) => void;
+};
+
+/**
+ * Campo que se formata sozinho enquanto se digita.
+ *
+ * <b>Guarda dígitos, mostra máscara.</b> O estado nunca vê pontuação, então
+ * nada precisa ser limpo na hora de enviar, e a API continua recebendo o que
+ * sempre recebeu.
+ *
+ * As duas sutilezas estão aqui dentro, e nenhuma é enfeite:
+ *
+ * O <b>cursor</b> é recolocado à mão. A máscara reescreve o campo inteiro a
+ * cada tecla, e sem isso o cursor saltaria para o fim — o que só não incomoda
+ * quem digita do começo ao fim sem errar. A conta é por dígitos, não por
+ * caracteres, porque a pontuação anda de lugar.
+ *
+ * O <b>apagar</b> precisa de tratamento. Com o cursor logo depois de um ponto,
+ * o navegador apaga o ponto, e a máscara o devolveria na mesma hora: a tecla
+ * pareceria quebrada. Quando isso acontece, o dígito anterior vai junto, que é
+ * o que a pessoa quis apagar.
+ */
+export function EntradaMascarada({
+  rotulo,
+  erro,
+  ajuda,
+  className,
+  digitos,
+  mascara,
+  aoMudar,
+  ...resto
+}: PropsDeEntradaMascarada) {
+  const referencia = useRef<HTMLInputElement>(null);
+  const cursorPendente = useRef<number | null>(null);
+
+  useLayoutEffect(() => {
+    if (cursorPendente.current === null) return;
+    referencia.current?.setSelectionRange(cursorPendente.current, cursorPendente.current);
+    cursorPendente.current = null;
+  });
+
+  function aoDigitar(evento: ChangeEvent<HTMLInputElement>) {
+    const bruto = evento.target.value;
+    const cursor = evento.target.selectionStart ?? bruto.length;
+
+    let novos = apenasDigitos(bruto);
+    let ateOCursor = apenasDigitos(bruto.slice(0, cursor)).length;
+
+    const apagou = (evento.nativeEvent as InputEvent).inputType === "deleteContentBackward";
+
+    if (apagou && novos.length === digitos.length && ateOCursor > 0) {
+      novos = novos.slice(0, ateOCursor - 1) + novos.slice(ateOCursor);
+      ateOCursor -= 1;
+    }
+
+    const exibido = mascara(novos);
+    cursorPendente.current = indiceApos(exibido, ateOCursor);
+
+    aoMudar(apenasDigitos(exibido));
+  }
+
+  return (
+    <Campo rotulo={rotulo} erro={erro} ajuda={ajuda}>
+      {({ id, descritoPor, temErro }) => (
+        <input
+          /* `inputMode` antes do resto: é padrão, não imposição. O telefone
+             pede `tel`, que abre o teclado com os parênteses. */
+          inputMode="numeric"
+          {...resto}
+          ref={referencia}
+          id={id}
+          value={mascara(digitos)}
+          onChange={aoDigitar}
+          aria-invalid={temErro || undefined}
+          aria-describedby={descritoPor}
+          className={`${baseDoCampo} ${bordaDoCampo(temErro)} numeros-tabulares ${className ?? ""}`}
         />
       )}
     </Campo>
