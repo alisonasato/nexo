@@ -196,6 +196,19 @@ Gere a chave:
 node -e "console.log(require('crypto').randomBytes(48).toString('base64'))"
 ```
 
+### Se você perder a senha
+
+Acrescente duas variáveis ao serviço da API, e apague as duas assim que entrar:
+
+| Variável | Valor |
+|---|---|
+| `Recuperacao__Email` | O e-mail com que a conta foi criada |
+| `Recuperacao__Senha` | A senha nova, mínimo de 10 caracteres |
+
+Salvar dispara um deploy, e a senha é trocada na subida. O log avisa e manda
+apagar as variáveis — enquanto elas existirem, toda subida refaz a troca.
+O funcionamento e os cuidados estão em [IMPLANTACAO.md](IMPLANTACAO.md).
+
 ### Por que fixar o `PORT` da API
 
 A Railway injeta um `PORT` em cada serviço, e a aplicação já o respeita: ela

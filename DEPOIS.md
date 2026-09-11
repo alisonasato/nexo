@@ -51,9 +51,11 @@ e não atrapalha.
 - Cadastro de cliente novo. Hoje existe o provisionamento do **primeiro**
   tenant, por configuração, e mais nada. Como um segundo escritório vira
   cliente do Nexo é um fluxo que ainda não foi desenhado.
-- **Recuperar senha esquecida.** Não existe. Hoje a saída é reprovisionar, o
-  que exige banco vazio — ou seja, não é saída nenhuma. Depende de e-mail
-  transacional, que o projeto ainda não tem.
+- **Recuperar senha pela tela, sem ajuda.** Existe a saída de emergência por
+  variável de ambiente (ver IMPLANTACAO.md), que destrava quem perdeu a senha
+  mas exige acesso ao painel do PaaS. O "esqueci minha senha" de verdade, que a
+  própria pessoa resolve, depende de e-mail transacional — que o projeto ainda
+  não tem, e que é a decisão que falta.
 - Convidar outra pessoa para o mesmo escritório. Um tenant tem um usuário só.
 - Uma pessoa pertence a exatamente um tenant, e o e-mail é único no sistema
   inteiro. Quem trabalha em dois escritórios precisaria de duas contas com

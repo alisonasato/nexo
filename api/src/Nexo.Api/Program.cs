@@ -78,20 +78,29 @@ construtor.Services.AddDbContext<NexoDbContext>((provedor, opcoes) => opcoes
 /* ------------------------------------------------- serviços de fora */
 
 /*
- * A consulta de CEP é a única saída para fora do sistema.
+ * As duas saídas do sistema para fora: CEP e CNPJ.
  *
- * O tempo de espera curto não é economia: é o que separa um atalho de um
- * estorvo. Quem está cadastrando digita o endereço em menos de quatro segundos,
- * então esperar mais do que isso pelo atalho é pior do que não tê-lo.
+ * Nenhuma das duas sustenta nada. São atalhos de digitação, e o cadastro
+ * funciona igual com as duas fora do ar — por isso o tempo de espera é curto.
+ * Não é economia: se o atalho demorar mais do que digitar, deixou de ser
+ * atalho.
+ *
+ * Os endereços saem da configuração para poderem ser trocados sem recompilar:
+ * por um espelho, e por um destino inalcançável, que é o único jeito de
+ * exercitar o caminho de "serviço fora do ar".
  */
+construtor.Services.AddHttpClient<IConsultaDeCnpj, ConsultaDeCnpjBrasilApi>(cliente =>
+{
+    cliente.BaseAddress = new Uri(
+        construtor.Configuration["Servicos:Cnpj:Endereco"] ?? "https://brasilapi.com.br/");
+
+    /* Mais folga que o CEP: consulta ao cadastro da Receita é mais lenta, e
+       quem digita CNPJ está esperando o formulário inteiro se preencher. */
+    cliente.Timeout = TimeSpan.FromSeconds(6);
+});
+
 construtor.Services.AddHttpClient<IConsultaDeCep, ConsultaDeCepViaCep>(cliente =>
 {
-    /*
-     * O endereço sai da configuração para poder ser trocado sem recompilar: por
-     * um espelho, se o ViaCEP mudar de casa, e por um destino inalcançável, para
-     * exercitar de verdade o caminho de "serviço fora do ar" — que é o único dos
-     * três desfechos que não dá para provocar de fora.
-     */
     cliente.BaseAddress = new Uri(
         construtor.Configuration["Servicos:Cep:Endereco"] ?? "https://viacep.com.br/");
 
@@ -368,6 +377,16 @@ if (!extraindoContrato)
  */
     if (ProvisionamentoInicial.Ler(construtor.Configuration, app.Environment) is { } inicial)
         await ProvisionamentoInicial.ExecutarAsync(app.Services, inicial);
+
+    /*
+     * A saída para quem perdeu a senha.
+     *
+     * Vem depois do provisionamento de propósito: num banco vazio, quem cria o
+     * usuário é ele, e só faz sentido redefinir uma senha que já existe.
+     * Ver RecuperacaoDeSenha.
+     */
+    if (RecuperacaoDeSenha.Ler(construtor.Configuration) is { } recuperacao)
+        await RecuperacaoDeSenha.ExecutarAsync(app.Services, recuperacao);
 }
 
 /*
@@ -413,7 +432,7 @@ app.MapPessoas();
 app.MapClientes();
 app.MapContratos();
 app.MapRecebiveis();
-app.MapEnderecos();
+app.MapConsultas();
 
 app.Run();
 

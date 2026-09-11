@@ -128,6 +128,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/consultas/cep/{cep}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Procura o endereço de um CEP
+         * @description Serve para preencher o formulário, e nada depende dele: 503 quer dizer para digitar à mão, não que algo deu errado no cadastro.
+         */
+        get: operations["ConsultarCep"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/consultas/cnpj/{cnpj}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Procura razão social e endereço de um CNPJ
+         * @description O CNPJ vai só com os dígitos: a barra da forma escrita seria outro trecho do endereço. Traz junto a situação cadastral na Receita, porque cadastrar cliente com empresa baixada é erro caro e quem digita à mão não tem como saber.
+         */
+        get: operations["ConsultarCnpj"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/contratos": {
         parameters: {
             query?: never;
@@ -193,26 +233,6 @@ export interface paths {
         };
         /** Empresas do tenant da sessão */
         get: operations["ListarEmpresas"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/enderecos/{cep}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Procura o endereço de um CEP
-         * @description Serve para preencher o formulário, e nada depende dele: 503 quer dizer para digitar à mão, não que algo deu errado no cadastro.
-         */
-        get: operations["BuscarEnderecoPorCep"];
         put?: never;
         post?: never;
         delete?: never;
@@ -502,6 +522,19 @@ export interface components {
         };
         DadosDoCancelamento: {
             motivo?: string | null;
+        };
+        EmpresaDoCnpj: {
+            cnpj: string;
+            razaoSocial: string;
+            nomeFantasia: string;
+            situacao: string;
+            logradouro: string;
+            numero: string;
+            complemento: string;
+            bairro: string;
+            cep: string;
+            cidade: string;
+            uf: string;
         };
         EmpresaNaLista: {
             /** Format: uuid */
@@ -943,6 +976,110 @@ export interface operations {
             };
         };
     };
+    ConsultarCep: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                cep: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnderecoDoCep"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespostaComProblemas"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ConsultarCnpj: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                cnpj: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmpresaDoCnpj"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespostaComProblemas"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     ListarContratos: {
         parameters: {
             query?: {
@@ -1113,51 +1250,6 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["EmpresaNaLista"][];
                 };
-            };
-        };
-    };
-    BuscarEnderecoPorCep: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                cep: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["EnderecoDoCep"];
-                };
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unprocessable Content */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RespostaComProblemas"];
-                };
-            };
-            /** @description Service Unavailable */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
             };
         };
     };

@@ -10,22 +10,6 @@ public record EnderecoDoCep(
     string Cidade,
     string Uf);
 
-public enum ResultadoDaConsulta
-{
-    /// <summary>O CEP existe e o endereço veio.</summary>
-    Encontrado = 1,
-
-    /// <summary>O serviço respondeu, e disse que este CEP não existe.</summary>
-    NaoEncontrado = 2,
-
-    /// <summary>
-    /// Não deu para perguntar: fora do ar, lento demais, sem internet. Diferente
-    /// de não encontrado, e a tela precisa dizer coisas diferentes — um pede
-    /// para conferir o número digitado, o outro para preencher à mão.
-    /// </summary>
-    Indisponivel = 3,
-}
-
 public record RespostaDoCep(ResultadoDaConsulta Resultado, EnderecoDoCep? Endereco = null);
 
 public interface IConsultaDeCep
@@ -65,6 +49,9 @@ public sealed class ConsultaDeCepViaCep(HttpClient http, ILogger<ConsultaDeCepVi
         try
         {
             var resposta = await http.GetAsync($"ws/{numero}/json/", cancelamento);
+
+            if (resposta.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
+                return new RespostaDoCep(ResultadoDaConsulta.LimiteAtingido);
 
             if (!resposta.IsSuccessStatusCode)
             {

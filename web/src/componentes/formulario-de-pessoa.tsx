@@ -20,6 +20,26 @@ const UFS = [
   "SP", "SE", "TO",
 ];
 
+/**
+ * A frase certa para cada jeito de a consulta não dar certo.
+ *
+ * São três, e a diferença importa. "Não existe" pede para conferir o que foi
+ * digitado. "Espere um pouco" é o caso comum de API pública e gratuita, e quem
+ * ouvir isso tenta de novo daqui a pouco em vez de desistir. "Fora do ar" pede
+ * para seguir sem o atalho. Dizer a frase errada manda a pessoa procurar erro
+ * onde não há, ou abandonar um atalho que voltaria em dez segundos.
+ */
+function recadoDaFalha(status: number, oQue: string, oQuePreencher: string): string {
+  if (status === 404) return `Não encontramos ${oQue}. Confira o número digitado.`;
+
+  if (status === 429) {
+    return "O serviço de consulta está ocupado. Tente de novo em alguns segundos, " +
+      `ou preencha ${oQuePreencher} à mão.`;
+  }
+
+  return `Não deu para consultar ${oQue} agora. Preencha ${oQuePreencher} à mão.`;
+}
+
 const vazia: DadosDePessoa = {
   tipo: "Juridica",
   nome: "",
@@ -67,6 +87,8 @@ export function FormularioDePessoa({ id }: { id?: string }) {
   const [problemas, definirProblemas] = useState<Problema[]>([]);
   const [procurandoCep, definirProcurandoCep] = useState(false);
   const [avisoDoCep, definirAvisoDoCep] = useState<string | null>(null);
+  const [procurandoCnpj, definirProcurandoCnpj] = useState(false);
+  const [avisoDoCnpj, definirAvisoDoCnpj] = useState<string | null>(null);
 
   const existente = useQuery({
     queryKey: ["pessoa", id],
@@ -151,7 +173,7 @@ export function FormularioDePessoa({ id }: { id?: string }) {
     definirProcurandoCep(true);
     definirAvisoDoCep(null);
 
-    const { data, response } = await api.GET("/enderecos/{cep}", {
+    const { data, response } = await api.GET("/consultas/cep/{cep}", {
       params: { path: { cep } },
     });
 
@@ -178,11 +200,66 @@ export function FormularioDePessoa({ id }: { id?: string }) {
      * segunda coisa na primeira situação manda a pessoa procurar erro onde não
      * há.
      */
-    definirAvisoDoCep(
-      response.status === 404
-        ? "CEP não encontrado. Confira o número ou preencha o endereço à mão."
-        : "Não deu para consultar o CEP agora. Preencha o endereço à mão.",
-    );
+    definirAvisoDoCep(recadoDaFalha(response.status, "o CEP", "o endereço"));
+  }
+
+  /**
+   * Procura a empresa quando o CNPJ fica completo.
+   *
+   * Preenche razão social, nome fantasia e o endereço inteiro. Sobrescreve o que
+   * estiver lá: quem acabou de digitar o CNPJ está dizendo de que empresa se
+   * trata, e o que havia antes era de outra.
+   *
+   * <b>Não preenche o número nem o complemento sem querer:</b> eles vêm do
+   * cadastro da Receita e costumam estar desatualizados, mas é o que existe, e
+   * apagar o que veio seria pior do que trazer algo a conferir.
+   */
+  async function procurarPeloCnpj(cnpj: string) {
+    if (cnpj.length !== 14) {
+      definirAvisoDoCnpj(null);
+      return;
+    }
+
+    definirProcurandoCnpj(true);
+    definirAvisoDoCnpj(null);
+
+    const { data, response } = await api.GET("/consultas/cnpj/{cnpj}", {
+      params: { path: { cnpj } },
+    });
+
+    definirProcurandoCnpj(false);
+
+    if (data) {
+      definirDados((atual) => ({
+        ...atual,
+        nome: data.razaoSocial,
+        nomeFantasia: data.nomeFantasia,
+        endereco: {
+          ...(atual.endereco ?? vazia.endereco!),
+          cep: data.cep,
+          logradouro: data.logradouro,
+          numero: data.numero,
+          complemento: data.complemento,
+          bairro: data.bairro,
+          cidade: data.cidade,
+          uf: data.uf,
+        },
+      }));
+
+      /*
+       * Empresa que não está ativa não impede nada — o escritório às vezes
+       * atende justamente quem precisa regularizar. Mas precisa aparecer, e
+       * antes de salvar: descobrir depois custa retrabalho de verdade.
+       */
+      definirAvisoDoCnpj(
+        data.situacao && data.situacao !== "ATIVA"
+          ? `Atenção: esta empresa consta como ${data.situacao} na Receita.`
+          : null,
+      );
+      return;
+    }
+
+    definirAvisoDoCnpj(recadoDaFalha(response.status, "o CNPJ", "os dados da empresa"));
   }
 
   function alterarEndereco(campo: keyof NonNullable<DadosDePessoa["endereco"]>, valor: string) {
@@ -273,9 +350,22 @@ export function FormularioDePessoa({ id }: { id?: string }) {
               rotulo={ehFisica ? "CPF" : "CNPJ"}
               digitos={dados.documento ?? ""}
               mascara={ehFisica ? mascararCpf : mascararCnpj}
-              aoMudar={(digitos) => alterar("documento", digitos)}
+              aoMudar={(digitos) => {
+                alterar("documento", digitos);
+                /* Só para empresa: não existe consulta pública de CPF, e nem
+                   deveria existir. */
+                if (!ehFisica) void procurarPeloCnpj(digitos);
+              }}
               erro={erroDe("documento")}
-              ajuda={sugestaoDe("documento")}
+              ajuda={
+                ehFisica
+                  ? sugestaoDe("documento")
+                  : procurandoCnpj
+                    ? "Procurando na Receita…"
+                    : (avisoDoCnpj ??
+                       sugestaoDe("documento") ??
+                       "Preenche razão social e endereço sozinho.")
+              }
             />
 
             <div className="sm:col-span-2">

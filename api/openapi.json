@@ -318,6 +318,108 @@
         }
       }
     },
+    "/consultas/cep/{cep}": {
+      "get": {
+        "tags": [
+          "Consultas"
+        ],
+        "summary": "Procura o endereço de um CEP",
+        "description": "Serve para preencher o formulário, e nada depende dele: 503 quer dizer para digitar à mão, não que algo deu errado no cadastro.",
+        "operationId": "ConsultarCep",
+        "parameters": [
+          {
+            "name": "cep",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnderecoDoCep"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RespostaComProblemas"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "429": {
+            "description": "Too Many Requests"
+          },
+          "503": {
+            "description": "Service Unavailable"
+          }
+        }
+      }
+    },
+    "/consultas/cnpj/{cnpj}": {
+      "get": {
+        "tags": [
+          "Consultas"
+        ],
+        "summary": "Procura razão social e endereço de um CNPJ",
+        "description": "O CNPJ vai só com os dígitos: a barra da forma escrita seria outro trecho do endereço. Traz junto a situação cadastral na Receita, porque cadastrar cliente com empresa baixada é erro caro e quem digita à mão não tem como saber.",
+        "operationId": "ConsultarCnpj",
+        "parameters": [
+          {
+            "name": "cnpj",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmpresaDoCnpj"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RespostaComProblemas"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "429": {
+            "description": "Too Many Requests"
+          },
+          "503": {
+            "description": "Service Unavailable"
+          }
+        }
+      }
+    },
     "/contratos": {
       "get": {
         "tags": [
@@ -568,54 +670,6 @@
                 }
               }
             }
-          }
-        }
-      }
-    },
-    "/enderecos/{cep}": {
-      "get": {
-        "tags": [
-          "Endereços"
-        ],
-        "summary": "Procura o endereço de um CEP",
-        "description": "Serve para preencher o formulário, e nada depende dele: 503 quer dizer para digitar à mão, não que algo deu errado no cadastro.",
-        "operationId": "BuscarEnderecoPorCep",
-        "parameters": [
-          {
-            "name": "cep",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/EnderecoDoCep"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Unprocessable Content",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RespostaComProblemas"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found"
-          },
-          "503": {
-            "description": "Service Unavailable"
           }
         }
       }
@@ -1603,6 +1657,58 @@
           "motivo": {
             "type": "string",
             "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "EmpresaDoCnpj": {
+        "required": [
+          "bairro",
+          "cep",
+          "cidade",
+          "cnpj",
+          "complemento",
+          "logradouro",
+          "nomeFantasia",
+          "numero",
+          "razaoSocial",
+          "situacao",
+          "uf"
+        ],
+        "type": "object",
+        "properties": {
+          "cnpj": {
+            "type": "string"
+          },
+          "razaoSocial": {
+            "type": "string"
+          },
+          "nomeFantasia": {
+            "type": "string"
+          },
+          "situacao": {
+            "type": "string"
+          },
+          "logradouro": {
+            "type": "string"
+          },
+          "numero": {
+            "type": "string"
+          },
+          "complemento": {
+            "type": "string"
+          },
+          "bairro": {
+            "type": "string"
+          },
+          "cep": {
+            "type": "string"
+          },
+          "cidade": {
+            "type": "string"
+          },
+          "uf": {
+            "type": "string"
           }
         },
         "additionalProperties": false

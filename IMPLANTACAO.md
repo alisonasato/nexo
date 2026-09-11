@@ -160,6 +160,45 @@ desenvolvimento e o teste não testa nada — foi exatamente o que aconteceu na
 primeira tentativa daqui, e o `/saude` denunciou respondendo
 `"ambiente":"Development"`.
 
+## Perdeu a senha
+
+Não há recuperação de senha pela tela, e reprovisionar não ajuda: o
+provisionamento só age com o banco vazio. Sem uma saída, perder a senha trancaria
+o sistema para sempre, com os dados dentro.
+
+A saída são duas variáveis de ambiente no serviço da API:
+
+| Variável | Valor |
+|---|---|
+| `Recuperacao__Email` | O e-mail com que a conta foi criada |
+| `Recuperacao__Senha` | A senha nova, mínimo de 10 caracteres |
+
+Salvar dispara um deploy. Na subida, a senha é trocada e o log diz:
+
+```
+warn: Recuperação[0]
+      A senha de … foi redefinida pela configuração. APAGUE AS DUAS VARIÁVEIS …
+```
+
+**Apague as duas assim que entrar.** Enquanto existirem, toda subida refaz a
+troca — inclusive por cima de uma senha que você mude depois pela tela.
+
+Três coisas que o mecanismo faz de propósito:
+
+- **Não cria usuário.** E-mail desconhecido só gera aviso no log. Criar alguém
+  sem escritório deixaria uma conta que entra e não enxerga nada, o que parece
+  defeito e esconde o erro real, que foi o e-mail digitado errado.
+- **Confere a senha antes de trocar.** Senha fraca é recusada e a antiga
+  continua valendo. A primeira versão trocava primeiro e conferia depois, o que
+  deixava o usuário sem senha nenhuma — trancado pela ferramenta que existe para
+  destrancar. Foi um teste que pegou.
+- **Derruba as sessões abertas.** Quem perdeu a senha não sabe quem mais está
+  dentro, e pode ser justamente por isso que ela se perdeu.
+
+Isto não cria poder novo: quem define variáveis de ambiente já podia trocar a
+string de conexão e apontar para outro banco. O que muda é existir um caminho
+previsto, que grita no log e pede para ser apagado.
+
 ## Esta versão desloga todo mundo, uma vez
 
 O token passou a carregar o carimbo de segurança do Identity, conferido a cada
