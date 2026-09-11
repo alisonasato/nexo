@@ -50,6 +50,13 @@ public static class Pessoas
             .Produces(StatusCodes.Status204NoContent)
             .Produces(StatusCodes.Status404NotFound);
 
+        grupo.MapPost("/{id:guid}/reativar", Reativar)
+            .WithName("ReativarPessoa")
+            .WithSummary("Desfaz a inativação")
+            .WithDescription("Existe como endereço próprio, e não como um PUT com ativo=true, porque o PUT reescreve o cadastro inteiro: a tela precisaria mandar de volta campos que ela não tem em mãos, e apagaria o que não conhece.")
+            .Produces(StatusCodes.Status204NoContent)
+            .Produces(StatusCodes.Status404NotFound);
+
         return rotas;
     }
 
@@ -169,6 +176,23 @@ public static class Pessoas
         if (pessoa is null) return Results.NotFound();
 
         pessoa.Ativo = false;
+        pessoa.AtualizadoEm = DateTimeOffset.UtcNow;
+        await banco.SaveChangesAsync(cancelamento);
+
+        return Results.NoContent();
+    }
+
+    private static async Task<IResult> Reativar(Guid id, NexoDbContext banco, CancellationToken cancelamento)
+    {
+        var pessoa = await banco.Pessoas.FirstOrDefaultAsync(pessoa => pessoa.Id == id, cancelamento);
+        if (pessoa is null) return Results.NotFound();
+
+        /*
+         * Reativar quem já está ativa não é erro: é o segundo clique de quem
+         * não viu o primeiro chegar. Devolver 422 aqui faria a tela mostrar
+         * problema onde o estado desejado já é o estado atual.
+         */
+        pessoa.Ativo = true;
         pessoa.AtualizadoEm = DateTimeOffset.UtcNow;
         await banco.SaveChangesAsync(cancelamento);
 

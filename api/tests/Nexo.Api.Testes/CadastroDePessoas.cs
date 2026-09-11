@@ -152,6 +152,41 @@ public class CadastroDePessoas(BancoDeTestes banco) : IDisposable
     }
 
     [Fact]
+    public async Task Reativar_traz_a_pessoa_de_volta_para_a_lista()
+    {
+        var cliente = await Contas.Entrar(_aplicacao, await Contas.Criar(banco, _aplicacao));
+
+        var criada = await cliente.PostAsJsonAsync("/pessoas",
+            Dados(TipoPessoa.Fisica, "Joana Ribeiro", CpfValido()), Json);
+        var pessoa = await criada.Content.ReadFromJsonAsync<PessoaDetalhada>(Json);
+
+        await cliente.DeleteAsync($"/pessoas/{pessoa!.Id}");
+
+        var volta = await cliente.PostAsync($"/pessoas/{pessoa.Id}/reativar", null);
+        Assert.Equal(HttpStatusCode.NoContent, volta.StatusCode);
+
+        var lista = await cliente.GetFromJsonAsync<PaginaDePessoas>("/pessoas", Json);
+        Assert.True(Assert.Single(lista!.Itens).Ativo);
+    }
+
+    [Fact]
+    public async Task Reativar_pessoa_de_outro_tenant_devolve_404()
+    {
+        var clienteA = await Contas.Entrar(_aplicacao, await Contas.Criar(banco, _aplicacao));
+        var clienteB = await Contas.Entrar(_aplicacao, await Contas.Criar(banco, _aplicacao));
+
+        var criada = await clienteA.PostAsJsonAsync("/pessoas",
+            Dados(TipoPessoa.Fisica, "Somente do A", CpfValido()), Json);
+        var pessoa = await criada.Content.ReadFromJsonAsync<PessoaDetalhada>(Json);
+
+        await clienteA.DeleteAsync($"/pessoas/{pessoa!.Id}");
+
+        /* O endpoint novo nasce debaixo da mesma política que o resto. */
+        var doOutro = await clienteB.PostAsync($"/pessoas/{pessoa.Id}/reativar", null);
+        Assert.Equal(HttpStatusCode.NotFound, doOutro.StatusCode);
+    }
+
+    [Fact]
     public async Task Sem_sessao_o_cadastro_e_recusado()
     {
         var cliente = _aplicacao.CreateClient();

@@ -35,6 +35,27 @@ public static class Clientes
             .Produces<ClienteNaLista>()
             .Produces(StatusCodes.Status404NotFound);
 
+        /*
+         * Inativar e reativar têm endereço próprio em vez de sair pelo PUT.
+         *
+         * O PUT reescreve o vínculo inteiro, e a listagem não carrega
+         * `Observacoes` — a tela que quisesse só desligar um cliente mandaria
+         * o campo vazio e apagaria a anotação de quem o atende. O prejuízo
+         * seria silencioso, que é o pior tipo.
+         */
+        grupo.MapDelete("/{id:guid}", Inativar)
+            .WithName("InativarCliente")
+            .WithSummary("Inativa o vínculo")
+            .WithDescription("Não apaga: o cliente sai da lista e continua no histórico dos contratos e das cobranças.")
+            .Produces(StatusCodes.Status204NoContent)
+            .Produces(StatusCodes.Status404NotFound);
+
+        grupo.MapPost("/{id:guid}/reativar", Reativar)
+            .WithName("ReativarCliente")
+            .WithSummary("Desfaz a inativação")
+            .Produces(StatusCodes.Status204NoContent)
+            .Produces(StatusCodes.Status404NotFound);
+
         return rotas;
     }
 
@@ -144,6 +165,27 @@ public static class Clientes
             cliente.Id, cliente.Codigo, cliente.PessoaId, cliente.Pessoa!.Nome,
             cliente.Pessoa.NomeFantasia, cliente.Pessoa.Documento,
             cliente.RegimeTributario, cliente.Responsavel, cliente.Ativo));
+    }
+
+    private static Task<IResult> Inativar(
+        Guid id, NexoDbContext banco, CancellationToken cancelamento) =>
+        DefinirAtivo(id, false, banco, cancelamento);
+
+    private static Task<IResult> Reativar(
+        Guid id, NexoDbContext banco, CancellationToken cancelamento) =>
+        DefinirAtivo(id, true, banco, cancelamento);
+
+    private static async Task<IResult> DefinirAtivo(
+        Guid id, bool ativo, NexoDbContext banco, CancellationToken cancelamento)
+    {
+        var cliente = await banco.Clientes.FirstOrDefaultAsync(c => c.Id == id, cancelamento);
+        if (cliente is null) return Results.NotFound();
+
+        /* Repetir o estado que já vale não é erro: é o segundo clique. */
+        cliente.Ativo = ativo;
+        await banco.SaveChangesAsync(cancelamento);
+
+        return Results.NoContent();
     }
 
     private static IResult Problema(string campo, string titulo, string descricao, string sugestao) =>

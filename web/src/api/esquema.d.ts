@@ -101,6 +101,27 @@ export interface paths {
         /** Altera o vínculo */
         put: operations["AlterarCliente"];
         post?: never;
+        /**
+         * Inativa o vínculo
+         * @description Não apaga: o cliente sai da lista e continua no histórico dos contratos e das cobranças.
+         */
+        delete: operations["InativarCliente"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/clientes/{id}/reativar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Desfaz a inativação */
+        post: operations["ReativarCliente"];
         delete?: never;
         options?: never;
         head?: never;
@@ -215,6 +236,26 @@ export interface paths {
          * @description Não apaga: marca como inativo. Quem já apareceu em contrato ou cobrança precisa continuar existindo no histórico.
          */
         delete: operations["InativarPessoa"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/pessoas/{id}/reativar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Desfaz a inativação
+         * @description Existe como endereço próprio, e não como um PUT com ativo=true, porque o PUT reescreve o cadastro inteiro: a tela precisaria mandar de volta campos que ela não tem em mãos, e apagaria o que não conhece.
+         */
+        post: operations["ReativarPessoa"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -804,6 +845,60 @@ export interface operations {
             };
         };
     };
+    InativarCliente: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ReativarCliente: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     ListarContratos: {
         parameters: {
             query?: {
@@ -1107,6 +1202,33 @@ export interface operations {
         };
     };
     InativarPessoa: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ReativarPessoa: {
         parameters: {
             query?: never;
             header?: never;
