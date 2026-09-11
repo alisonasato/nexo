@@ -28,7 +28,6 @@ e não atrapalha.
 
 ## Herdado do protótipo, ainda sem dono
 
-- `error.tsx` e tratamento de erro de rota.
 - Visão em cartão para tabelas no celular.
 - Seleção de linhas e painel de colunas na listagem de produtos.
 - Comissão padrão por categoria de produto.
@@ -96,8 +95,6 @@ e não atrapalha.
 - Reajuste de contrato por índice, e histórico de valores. Hoje mudar o valor
   reescreve o contrato, sem deixar rastro do que era antes.
 - Juros e multa sobre o vencido. Hoje o vencido só aparece destacado.
-- Corpo de requisição malformado devolve 400 cru, sem o formato de problemas
-  que o resto da API usa.
 
 ## Aberto pela preparação para produção
 
@@ -105,9 +102,6 @@ e não atrapalha.
   negócio são `snake_case`. O Identity fixa os nomes e a convenção não os
   alcança. O EF cita os identificadores, então nada quebra; incomoda quem
   escrever SQL à mão. Trocar é mais barato agora, antes de haver dado.
-- **Corpo malformado devolve 400 cru**, fora do formato de problemas que o
-  resto da API usa. Só acontece com cliente com defeito — o front é gerado
-  do contrato —, e por isso ficou para depois.
 - **Conferir o backup automático da Railway.** O procedimento de restauração
   está exercitado e documentado em BACKUP.md, mas com um dump feito à mão. Se o
   backup automático do PaaS está ligado, e se um arquivo dele restaura, depende

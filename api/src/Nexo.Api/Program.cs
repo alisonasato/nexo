@@ -241,6 +241,17 @@ construtor.Services.AddAuthorization(opcoes =>
  * documento. Também protege contra reordenar o enum em C# e mudar o
  * significado do dado já gravado nos clientes.
  */
+/*
+ * Corpo ilegível vira exceção, para o middleware lá embaixo poder respondê-la
+ * no formato da casa.
+ *
+ * Sem isto a API minimalista trata o caso sozinha e devolve 400 com corpo
+ * vazio — e, pior, faz isso só fora de Development, onde o padrão já é lançar.
+ * Ou seja: o comportamento mudava entre a máquina de quem programa e a
+ * produção, que é onde ninguém quer descobrir diferença.
+ */
+construtor.Services.Configure<RouteHandlerOptions>(opcoes => opcoes.ThrowOnBadRequest = true);
+
 construtor.Services.ConfigureHttpJsonOptions(opcoes =>
     opcoes.SerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter()));
 
@@ -358,6 +369,39 @@ if (!extraindoContrato)
     if (ProvisionamentoInicial.Ler(construtor.Configuration, app.Environment) is { } inicial)
         await ProvisionamentoInicial.ExecutarAsync(app.Services, inicial);
 }
+
+/*
+ * Corpo malformado devolve o mesmo formato de erro que todo o resto.
+ *
+ * Sem isto o ASP.NET responde 400 com um texto seco e sem estrutura, e um
+ * cliente que sabe ler `problemas` recebe algo que não sabe ler — justamente
+ * quando já está confuso. Só acontece com cliente defeituoso, porque o nosso é
+ * gerado do contrato, e é exatamente por isso que a mensagem precisa ser clara:
+ * quem topa com ela está depurando.
+ *
+ * Vem antes da autenticação de propósito. A leitura do corpo acontece na
+ * ligação dos parâmetros, depois disto na fila, e o middleware precisa estar
+ * por fora para pegar o estouro.
+ */
+app.Use(async (contexto, seguir) =>
+{
+    try
+    {
+        await seguir(contexto);
+    }
+    catch (BadHttpRequestException erro) when (!contexto.Response.HasStarted)
+    {
+        contexto.Response.StatusCode = StatusCodes.Status400BadRequest;
+        contexto.Response.ContentType = "application/json; charset=utf-8";
+
+        await contexto.Response.WriteAsJsonAsync(new RespostaComProblemas([new Problema(
+            "corpo",
+            "Requisição malformada",
+            "O corpo da requisição não pôde ser lido.",
+            "Confira se o JSON está bem formado e se os tipos batem com o contrato em /swagger. " +
+            "Detalhe: " + erro.Message)]));
+    }
+});
 
 app.UseAuthentication();
 app.UseAuthorization();

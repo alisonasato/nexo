@@ -160,6 +160,16 @@ desenvolvimento e o teste não testa nada — foi exatamente o que aconteceu na
 primeira tentativa daqui, e o `/saude` denunciou respondendo
 `"ambiente":"Development"`.
 
+## Esta versão desloga todo mundo, uma vez
+
+O token passou a carregar o carimbo de segurança do Identity, conferido a cada
+requisição. Tokens emitidos antes disso não têm o carimbo e são recusados.
+
+Na prática: depois de publicar, quem estava dentro cai na tela de entrar e
+precisa digitar a senha de novo. Uma vez só. Não é defeito e não perde dado —
+mas assusta se ninguém avisar, ainda mais porque acontece junto do deploy e
+parece consequência dele.
+
 ## Duas coisas para saber antes de estranhar
 
 - **Caminho desconhecido devolve 401, não 404.** Efeito da política padrão
