@@ -213,6 +213,10 @@ Configuração, migração automática e o que quebra fora da sua máquina estã
 as variáveis de cada um, está em
 [IMPLANTACAO-RAILWAY.md](IMPLANTACAO-RAILWAY.md).
 
+Backup e restauração estão em [BACKUP.md](BACKUP.md), com as duas armadilhas
+que só apareceram fazendo — uma delas devolve o banco funcionando e sem
+isolamento entre escritórios.
+
 ## Migrações
 
 ```bash

@@ -112,5 +112,9 @@ e não atrapalha.
 - **Corpo malformado devolve 400 cru**, fora do formato de problemas que o
   resto da API usa. Só acontece com cliente com defeito — o front é gerado
   do contrato —, e por isso ficou para depois.
-- **Backup do banco.** O PaaS oferece; ninguém conferiu se está ligado nem se
-  a restauração funciona. Backup não testado é backup que não existe.
+- **Conferir o backup automático da Railway.** O procedimento de restauração
+  está exercitado e documentado em BACKUP.md, mas com um dump feito à mão. Se o
+  backup automático do PaaS está ligado, e se um arquivo dele restaura, depende
+  de acesso ao painel — é passo seu, não meu.
+- **Restauração com volume de verdade.** O exercício foi com 61 linhas. Quanto
+  demora restaurar um banco de escritório cheio é outra conversa.

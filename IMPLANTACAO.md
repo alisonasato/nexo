@@ -186,5 +186,8 @@ transformou quase tudo em fato verificado:
 
 O que continua sem verificação:
 
-- **Restaurar backup.** A Railway faz backup do banco; recuperar a partir de um
-  nunca foi exercitado. Backup que nunca foi restaurado é hipótese, não backup.
+- **O backup automático da Railway.** O procedimento de backup e restauração
+  está exercitado e escrito em [BACKUP.md](BACKUP.md), com duas armadilhas que
+  só apareceram fazendo — inclusive uma que devolve o banco sem isolamento entre
+  escritórios, e sem sintoma. O que falta é conferir no painel se o backup
+  automático está ligado, e restaurar a partir de um arquivo dele.
