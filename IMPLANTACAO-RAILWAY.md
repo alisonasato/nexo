@@ -186,9 +186,30 @@ Variáveis:
 | `PORT` | `8080` — **definida à mão, de propósito.** Ver abaixo. |
 | `Provisionamento__TenantNome` | Nome do escritório. Só no primeiro deploy. |
 | `Provisionamento__Email` | Quem vai entrar primeiro. Só no primeiro deploy. |
-| `Provisionamento__Senha` | Forte. Só no primeiro deploy. |
+| `Provisionamento__Senha` | Ver as regras abaixo. Só no primeiro deploy. |
 | `Provisionamento__EmpresaRazaoSocial` | Razão social do escritório. |
 | `Provisionamento__EmpresaCnpj` | Com ou sem pontuação. |
+
+**A senha precisa cumprir cinco regras**, e a subida falha se faltar uma: dez
+caracteres ou mais, uma maiúscula, uma minúscula, um número e um símbolo. Gere
+uma em vez de inventar:
+
+```bash
+node -e "console.log('Nx' + require('crypto').randomBytes(9).toString('base64') + '@7')"
+```
+
+Senha recusada derruba a subida e **não escreve nada no banco** — basta corrigir
+a variável e implantar de novo. Nem sempre foi assim: até 11 de setembro de 2026
+o tenant era criado antes da conferência, e uma senha fraca deixava o banco pela
+metade, povoado demais para o provisionamento rodar outra vez e vazio demais
+para alguém entrar. Se você topar com esse estado num banco antigo, limpe antes
+de tentar de novo:
+
+```sql
+SELECT set_config('app.tenant_id', (SELECT id::text FROM tenants LIMIT 1), false);
+DELETE FROM empresas;
+DELETE FROM tenants;
+```
 
 Gere a chave:
 

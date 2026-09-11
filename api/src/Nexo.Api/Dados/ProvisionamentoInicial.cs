@@ -72,6 +72,28 @@ public static class ProvisionamentoInicial
     }
 
     /// <summary>
+    /// O que há de errado com a senha, segundo as regras do Identity. Lista
+    /// vazia quer dizer que serve.
+    /// </summary>
+    public static async Task<IReadOnlyList<string>> ConferirSenha(
+        UserManager<Usuario> usuarios,
+        string senha,
+        string nome = "Provisionamento")
+    {
+        var problemas = new List<string>();
+        var candidato = new Usuario { Nome = nome };
+
+        foreach (var validador in usuarios.PasswordValidators)
+        {
+            var conferencia = await validador.ValidateAsync(usuarios, candidato, senha);
+            if (!conferencia.Succeeded)
+                problemas.AddRange(conferencia.Errors.Select(erro => erro.Description));
+        }
+
+        return problemas;
+    }
+
+    /// <summary>
     /// Cria o tenant se ainda não houver nenhum. Devolve <c>true</c> quando
     /// criou, <c>false</c> quando encontrou o banco já povoado.
     /// </summary>
@@ -87,6 +109,28 @@ public static class ProvisionamentoInicial
         var registro = provedor.GetRequiredService<ILoggerFactory>().CreateLogger("Provisionamento");
 
         if (await banco.Tenants.AnyAsync(cancelamento)) return false;
+
+        var usuarios = provedor.GetRequiredService<UserManager<Usuario>>();
+
+        /*
+         * A senha é conferida ANTES de escrever qualquer coisa.
+         *
+         * Sem isto, senha fraca criava o tenant, criava a empresa, e só então
+         * falhava no usuário — deixando um banco que parece povoado, onde
+         * ninguém entra, e onde a trava do "banco vazio" impede a segunda
+         * tentativa. Corrigir exigia apagar linhas à mão no banco de produção.
+         *
+         * Aconteceu de verdade numa implantação. A ordem certa é conferir
+         * primeiro e escrever depois, e é a mesma lição de RecuperacaoDeSenha.
+         */
+        var problemas = await ConferirSenha(usuarios, dados.Senha, dados.TenantNome);
+
+        if (problemas.Count > 0)
+        {
+            throw new InvalidOperationException(
+                $"A senha em {Secao}__Senha não serve: " + string.Join(" ", problemas) +
+                " Nada foi criado no banco — corrija a variável e implante de novo.");
+        }
 
         var tenantId = Guid.NewGuid();
         banco.Tenants.Add(new Tenant { Id = tenantId, Nome = dados.TenantNome });
@@ -118,7 +162,6 @@ public static class ProvisionamentoInicial
             await comoTenant.SaveChangesAsync(cancelamento);
         }
 
-        var usuarios = provedor.GetRequiredService<UserManager<Usuario>>();
         var resultado = await usuarios.CreateAsync(new Usuario
         {
             Id = Guid.NewGuid(),
@@ -133,15 +176,26 @@ public static class ProvisionamentoInicial
         if (!resultado.Succeeded)
         {
             /*
-             * Estourar em vez de deixar meio feito. Um tenant e uma empresa sem
-             * ninguém que consiga entrar é um banco que parece povoado e não
-             * serve para nada — e a trava do "banco vazio" impediria a segunda
-             * tentativa de consertar.
+             * Desfaz o que escreveu antes de estourar.
+             *
+             * A senha já foi conferida acima, então chegar aqui é outra coisa —
+             * e-mail já usado, por exemplo. Seja o que for, o banco não pode
+             * ficar pela metade: um tenant e uma empresa sem ninguém que
+             * consiga entrar parecem um banco povoado, e a trava do "banco
+             * vazio" impediria a segunda tentativa de consertar.
              */
+            await using (var comoTenant = new NexoDbContext(opcoes))
+            {
+                await comoTenant.Empresas.Where(e => e.Id == empresaId).ExecuteDeleteAsync(cancelamento);
+            }
+
+            await banco.Tenants.Where(t => t.Id == tenantId).ExecuteDeleteAsync(cancelamento);
+
             throw new InvalidOperationException(
-                "Tenant criado, mas o usuário inicial falhou: " +
+                "O usuário inicial falhou: " +
                 string.Join("; ", resultado.Errors.Select(erro => erro.Description)) +
-                " O banco ficou pela metade; apague o tenant criado antes de tentar de novo.");
+                " O tenant e a empresa criados foram apagados, então o banco voltou ao estado " +
+                "anterior — corrija a configuração e implante de novo.");
         }
 
         registro.LogInformation(

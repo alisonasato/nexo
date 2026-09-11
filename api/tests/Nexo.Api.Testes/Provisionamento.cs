@@ -1,6 +1,9 @@
+using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Nexo.Api.Dados;
+using Nexo.Api.Dominio;
 
 namespace Nexo.Api.Testes;
 
@@ -92,5 +95,30 @@ public class Provisionamento(BancoDeTestes banco) : IDisposable
                 "Não deveria nascer Ltda", "11222333000181"));
 
         Assert.False(criou);
+    }
+
+    [Fact]
+    public async Task Senha_fraca_e_pega_antes_de_qualquer_escrita()
+    {
+        using var escopo = _aplicacao.Services.CreateScope();
+        var usuarios = escopo.ServiceProvider.GetRequiredService<UserManager<Usuario>>();
+
+        /*
+         * Esta conferência é o que separa um erro de digitação de um banco
+         * inutilizável.
+         *
+         * A primeira versão criava o tenant e a empresa e só então tentava o
+         * usuário. Senha fraca deixava o banco pela metade — povoado o
+         * suficiente para a trava do "banco vazio" bloquear a segunda
+         * tentativa, e vazio o suficiente para ninguém conseguir entrar.
+         * Aconteceu numa implantação de verdade, e o conserto foi apagar linhas
+         * à mão no banco de produção.
+         */
+        var problemas = await ProvisionamentoInicial.ConferirSenha(usuarios, "123");
+
+        Assert.NotEmpty(problemas);
+        Assert.Contains(problemas, p => p.Contains("10 caracteres"));
+
+        Assert.Empty(await ProvisionamentoInicial.ConferirSenha(usuarios, "SenhaForte@2026"));
     }
 }
