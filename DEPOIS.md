@@ -89,13 +89,11 @@ e não atrapalha.
 
 - **Cobrança automática pelo PSP.** Não é dívida técnica: é a decisão de
   qual PSP e a conta nele, que só você pode tomar. Detalhes em DECISOES.md.
-- Recebível avulso, fora de contrato. O modelo já aceita (`contratoId` nulo),
-  a API e a tela ainda não.
 - Gerar mensalidade só dos contratos selecionados. A API aceita a lista de
   ids; a tela sempre manda todos.
-- Filtrar contratos por situação na tela. A API já aceita `situacao`; a
-  listagem mistura ativos, suspensos e encerrados. Virou incômodo agora que a
-  busca existe: achar um contrato ficou fácil, separar os encerrados não.
+- Editar ou cancelar uma cobrança avulsa recém-lançada. Hoje o conserto de um
+  valor digitado errado é cancelar e lançar de novo, o que funciona e deixa
+  duas linhas no histórico onde bastaria uma.
 - Reajuste de contrato por índice, e histórico de valores. Hoje mudar o valor
   reescreve o contrato, sem deixar rastro do que era antes.
 - Juros e multa sobre o vencido. Hoje o vencido só aparece destacado.

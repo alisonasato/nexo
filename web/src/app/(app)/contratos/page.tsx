@@ -5,11 +5,14 @@ import { useEffect, useState } from "react";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { api } from "@/api/cliente";
+import type { components } from "@/api/esquema";
 import { Botao, Entrada, Selecao } from "@/componentes/controles";
 import { Paginacao } from "@/componentes/paginacao";
 import { competenciaAtual, formatarValor } from "@/lib/dinheiro";
 
-const situacoes: Record<string, string> = {
+type SituacaoContrato = components["schemas"]["SituacaoContrato"];
+
+const situacoes: Record<SituacaoContrato, string> = {
   Ativo: "Ativo",
   Suspenso: "Suspenso",
   Encerrado: "Encerrado",
@@ -24,6 +27,7 @@ export default function ListagemDeContratos() {
   const [pagina, definirPagina] = useState(1);
   const [busca, definirBusca] = useState("");
   const [termo, definirTermo] = useState("");
+  const [situacao, definirSituacao] = useState<SituacaoContrato | "">("");
 
   /* Mesmo meio segundo de espera da tela de pessoas: uma ida ao servidor por
      pausa, não por tecla. */
@@ -36,10 +40,16 @@ export default function ListagemDeContratos() {
   }, [busca]);
 
   const contratos = useQuery({
-    queryKey: ["contratos", termo, pagina],
+    queryKey: ["contratos", termo, situacao, pagina],
     queryFn: async () => {
       const { data, error } = await api.GET("/contratos", {
-        params: { query: { pagina, ...(termo ? { busca: termo } : {}) } },
+        params: {
+          query: {
+            pagina,
+            ...(termo ? { busca: termo } : {}),
+            ...(situacao ? { situacao } : {}),
+          },
+        },
       });
       if (error || !data) throw new Error("Não foi possível carregar os contratos.");
       return data;
@@ -57,6 +67,9 @@ export default function ListagemDeContratos() {
     },
     onSuccess: () => clienteDeConsultas.invalidateQueries({ queryKey: ["recebiveis"] }),
   });
+
+  /* Busca e situação afetam a lista da mesma forma: escondem parte do todo. */
+  const filtrando = Boolean(termo || situacao);
 
   return (
     <>
@@ -148,6 +161,28 @@ export default function ListagemDeContratos() {
           {contratos.isFetching && <span className="text-xs text-slate-500">buscando…</span>}
         </div>
 
+        <div className="flex flex-wrap items-center gap-2">
+          {([["", "Todas"], ...Object.entries(situacoes)] as const).map(([valor, rotulo]) => (
+            <button
+              key={rotulo}
+              type="button"
+              onClick={() => {
+                definirSituacao(valor as SituacaoContrato | "");
+                definirPagina(1);
+              }}
+              aria-pressed={situacao === valor}
+              className={
+                "rounded-full px-3 py-1 text-sm font-medium transition-colors " +
+                (situacao === valor
+                  ? "bg-marca-600 text-white"
+                  : "border border-borda-forte bg-superficie text-slate-700 hover:bg-slate-50")
+              }
+            >
+              {rotulo}
+            </button>
+          ))}
+        </div>
+
         {contratos.isPending && <p className="text-slate-500">Carregando os contratos…</p>}
 
         {contratos.isError && (
@@ -159,12 +194,16 @@ export default function ListagemDeContratos() {
         {contratos.data && contratos.data.itens.length === 0 && (
           <div className="rounded-[--radius-cartao] border border-dashed border-borda-forte bg-superficie px-6 py-12 text-center">
             <p className="font-medium text-slate-700">
-              {termo ? "Nenhum contrato encontrado." : "Nenhum contrato cadastrado."}
+              {filtrando ? "Nenhum contrato encontrado." : "Nenhum contrato cadastrado."}
             </p>
             <p className="mt-1 text-slate-500">
-              {termo
-                ? "Tente o código, um pedaço da descrição ou o nome do cliente."
-                : "Um contrato precisa de um cliente. Se ainda não há clientes, cadastre a pessoa e marque-a como cliente do escritório."}
+              {termo && situacao
+                ? "Nenhum contrato nessa situação bate com a busca. Tente outra situação."
+                : termo
+                  ? "Tente o código, um pedaço da descrição ou o nome do cliente."
+                  : situacao
+                    ? "Nenhum contrato nessa situação."
+                    : "Um contrato precisa de um cliente. Se ainda não há clientes, cadastre a pessoa e marque-a como cliente do escritório."}
             </p>
           </div>
         )}
@@ -246,7 +285,7 @@ export default function ListagemDeContratos() {
                 {/* Dizer isto em voz alta enquanto há busca: o número não é a
                     soma do que está na tela, e parecer que é seria pior do que
                     não mostrar nada. */}
-                {termo && " — todos, não só os encontrados"}
+                {filtrando && ", todos: não só os que a lista mostra"}
               </p>
             </div>
           </>

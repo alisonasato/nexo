@@ -19,6 +19,13 @@ public static class Recebiveis
             .WithSummary("Lista os recebíveis")
             .Produces<PaginaDeRecebiveis>();
 
+        grupo.MapPost("/", Criar)
+            .WithName("CriarRecebivelAvulso")
+            .WithSummary("Lança uma cobrança fora de contrato")
+            .WithDescription("Para o que o escritório faz e não é mensalidade: declaração de imposto de renda, abertura de empresa, certidão. Fica sem contrato por trás.")
+            .Produces<RecebivelNaLista>(StatusCodes.Status201Created)
+            .Produces<RespostaComProblemas>(StatusCodes.Status422UnprocessableEntity);
+
         grupo.MapPost("/{id:guid}/baixar", Baixar)
             .WithName("BaixarRecebivel")
             .WithSummary("Registra o recebimento")
@@ -123,6 +130,116 @@ public static class Recebiveis
 
         return Results.Ok(new PaginaDeRecebiveis(
             itens, total, pagina, tamanho, totalEmAberto, totalVencido, totalRecebido));
+    }
+
+    /// <summary>
+    /// Lança um recebível sem contrato por trás.
+    ///
+    /// <para>
+    /// <b>Vários avulsos podem dividir a mesma competência</b>, e isso não é
+    /// descuido: o índice único cobre <c>ContratoId + competência</c>, e no
+    /// Postgres duas linhas com <c>NULL</c> nessa coluna nunca colidem. A
+    /// proteção existe contra cobrar a mesma mensalidade duas vezes, que é
+    /// erro de máquina; o escritório que emite três certidões no mesmo mês
+    /// está fazendo o trabalho dele.
+    /// </para>
+    /// <para>
+    /// A competência é pedida, e não deduzida do vencimento, porque os dois
+    /// quase nunca coincidem — serviço prestado em janeiro costuma vencer em
+    /// fevereiro, e é por competência que o escritório fecha o mês.
+    /// </para>
+    /// </summary>
+    private static async Task<IResult> Criar(
+        [FromBody] DadosDoAvulso dados,
+        NexoDbContext banco,
+        IContextoDeTenant contexto,
+        CancellationToken cancelamento)
+    {
+        if (contexto.TenantAtual is not { } tenant) return Results.Unauthorized();
+
+        var problemas = await Conferir(dados, banco, cancelamento);
+        if (problemas.Count > 0)
+            return Results.Json(new RespostaComProblemas(problemas), statusCode: 422);
+
+        var agora = DateTimeOffset.UtcNow;
+
+        var recebivel = new Recebivel
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenant,
+            ClienteId = dados.ClienteId,
+            ContratoId = null,
+            CompetenciaAno = dados.CompetenciaAno,
+            CompetenciaMes = dados.CompetenciaMes,
+            Descricao = dados.Descricao.Trim(),
+            Valor = dados.Valor,
+            Vencimento = dados.Vencimento,
+            Situacao = SituacaoRecebivel.Aberto,
+            CriadoEm = agora,
+            AtualizadoEm = agora,
+        };
+
+        banco.Recebiveis.Add(recebivel);
+        await banco.SaveChangesAsync(cancelamento);
+
+        await banco.Entry(recebivel).Reference(r => r.Cliente).LoadAsync(cancelamento);
+        await banco.Entry(recebivel.Cliente!).Reference(c => c.Pessoa).LoadAsync(cancelamento);
+
+        return Results.Created($"/recebiveis/{recebivel.Id}", Detalhar(recebivel));
+    }
+
+    private static async Task<List<Problema>> Conferir(
+        DadosDoAvulso dados,
+        NexoDbContext banco,
+        CancellationToken cancelamento)
+    {
+        var problemas = new List<Problema>();
+
+        var cliente = await banco.Clientes.AsNoTracking()
+            .FirstOrDefaultAsync(c => c.Id == dados.ClienteId, cancelamento);
+
+        if (cliente is null)
+        {
+            problemas.Add(new Problema("clienteId", "Cobrança sem cliente",
+                "O cliente informado não existe.",
+                "Escolha um cliente da lista. Se ele ainda não é cliente, crie o vínculo primeiro."));
+        }
+
+        if (string.IsNullOrWhiteSpace(dados.Descricao))
+        {
+            problemas.Add(new Problema("descricao", "Falha na validação da cobrança",
+                "A descrição não foi informada.",
+                "Diga o que está sendo cobrado: “Declaração de IRPF 2026”, “Abertura de empresa”."));
+        }
+
+        if (dados.Valor <= 0)
+        {
+            problemas.Add(new Problema("valor", "Falha na validação da cobrança",
+                "O valor precisa ser maior que zero.",
+                "Informe quanto o cliente tem a pagar por este serviço."));
+        }
+
+        if (dados.CompetenciaMes is < 1 or > 12)
+        {
+            problemas.Add(new Problema("competenciaMes", "Competência inválida",
+                $"O mês informado foi {dados.CompetenciaMes}.",
+                "Informe um mês entre 1 e 12."));
+        }
+
+        /*
+         * O intervalo é largo de propósito. O escritório lança competência
+         * atrasada o tempo todo, e às vezes adiantada; o que isto barra é o
+         * ano digitado errado por escorregão de tecla, que passaria despercebido
+         * e sumiria do fechamento do mês.
+         */
+        if (dados.CompetenciaAno is < 2000 or > 2100)
+        {
+            problemas.Add(new Problema("competenciaAno", "Competência inválida",
+                $"O ano informado foi {dados.CompetenciaAno}.",
+                "Informe um ano entre 2000 e 2100."));
+        }
+
+        return problemas;
     }
 
     private static async Task<IResult> Baixar(
@@ -282,6 +399,16 @@ public static class Recebiveis
             new RespostaComProblemas([new Problema(campo, titulo, descricao, sugestao)]),
             statusCode: 422);
 }
+
+/// <param name="CompetenciaAno">O ano a que o serviço se refere, não o do vencimento.</param>
+/// <param name="CompetenciaMes">O mês a que o serviço se refere, de 1 a 12.</param>
+public record DadosDoAvulso(
+    Guid ClienteId,
+    string Descricao,
+    decimal Valor,
+    DateOnly Vencimento,
+    int CompetenciaAno,
+    int CompetenciaMes);
 
 public record DadosDaBaixa(decimal ValorPago, DateOnly? PagoEm);
 public record DadosDoCancelamento(string? Motivo);

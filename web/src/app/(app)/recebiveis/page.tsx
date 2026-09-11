@@ -4,14 +4,28 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { api } from "@/api/cliente";
-import { Botao, Entrada } from "@/componentes/controles";
+import { Botao, Entrada, Selecao } from "@/componentes/controles";
 import { Paginacao } from "@/componentes/paginacao";
 import type { components } from "@/api/esquema";
-import { formatarCompetencia, formatarData, formatarValor, lerValor } from "@/lib/dinheiro";
+import {
+  competenciaAtual,
+  formatarCompetencia,
+  formatarData,
+  formatarValor,
+  lerValor,
+} from "@/lib/dinheiro";
 
 type SituacaoRecebivel = components["schemas"]["SituacaoRecebivel"];
+type Problema = components["schemas"]["Problema"];
 
 const hojeIso = () => new Date().toISOString().slice(0, 10);
+
+function problemasDaResposta(erro: unknown): Problema[] {
+  if (erro && typeof erro === "object" && "problemas" in erro && Array.isArray(erro.problemas)) {
+    return erro.problemas as Problema[];
+  }
+  return [];
+}
 
 export default function ListagemDeRecebiveis() {
   const clienteDeConsultas = useQueryClient();
@@ -28,6 +42,17 @@ export default function ListagemDeRecebiveis() {
   /* Qual recebível está com o formulário de cancelamento aberto, e por quê. */
   const [cancelando, definirCancelando] = useState<string | null>(null);
   const [motivo, definirMotivo] = useState("");
+
+  /* A cobrança avulsa: o que o escritório faz e não é mensalidade. */
+  const competencia = competenciaAtual();
+  const [lancando, definirLancando] = useState(false);
+  const [clienteDoAvulso, definirClienteDoAvulso] = useState("");
+  const [descricaoDoAvulso, definirDescricaoDoAvulso] = useState("");
+  const [valorDoAvulso, definirValorDoAvulso] = useState("");
+  const [vencimentoDoAvulso, definirVencimentoDoAvulso] = useState(hojeIso());
+  const [anoDoAvulso, definirAnoDoAvulso] = useState(competencia.ano);
+  const [mesDoAvulso, definirMesDoAvulso] = useState(competencia.mes);
+  const [problemasDoAvulso, definirProblemasDoAvulso] = useState<Problema[]>([]);
 
   const recebiveis = useQuery({
     queryKey: ["recebiveis", situacao, pagina],
@@ -94,6 +119,43 @@ export default function ListagemDeRecebiveis() {
     },
   });
 
+  /* Só os ativos: cobrança nova para cliente desligado é quase sempre engano. */
+  const clientes = useQuery({
+    queryKey: ["clientes", false],
+    enabled: lancando,
+    queryFn: async () => {
+      const { data, error } = await api.GET("/clientes");
+      if (error || !data) throw new Error("Não foi possível carregar os clientes.");
+      return data;
+    },
+  });
+
+  const lancarAvulso = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await api.POST("/recebiveis", {
+        body: {
+          clienteId: clienteDoAvulso,
+          descricao: descricaoDoAvulso,
+          valor: lerValor(valorDoAvulso),
+          vencimento: vencimentoDoAvulso,
+          competenciaAno: anoDoAvulso,
+          competenciaMes: mesDoAvulso,
+        },
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      definirProblemasDoAvulso([]);
+      definirLancando(false);
+      definirClienteDoAvulso("");
+      definirDescricaoDoAvulso("");
+      definirValorDoAvulso("");
+      clienteDeConsultas.invalidateQueries({ queryKey: ["recebiveis"] });
+    },
+    onError: (erro) => definirProblemasDoAvulso(problemasDaResposta(erro)),
+  });
+
   const estornar = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await api.POST("/recebiveis/{id}/estornar", {
@@ -109,12 +171,120 @@ export default function ListagemDeRecebiveis() {
 
   return (
     <>
-      <header className="border-b border-borda bg-superficie px-6 py-4">
-        <h1 className="text-xl font-semibold tracking-tight text-marca-950">Recebíveis</h1>
-        <p className="text-slate-500">O que o escritório tem a receber, e o que já entrou.</p>
+      <header className="flex flex-wrap items-center justify-between gap-4 border-b border-borda bg-superficie px-6 py-4">
+        <div>
+          <h1 className="text-xl font-semibold tracking-tight text-marca-950">Recebíveis</h1>
+          <p className="text-slate-500">O que o escritório tem a receber, e o que já entrou.</p>
+        </div>
+
+        <Botao type="button" onClick={() => definirLancando((atual) => !atual)}>
+          {lancando ? "Cancelar" : "Nova cobrança"}
+        </Botao>
       </header>
 
       <div className="flex flex-1 flex-col gap-5 p-6">
+        {lancando && (
+          <form
+            className="flex flex-col gap-4 rounded-[--radius-cartao] border border-borda bg-superficie p-5"
+            onSubmit={(evento) => {
+              evento.preventDefault();
+              lancarAvulso.mutate();
+            }}
+          >
+            <div>
+              <h2 className="font-semibold text-marca-950">Cobrança avulsa</h2>
+              <p className="text-slate-500">
+                Para o que não é mensalidade: declaração de imposto de renda, abertura de empresa,
+                certidão. Não fica preso a contrato nenhum.
+              </p>
+            </div>
+
+            {problemasDoAvulso.length > 0 && (
+              <p role="alert" className="rounded-[--radius-controle] bg-red-50 px-4 py-3 text-red-700">
+                {problemasDoAvulso[0].descricao} {problemasDoAvulso[0].sugestao}
+              </p>
+            )}
+
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="sm:col-span-2">
+                <Selecao
+                  rotulo="Cliente"
+                  required
+                  value={clienteDoAvulso}
+                  onChange={(evento) => definirClienteDoAvulso(evento.target.value)}
+                >
+                  <option value="">
+                    {clientes.isPending ? "Carregando…" : "Escolha um cliente…"}
+                  </option>
+                  {clientes.data?.map((cliente) => (
+                    <option key={cliente.id} value={cliente.id}>
+                      {cliente.codigo} — {cliente.nomeFantasia || cliente.nome}
+                    </option>
+                  ))}
+                </Selecao>
+              </div>
+
+              <div className="sm:col-span-2">
+                <Entrada
+                  rotulo="Descrição"
+                  required
+                  value={descricaoDoAvulso}
+                  onChange={(evento) => definirDescricaoDoAvulso(evento.target.value)}
+                  ajuda="O que está sendo cobrado."
+                />
+              </div>
+
+              <Entrada
+                rotulo="Valor"
+                inputMode="decimal"
+                required
+                value={valorDoAvulso}
+                onChange={(evento) => definirValorDoAvulso(evento.target.value)}
+                ajuda="1.234,56"
+              />
+
+              <Entrada
+                rotulo="Vencimento"
+                type="date"
+                required
+                value={vencimentoDoAvulso}
+                onChange={(evento) => definirVencimentoDoAvulso(evento.target.value)}
+              />
+
+              <Selecao
+                rotulo="Competência"
+                value={mesDoAvulso}
+                onChange={(evento) => definirMesDoAvulso(Number(evento.target.value))}
+              >
+                {Array.from({ length: 12 }, (_, indice) => (
+                  <option key={indice + 1} value={indice + 1}>
+                    {formatarCompetencia(anoDoAvulso, indice + 1).split("/")[0]}
+                  </option>
+                ))}
+              </Selecao>
+
+              <Entrada
+                rotulo="Ano da competência"
+                inputMode="numeric"
+                value={anoDoAvulso}
+                onChange={(evento) => definirAnoDoAvulso(Number(evento.target.value))}
+                /* A competência é o mês do serviço, e o vencimento é quando o
+                   dinheiro entra. Confundir os dois erra o fechamento do mês. */
+                ajuda="O mês do serviço, não o do vencimento."
+              />
+            </div>
+
+            <div className="flex justify-end">
+              <Botao
+                type="submit"
+                disabled={lancarAvulso.isPending || !clienteDoAvulso || !descricaoDoAvulso}
+              >
+                {lancarAvulso.isPending ? "Lançando…" : "Lançar cobrança"}
+              </Botao>
+            </div>
+          </form>
+        )}
+
         {resumo && (
           <div className="grid gap-px overflow-hidden rounded-[--radius-cartao] border border-borda bg-borda sm:grid-cols-3">
             {/*

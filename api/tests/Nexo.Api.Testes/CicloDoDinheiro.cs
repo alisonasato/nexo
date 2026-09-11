@@ -511,20 +511,10 @@ public class CicloDoDinheiro(BancoDeTestes banco) : IDisposable
         DateOnly? inicio = null,
         DateOnly? fim = null)
     {
-        var pessoa = await cliente.PostAsJsonAsync("/pessoas", new DadosDePessoa(
-            TipoPessoa.Juridica, "Cliente " + Guid.NewGuid().ToString("N")[..8], string.Empty,
-            CnpjValido(), string.Empty, string.Empty, string.Empty, string.Empty, string.Empty,
-            null, string.Empty, true), Json);
-        pessoa.EnsureSuccessStatusCode();
-        var criada = await pessoa.Content.ReadFromJsonAsync<PessoaDetalhada>(Json);
-
-        var vinculo = await cliente.PostAsJsonAsync("/clientes", new DadosDeCliente(
-            criada!.Id, RegimeTributario.SimplesNacional, "Responsável", string.Empty, true), Json);
-        vinculo.EnsureSuccessStatusCode();
-        var clienteCriado = await vinculo.Content.ReadFromJsonAsync<ClienteNaLista>(Json);
+        var clienteId = await CriarCliente(cliente);
 
         var contrato = await cliente.PostAsJsonAsync("/contratos", new DadosDeContrato(
-            clienteCriado!.Id, "Honorários contábeis", valor, dia,
+            clienteId, "Honorários contábeis", valor, dia,
             inicio ?? new DateOnly(2025, 1, 1), fim, situacao, string.Empty), Json);
         contrato.EnsureSuccessStatusCode();
 
@@ -547,8 +537,140 @@ public class CicloDoDinheiro(BancoDeTestes banco) : IDisposable
         return (await resposta.Content.ReadFromJsonAsync<ResultadoDaGeracao>(Json))!;
     }
 
+    /* ------------------------------------------------ cobrança avulsa */
+
+    [Fact]
+    public async Task Avulso_entra_na_conta_do_mes_sem_contrato_por_tras()
+    {
+        var http = await Contas.Entrar(_aplicacao, await Contas.Criar(banco, _aplicacao));
+        var clienteId = await CriarCliente(http);
+
+        var resposta = await http.PostAsJsonAsync("/recebiveis",
+            Avulso(clienteId, "Declaração de IRPF 2026", 850m), Json);
+
+        Assert.Equal(HttpStatusCode.Created, resposta.StatusCode);
+
+        var resumo = await Listar(http);
+        var recebivel = Assert.Single(resumo.Itens);
+
+        Assert.Equal("Declaração de IRPF 2026", recebivel.Descricao);
+        Assert.Equal(SituacaoRecebivel.Aberto, recebivel.Situacao);
+
+        /* O avulso conta no total do mês como qualquer mensalidade contaria. */
+        Assert.Equal(850m, resumo.TotalEmAberto);
+    }
+
+    [Fact]
+    public async Task Dois_avulsos_podem_dividir_a_mesma_competencia()
+    {
+        var http = await Contas.Entrar(_aplicacao, await Contas.Criar(banco, _aplicacao));
+        var clienteId = await CriarCliente(http);
+
+        var primeira = await http.PostAsJsonAsync("/recebiveis",
+            Avulso(clienteId, "Certidão negativa", 120m), Json);
+        var segunda = await http.PostAsJsonAsync("/recebiveis",
+            Avulso(clienteId, "Alteração contratual", 400m), Json);
+
+        /*
+         * O índice único que impede cobrar a mensalidade duas vezes cobre
+         * `ContratoId + competência`, e no Postgres duas linhas com NULL nessa
+         * coluna não colidem. É o comportamento que se quer: a proteção existe
+         * contra a máquina gerar duas vezes, não contra o escritório emitir
+         * dois serviços no mesmo mês.
+         */
+        Assert.Equal(HttpStatusCode.Created, primeira.StatusCode);
+        Assert.Equal(HttpStatusCode.Created, segunda.StatusCode);
+
+        var resumo = await Listar(http);
+        Assert.Equal(2, resumo.Itens.Count);
+        Assert.Equal(520m, resumo.TotalEmAberto);
+    }
+
+    [Fact]
+    public async Task Avulso_com_valor_zero_e_recusado()
+    {
+        var http = await Contas.Entrar(_aplicacao, await Contas.Criar(banco, _aplicacao));
+        var clienteId = await CriarCliente(http);
+
+        var resposta = await http.PostAsJsonAsync("/recebiveis",
+            Avulso(clienteId, "Serviço de graça", 0m), Json);
+
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, resposta.StatusCode);
+
+        var corpo = await resposta.Content.ReadFromJsonAsync<RespostaComProblemas>(Json);
+        Assert.Equal("valor", Assert.Single(corpo!.Problemas).Campo);
+    }
+
+    [Fact]
+    public async Task Avulso_para_cliente_de_outro_tenant_e_recusado()
+    {
+        var httpA = await Contas.Entrar(_aplicacao, await Contas.Criar(banco, _aplicacao));
+        var httpB = await Contas.Entrar(_aplicacao, await Contas.Criar(banco, _aplicacao));
+
+        var doA = await CriarCliente(httpA);
+
+        var resposta = await httpB.PostAsJsonAsync("/recebiveis",
+            Avulso(doA, "Cobrança no cliente alheio", 999m), Json);
+
+        /*
+         * 422 dizendo "o cliente não existe", e é a verdade: sob a política de
+         * RLS o cliente do outro escritório não está lá para ser encontrado.
+         */
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, resposta.StatusCode);
+
+        var corpo = await resposta.Content.ReadFromJsonAsync<RespostaComProblemas>(Json);
+        Assert.Equal("clienteId", Assert.Single(corpo!.Problemas).Campo);
+
+        Assert.Empty((await Listar(httpA)).Itens);
+    }
+
+    [Fact]
+    public async Task Avulso_se_baixa_como_qualquer_recebivel()
+    {
+        var http = await Contas.Entrar(_aplicacao, await Contas.Criar(banco, _aplicacao));
+        var clienteId = await CriarCliente(http);
+
+        var criado = await http.PostAsJsonAsync("/recebiveis",
+            Avulso(clienteId, "Abertura de empresa", 1_200m), Json);
+        var avulso = await criado.Content.ReadFromJsonAsync<RecebivelNaLista>(Json);
+
+        /* Sem caminho próprio de baixa: entra na mesma máquina do resto. */
+        var baixa = await http.PostAsJsonAsync($"/recebiveis/{avulso!.Id}/baixar",
+            new DadosDaBaixa(1_200m, new DateOnly(2026, 2, 5)), Json);
+
+        Assert.Equal(HttpStatusCode.OK, baixa.StatusCode);
+
+        var resumo = await Listar(http);
+        Assert.Equal(SituacaoRecebivel.Pago, Assert.Single(resumo.Itens).Situacao);
+        Assert.Equal(1_200m, resumo.TotalRecebido);
+        Assert.Equal(0m, resumo.TotalEmAberto);
+    }
+
+    private static DadosDoAvulso Avulso(Guid clienteId, string descricao, decimal valor) =>
+        new(clienteId, descricao, valor, new DateOnly(2026, 2, 10), 2026, 1);
+
+    /* --------------------------------------------------------- apoio */
+
     private static async Task<PaginaDeRecebiveis> Listar(HttpClient cliente) =>
         (await cliente.GetFromJsonAsync<PaginaDeRecebiveis>("/recebiveis", Json))!;
+
+    /// <summary>Uma pessoa nova e o vínculo de cliente, pela borda HTTP.</summary>
+    private static async Task<Guid> CriarCliente(HttpClient cliente)
+    {
+        var pessoa = await cliente.PostAsJsonAsync("/pessoas", new DadosDePessoa(
+            TipoPessoa.Juridica, "Cliente " + Guid.NewGuid().ToString("N")[..8], string.Empty,
+            CnpjValido(), string.Empty, string.Empty, string.Empty, string.Empty, string.Empty,
+            null, string.Empty, true), Json);
+        pessoa.EnsureSuccessStatusCode();
+        var criada = await pessoa.Content.ReadFromJsonAsync<PessoaDetalhada>(Json);
+
+        var vinculo = await cliente.PostAsJsonAsync("/clientes", new DadosDeCliente(
+            criada!.Id, RegimeTributario.SimplesNacional, "Responsável", string.Empty, true), Json);
+        vinculo.EnsureSuccessStatusCode();
+
+        var clienteCriado = await vinculo.Content.ReadFromJsonAsync<ClienteNaLista>(Json);
+        return clienteCriado!.Id;
+    }
 
     /// <summary>Um CNPJ novo com dígitos verificadores certos.</summary>
     private static string CnpjValido()

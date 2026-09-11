@@ -271,7 +271,11 @@ export interface paths {
         /** Lista os recebíveis */
         get: operations["ListarRecebiveis"];
         put?: never;
-        post?: never;
+        /**
+         * Lança uma cobrança fora de contrato
+         * @description Para o que o escritório faz e não é mensalidade: declaração de imposto de renda, abertura de empresa, certidão. Fica sem contrato por trás.
+         */
+        post: operations["CriarRecebivelAvulso"];
         delete?: never;
         options?: never;
         head?: never;
@@ -462,6 +466,19 @@ export interface components {
             endereco?: components["schemas"]["DadosDeEndereco"] | null;
             observacoes?: string | null;
             ativo: boolean;
+        };
+        DadosDoAvulso: {
+            /** Format: uuid */
+            clienteId: string;
+            descricao: string;
+            /** Format: double */
+            valor: number;
+            /** Format: date */
+            vencimento: string;
+            /** Format: int32 */
+            competenciaAno: number;
+            /** Format: int32 */
+            competenciaMes: number;
         };
         DadosDoCancelamento: {
             motivo?: string | null;
@@ -1277,6 +1294,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PaginaDeRecebiveis"];
+                };
+            };
+        };
+    };
+    CriarRecebivelAvulso: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DadosDoAvulso"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecebivelNaLista"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespostaComProblemas"];
                 };
             };
         };

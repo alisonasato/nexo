@@ -885,6 +885,50 @@
             }
           }
         }
+      },
+      "post": {
+        "tags": [
+          "Recebíveis"
+        ],
+        "summary": "Lança uma cobrança fora de contrato",
+        "description": "Para o que o escritório faz e não é mensalidade: declaração de imposto de renda, abertura de empresa, certidão. Fica sem contrato por trás.",
+        "operationId": "CriarRecebivelAvulso",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/DadosDoAvulso"
+                  }
+                ]
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecebivelNaLista"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RespostaComProblemas"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/recebiveis/{id}/baixar": {
@@ -1464,6 +1508,43 @@
           },
           "ativo": {
             "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "DadosDoAvulso": {
+        "required": [
+          "clienteId",
+          "competenciaAno",
+          "competenciaMes",
+          "descricao",
+          "valor",
+          "vencimento"
+        ],
+        "type": "object",
+        "properties": {
+          "clienteId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "descricao": {
+            "type": "string"
+          },
+          "valor": {
+            "type": "number",
+            "format": "double"
+          },
+          "vencimento": {
+            "type": "string",
+            "format": "date"
+          },
+          "competenciaAno": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "competenciaMes": {
+            "type": "integer",
+            "format": "int32"
           }
         },
         "additionalProperties": false
