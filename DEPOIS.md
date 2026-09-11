@@ -65,6 +65,19 @@ e não atrapalha.
   carimbo a cada requisição derruba a sessão no ato, e trocar o carimbo é uma
   linha (`UpdateSecurityStampAsync`). O que falta é a tela e a decisão de quem
   pode desligar quem, que só faz sentido junto com papéis e permissões.
+- **Editar a empresa do próprio escritório.** Não existe: o endpoint de
+  empresas só tem `GET`, nenhuma tela usa, e o provisionamento escreve razão
+  social e CNPJ uma vez. Se o CNPJ foi digitado errado na variável de ambiente,
+  não há conserto pela aplicação. É a falta mais concreta que a análise de
+  centralização do cadastro encontrou, e é independente dela.
+- Endereço e contato da empresa. `Empresa` não tem nenhum dos dois, e a NFS-e
+  vai exigir os dois do estabelecimento.
+- `Empresa` como vínculo com `Pessoa`, como `Cliente` já é. A incoerência está
+  analisada em DECISOES.md, com o argumento contra: `Empresa` é a espinha do
+  isolamento, não um terceiro. A hora de mexer é junto com a NFS-e, que é o que
+  cobra o endereço — e enquanto isso a migração encarece a cada escritório novo.
+- `Usuario.Nome` é texto solto, e não um vínculo com `Pessoa`. Não paga nada
+  enquanto houver um usuário por escritório; vale junto com convidar alguém.
 - Troca de empresa em tela. O `empresa_id` vai no token com a empresa padrão
   do usuário; trocar de estabelecimento sem sair e entrar ainda não existe.
 - Papéis e permissões. O Identity já tem a tabela de papéis, e nada os usa:

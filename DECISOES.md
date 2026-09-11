@@ -155,6 +155,39 @@ concreta, com primitivos pequenos em `web/src/componentes/controles.tsx`.
 O motor sai por **extração**, quando a segunda ou terceira tela mostrar o que
 de fato se repete — e não antes.
 
+## Sobre centralizar o cadastro de pessoas
+
+Analisado em 11 de setembro de 2026, e **deixado como está**, de propósito.
+
+O cadastro já é central onde precisa ser. `Pessoa` é o registro, e `Cliente` é
+um **vínculo**: aponta para uma pessoa e acrescenta o que só vale para o papel
+de cliente. O mesmo CNPJ pode ser cliente e fornecedor sem virar dois cadastros,
+porque o que muda de papel para papel é o vínculo. Quando fornecedor existir,
+ele nasce como mais uma tabela de vínculo, e o cadastro não muda.
+
+Sobrou uma incoerência, e ela é real: **`Empresa` é um cadastro paralelo.**
+Guarda razão social, nome fantasia e CNPJ — que são nome, nome fantasia e
+documento de `Pessoa` — e não se liga a ela. E tem menos: não tem endereço nem
+contato, que a NFS-e vai exigir do estabelecimento.
+
+**Não foi corrigida agora**, e o motivo não é preguiça. `Empresa` não é um
+terceiro: é o escritório, e a corrente tenant → empresa é a espinha do
+isolamento que a Q22 separou justamente para o Nexo não virar instalação por
+cliente. Pendurar a espinha numa tabela de domínio acopla as duas. Some-se que
+`Empresa.Cnpj` é obrigatório e `Pessoa.Documento` pode ficar vazio: virando
+vínculo, essa garantia precisa de outro lugar para morar.
+
+A conta que decide é o prazo. Hoje é **um registro de empresa** por escritório,
+e a migração é barata; ela encarece com cada escritório novo. Mas o que a
+mudança compra só é cobrado na NFS-e, que está no `DEPOIS.md`. Então a hora de
+fazer é quando a NFS-e entrar, junto — e não antes, por simetria.
+
+A análise achou uma falta mais urgente que a incoerência, e essa virou linha no
+`DEPOIS.md`: **ninguém consegue editar a empresa do próprio escritório.** O
+endpoint só tem `GET`, nenhuma tela usa, e o provisionamento escreve os dados
+uma vez. CNPJ digitado errado na variável de ambiente não tem conserto pela
+aplicação.
+
 ## Ordem de execução
 
 1. ~~Repositório e contrato~~ — feito.
