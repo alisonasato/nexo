@@ -1831,16 +1831,16 @@
         "required": [
           "ativo",
           "celular",
-          "cidade",
           "codigo",
           "documento",
           "email",
+          "endereco",
           "id",
           "nome",
           "nomeFantasia",
           "papeis",
-          "tipo",
-          "uf"
+          "telefone",
+          "tipo"
         ],
         "type": "object",
         "properties": {
@@ -1881,14 +1881,18 @@
           "email": {
             "type": "string"
           },
+          "telefone": {
+            "type": "string"
+          },
           "celular": {
             "type": "string"
           },
-          "cidade": {
-            "type": "string"
-          },
-          "uf": {
-            "type": "string"
+          "endereco": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DadosDeEndereco"
+              }
+            ]
           },
           "ativo": {
             "type": "boolean"

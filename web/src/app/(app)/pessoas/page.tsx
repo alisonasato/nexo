@@ -8,7 +8,7 @@ import { api } from "@/api/cliente";
 import { Botao } from "@/componentes/controles";
 import { Paginacao } from "@/componentes/paginacao";
 import type { components } from "@/api/esquema";
-import { formatarDocumento, formatarTelefone } from "@/lib/formato";
+import { formatarDocumento, formatarEndereco, formatarTelefone } from "@/lib/formato";
 
 type Papel = components["schemas"]["Papel"];
 
@@ -181,14 +181,14 @@ export default function ListagemDePessoas() {
         {pessoas.data && pessoas.data.itens.length > 0 && (
           <>
             <div className="overflow-x-auto rounded-[--radius-cartao] border border-borda bg-superficie shadow-nivel-1">
-              <table className="w-full min-w-3xl border-collapse text-left">
+              <table className="w-full min-w-4xl border-collapse text-left">
                 <thead>
                   <tr className="border-b border-borda text-xs tracking-wide text-slate-500 uppercase">
                     <th scope="col" className="px-4 py-3 font-semibold">Código</th>
                     <th scope="col" className="px-4 py-3 font-semibold">Nome</th>
                     <th scope="col" className="px-4 py-3 font-semibold">Documento</th>
+                    <th scope="col" className="px-4 py-3 font-semibold">Endereço</th>
                     <th scope="col" className="px-4 py-3 font-semibold">Contato</th>
-                    <th scope="col" className="px-4 py-3 font-semibold">Cidade</th>
                     <th scope="col" className="px-4 py-3 font-semibold">
                       <span className="sr-only">Ações</span>
                     </th>
@@ -213,17 +213,6 @@ export default function ListagemDePessoas() {
                           </span>
                         )}
 
-                        {/* Os papéis na própria linha: é o que a listagem de
-                            clientes mostrava, agora sem tela separada. */}
-                        {pessoa.papeis.map((papelDaPessoa) => (
-                          <span
-                            key={papelDaPessoa}
-                            className="ml-2 rounded-full bg-marca-50 px-2 py-0.5 text-xs font-medium text-marca-700"
-                          >
-                            {papelDaPessoa}
-                          </span>
-                        ))}
-
                         {pessoa.nomeFantasia && (
                           <span className="block text-slate-500">{pessoa.nomeFantasia}</span>
                         )}
@@ -232,10 +221,17 @@ export default function ListagemDePessoas() {
                         {formatarDocumento(pessoa.documento)}
                       </td>
                       <td className="px-4 py-3 text-slate-700">
-                        {pessoa.email || formatarTelefone(pessoa.celular) || "—"}
+                        {formatarEndereco(pessoa.endereco) || "—"}
                       </td>
-                      <td className="px-4 py-3 text-slate-700">
-                        {pessoa.cidade ? `${pessoa.cidade}${pessoa.uf ? "/" + pessoa.uf : ""}` : "—"}
+
+                      {/*
+                        O fixo na frente do celular, e o celular quando não há
+                        fixo. Cadastro com um número só é o caso comum, e uma
+                        coluna vazia ao lado de um telefone gravado seria um
+                        defeito com cara de dado faltando.
+                      */}
+                      <td className="numeros-tabulares px-4 py-3 text-slate-700">
+                        {formatarTelefone(pessoa.telefone || pessoa.celular) || "—"}
                       </td>
                       <td className="px-4 py-3 text-right">
                         {pessoa.ativo ? (
