@@ -75,10 +75,9 @@ e não atrapalha.
 
 - O motor de telas declarativas (Q20). Sai por extração quando a segunda ou
   terceira tela mostrar o que se repete — não antes.
-- Consulta de CNPJ por API pública, para puxar razão social e endereço da
-  Receita. O CEP já é consultado; o CNPJ ainda é digitado inteiro à mão.
-- Guardar por um tempo o CEP já consultado. Hoje cada digitação sai para o
-  ViaCEP, e um escritório cadastra vários clientes do mesmo prédio.
+- Guardar por um tempo o CEP e o CNPJ já consultados. Hoje cada digitação sai
+  para fora, e a BrasilAPI limita requisição — um escritório que cadastra vários
+  clientes seguidos esbarra nisso.
 - Máscara no valor em dinheiro. O campo aceita `1.234,56` e `1234.56` na
   leitura, mas não se formata enquanto se digita como os outros agora fazem.
 - CNPJ alfanumérico. A validação implementada é a numérica clássica;
@@ -103,7 +102,8 @@ e não atrapalha.
 - **Tabelas do Identity em PascalCase** (`AspNetUsers`), enquanto as de
   negócio são `snake_case`. O Identity fixa os nomes e a convenção não os
   alcança. O EF cita os identificadores, então nada quebra; incomoda quem
-  escrever SQL à mão. Trocar é mais barato agora, antes de haver dado.
+  escrever SQL à mão. A janela barata fechou: já há dado em produção, então a
+  troca agora exige migração de verdade, e o ganho é só de gosto.
 - **Conferir o backup automático da Railway.** O procedimento de restauração
   está exercitado e documentado em BACKUP.md, mas com um dump feito à mão. Se o
   backup automático do PaaS está ligado, e se um arquivo dele restaura, depende
