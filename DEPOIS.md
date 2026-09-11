@@ -78,8 +78,10 @@ e não atrapalha.
 
 - O motor de telas declarativas (Q20). Sai por extração quando a segunda ou
   terceira tela mostrar o que se repete — não antes.
-- Consulta de CNPJ e CEP por API pública, com a lupa que o protótipo tinha.
-  Enquanto não existe, tudo é digitado à mão.
+- Consulta de CNPJ por API pública, para puxar razão social e endereço da
+  Receita. O CEP já é consultado; o CNPJ ainda é digitado inteiro à mão.
+- Guardar por um tempo o CEP já consultado. Hoje cada digitação sai para o
+  ViaCEP, e um escritório cadastra vários clientes do mesmo prédio.
 - Máscara no valor em dinheiro. O campo aceita `1.234,56` e `1234.56` na
   leitura, mas não se formata enquanto se digita como os outros agora fazem.
 - CNPJ alfanumérico. A validação implementada é a numérica clássica;

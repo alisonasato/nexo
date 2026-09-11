@@ -65,6 +65,8 @@ export function FormularioDePessoa({ id }: { id?: string }) {
 
   const [dados, definirDados] = useState<DadosDePessoa>(vazia);
   const [problemas, definirProblemas] = useState<Problema[]>([]);
+  const [procurandoCep, definirProcurandoCep] = useState(false);
+  const [avisoDoCep, definirAvisoDoCep] = useState<string | null>(null);
 
   const existente = useQuery({
     queryKey: ["pessoa", id],
@@ -129,6 +131,58 @@ export function FormularioDePessoa({ id }: { id?: string }) {
       tipo,
       documento: apenasDigitos(atual.documento ?? "").slice(0, tipo === "Fisica" ? 11 : 14),
     }));
+  }
+
+  /**
+   * Procura o endereço assim que o CEP fica completo.
+   *
+   * <b>É atalho, e atalho não pode atrapalhar.</b> Nada aqui bloqueia o
+   * formulário, e falhar não impede salvar: quem quiser digita o endereço como
+   * sempre digitou. Por isso também a busca sai daqui, do que a pessoa digitou,
+   * e não de um efeito sobre o valor — assim abrir um cadastro existente não
+   * dispara consulta nenhuma, nem sobrescreve o endereço que já estava lá.
+   */
+  async function procurarPeloCep(cep: string) {
+    if (cep.length !== 8) {
+      definirAvisoDoCep(null);
+      return;
+    }
+
+    definirProcurandoCep(true);
+    definirAvisoDoCep(null);
+
+    const { data, response } = await api.GET("/enderecos/{cep}", {
+      params: { path: { cep } },
+    });
+
+    definirProcurandoCep(false);
+
+    if (data) {
+      definirDados((atual) => ({
+        ...atual,
+        endereco: {
+          ...(atual.endereco ?? vazia.endereco!),
+          cep,
+          logradouro: data.logradouro,
+          bairro: data.bairro,
+          cidade: data.cidade,
+          uf: data.uf,
+        },
+      }));
+      return;
+    }
+
+    /*
+     * Duas falhas, duas frases. "Não existe" pede para conferir o que foi
+     * digitado; "não deu para perguntar" pede para seguir sem o atalho. Dizer a
+     * segunda coisa na primeira situação manda a pessoa procurar erro onde não
+     * há.
+     */
+    definirAvisoDoCep(
+      response.status === 404
+        ? "CEP não encontrado. Confira o número ou preencha o endereço à mão."
+        : "Não deu para consultar o CEP agora. Preencha o endereço à mão.",
+    );
   }
 
   function alterarEndereco(campo: keyof NonNullable<DadosDePessoa["endereco"]>, valor: string) {
@@ -307,9 +361,16 @@ export function FormularioDePessoa({ id }: { id?: string }) {
               rotulo="CEP"
               digitos={dados.endereco?.cep ?? ""}
               mascara={mascararCep}
-              aoMudar={(digitos) => alterarEndereco("cep", digitos)}
+              aoMudar={(digitos) => {
+                alterarEndereco("cep", digitos);
+                void procurarPeloCep(digitos);
+              }}
               erro={erroDe("endereco.cep")}
-              ajuda={sugestaoDe("endereco.cep")}
+              ajuda={
+                procurandoCep
+                  ? "Procurando o endereço…"
+                  : (avisoDoCep ?? sugestaoDe("endereco.cep") ?? "Preenche o endereço sozinho.")
+              }
             />
 
             <div className="lg:col-span-3">

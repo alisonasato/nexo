@@ -572,6 +572,54 @@
         }
       }
     },
+    "/enderecos/{cep}": {
+      "get": {
+        "tags": [
+          "Endereços"
+        ],
+        "summary": "Procura o endereço de um CEP",
+        "description": "Serve para preencher o formulário, e nada depende dele: 503 quer dizer para digitar à mão, não que algo deu errado no cadastro.",
+        "operationId": "BuscarEnderecoPorCep",
+        "parameters": [
+          {
+            "name": "cep",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnderecoDoCep"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RespostaComProblemas"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "503": {
+            "description": "Service Unavailable"
+          }
+        }
+      }
+    },
     "/pessoas": {
       "get": {
         "tags": [
@@ -1584,6 +1632,34 @@
           },
           "ehMatriz": {
             "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "EnderecoDoCep": {
+        "required": [
+          "bairro",
+          "cep",
+          "cidade",
+          "logradouro",
+          "uf"
+        ],
+        "type": "object",
+        "properties": {
+          "cep": {
+            "type": "string"
+          },
+          "logradouro": {
+            "type": "string"
+          },
+          "bairro": {
+            "type": "string"
+          },
+          "cidade": {
+            "type": "string"
+          },
+          "uf": {
+            "type": "string"
           }
         },
         "additionalProperties": false

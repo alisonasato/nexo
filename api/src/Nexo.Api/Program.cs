@@ -13,6 +13,7 @@ using Nexo.Api.OpenApi;
 using Nexo.Api.Dados;
 using Nexo.Api.Dominio;
 using Nexo.Api.Endpoints;
+using Nexo.Api.Servicos;
 
 var construtor = WebApplication.CreateBuilder(args);
 
@@ -73,6 +74,29 @@ construtor.Services.AddDbContext<NexoDbContext>((provedor, opcoes) => opcoes
     .UseNpgsql(conexao)
     .UseSnakeCaseNamingConvention()
     .AddInterceptors(provedor.GetRequiredService<InterceptorDeTenant>()));
+
+/* ------------------------------------------------- serviços de fora */
+
+/*
+ * A consulta de CEP é a única saída para fora do sistema.
+ *
+ * O tempo de espera curto não é economia: é o que separa um atalho de um
+ * estorvo. Quem está cadastrando digita o endereço em menos de quatro segundos,
+ * então esperar mais do que isso pelo atalho é pior do que não tê-lo.
+ */
+construtor.Services.AddHttpClient<IConsultaDeCep, ConsultaDeCepViaCep>(cliente =>
+{
+    /*
+     * O endereço sai da configuração para poder ser trocado sem recompilar: por
+     * um espelho, se o ViaCEP mudar de casa, e por um destino inalcançável, para
+     * exercitar de verdade o caminho de "serviço fora do ar" — que é o único dos
+     * três desfechos que não dá para provocar de fora.
+     */
+    cliente.BaseAddress = new Uri(
+        construtor.Configuration["Servicos:Cep:Endereco"] ?? "https://viacep.com.br/");
+
+    cliente.Timeout = TimeSpan.FromSeconds(4);
+});
 
 /* --------------------------------------------------------- autenticação */
 
@@ -300,6 +324,7 @@ app.MapPessoas();
 app.MapClientes();
 app.MapContratos();
 app.MapRecebiveis();
+app.MapEnderecos();
 
 app.Run();
 

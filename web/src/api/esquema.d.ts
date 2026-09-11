@@ -201,6 +201,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/enderecos/{cep}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Procura o endereço de um CEP
+         * @description Serve para preencher o formulário, e nada depende dele: 503 quer dizer para digitar à mão, não que algo deu errado no cadastro.
+         */
+        get: operations["BuscarEnderecoPorCep"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/pessoas": {
         parameters: {
             query?: never;
@@ -490,6 +510,13 @@ export interface components {
             nomeFantasia?: string | null;
             cnpj: string;
             ehMatriz: boolean;
+        };
+        EnderecoDoCep: {
+            cep: string;
+            logradouro: string;
+            bairro: string;
+            cidade: string;
+            uf: string;
         };
         FalhaDeEntrada: {
             mensagem: string;
@@ -1086,6 +1113,51 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["EmpresaNaLista"][];
                 };
+            };
+        };
+    };
+    BuscarEnderecoPorCep: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                cep: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnderecoDoCep"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespostaComProblemas"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

@@ -83,6 +83,27 @@ psql -c "SELECT rolname, rolsuper, rolbypassrls FROM pg_roles WHERE rolname = 'n
 
 Os dois últimos precisam ser `f`.
 
+## A única saída para fora
+
+A aplicação chama **um** serviço de terceiro: o ViaCEP, para preencher endereço
+a partir do CEP. A chamada sai do servidor, não do navegador.
+
+| Variável | Padrão | Para quê |
+|---|---|---|
+| `Servicos__Cep__Endereco` | `https://viacep.com.br/` | Trocar por um espelho, ou apontar para o vazio |
+
+Nada depende dela. O serviço fora do ar devolve 503 no `/enderecos/{cep}`, a
+tela pede para digitar à mão, e o cadastro salva igual. Verificado apontando a
+variável para um endereço inalcançável: a mensagem certa apareceu e o cadastro
+foi salvo com o endereço digitado.
+
+O tempo de espera é de quatro segundos, e é curto de propósito. Isto é um
+atalho de digitação: se demorar mais do que digitar o endereço, deixou de ser
+atalho.
+
+Se a rede de saída do PaaS for restrita, libere `viacep.com.br` ou aponte a
+variável para outro lugar. Esquecer disso não quebra nada, só desliga o atalho.
+
 ## Um domínio só, e isso é estrutural
 
 A decisão Q29 exige front e API no mesmo domínio, porque o token viaja em

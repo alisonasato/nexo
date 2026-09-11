@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
 namespace Nexo.Api.Testes;
@@ -25,8 +27,17 @@ public sealed class AplicacaoDeTestes : WebApplicationFactory<Program>
      * Afrouxar a verificação de arranque para agradar o teste seria trocar uma
      * defesa real por conveniência: sem chave, produção tem que cair.
      */
-    public AplicacaoDeTestes(string conexao)
+    private readonly Action<IServiceCollection>? _ajustes;
+
+    /// <param name="ajustes">
+    /// Troca de serviços para o teste — hoje só a consulta de CEP, que não pode
+    /// sair para a internet de verdade: o CI ficaria refém de serviço de
+    /// terceiro, e um teste que falha quando o ViaCEP cai não testa o Nexo.
+    /// </param>
+    public AplicacaoDeTestes(string conexao, Action<IServiceCollection>? ajustes = null)
     {
+        _ajustes = ajustes;
+
         Environment.SetEnvironmentVariable("ConnectionStrings__Nexo", conexao);
         Environment.SetEnvironmentVariable("Jwt__Chave", ChaveDeTestes);
         Environment.SetEnvironmentVariable("Jwt__Emissor", "nexo");
@@ -35,6 +46,10 @@ public sealed class AplicacaoDeTestes : WebApplicationFactory<Program>
 
     private const string ChaveDeTestes = "chave-de-testes-com-folga-de-tamanho-para-hmac-sha256";
 
-    protected override void ConfigureWebHost(IWebHostBuilder construtor) =>
+    protected override void ConfigureWebHost(IWebHostBuilder construtor)
+    {
         construtor.UseEnvironment(Api.Ambientes.Testes);
+
+        if (_ajustes is { } ajustar) construtor.ConfigureTestServices(ajustar);
+    }
 }
