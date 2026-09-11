@@ -37,3 +37,41 @@ export function formatarCep(cep: string): string {
   const numero = apenasDigitos(cep);
   return numero.length === 8 ? `${numero.slice(0, 5)}-${numero.slice(5)}` : cep;
 }
+
+/** O endereço como a listagem mostra, em uma linha. */
+export type EnderecoParaLer = {
+  cep?: string;
+  logradouro?: string;
+  numero?: string;
+  complemento?: string;
+  cidade?: string;
+  uf?: string;
+};
+
+/**
+ * Monta "Rua Exemplo, 123, Apto 45 - 12345-678 - São Paulo/SP".
+ *
+ * Nenhum campo do endereço é obrigatório no cadastro, e quase todo cadastro
+ * chega com metade deles — então o que falta some junto com a pontuação que o
+ * acompanharia. Um endereço sem complemento não pode virar "Rua Exemplo, 123,
+ * - 12345-678", que parece dado corrompido.
+ *
+ * Vazio devolve string vazia: quem exibe decide se isso vira travessão.
+ */
+export function formatarEndereco(endereco: EnderecoParaLer | null | undefined): string {
+  if (!endereco) return "";
+
+  const limpar = (valor?: string) => (valor ?? "").trim();
+
+  const via = [limpar(endereco.logradouro), limpar(endereco.numero), limpar(endereco.complemento)]
+    .filter(Boolean)
+    .join(", ");
+
+  const cep = limpar(endereco.cep) ? formatarCep(limpar(endereco.cep)) : "";
+
+  const cidade = limpar(endereco.cidade);
+  const uf = limpar(endereco.uf);
+  const local = cidade && uf ? `${cidade}/${uf}` : cidade || uf;
+
+  return [via, cep, local].filter(Boolean).join(" - ");
+}

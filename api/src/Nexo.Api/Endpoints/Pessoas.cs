@@ -114,9 +114,16 @@ public static class Pessoas
                 pessoa.NomeFantasia,
                 pessoa.Documento,
                 pessoa.Email,
+                pessoa.Telefone,
                 pessoa.Celular,
-                pessoa.Endereco.Cidade,
-                pessoa.Endereco.Uf,
+                new DadosDeEndereco(
+                    pessoa.Endereco.Cep,
+                    pessoa.Endereco.Logradouro,
+                    pessoa.Endereco.Numero,
+                    pessoa.Endereco.Complemento,
+                    pessoa.Endereco.Bairro,
+                    pessoa.Endereco.Cidade,
+                    pessoa.Endereco.Uf),
                 pessoa.Ativo))
             .ToListAsync(cancelamento);
 
@@ -365,6 +372,16 @@ public record DadosDePessoa(
     string? Observacoes,
     bool Ativo);
 
+/// <summary>
+/// A pessoa como a listagem precisa dela.
+///
+/// <para>
+/// O endereço vem inteiro, e não só cidade e UF: a coluna da tela mostra a
+/// linha toda. Montar essa linha aqui seria mais barato e pior — a mesma
+/// pessoa aparece em tela, em etiqueta e em nota, cada uma com uma forma, e
+/// quem escolhe a forma é quem exibe.
+/// </para>
+/// </summary>
 public record PessoaNaLista(
     Guid Id,
     string Codigo,
@@ -374,9 +391,9 @@ public record PessoaNaLista(
     string NomeFantasia,
     string Documento,
     string Email,
+    string Telefone,
     string Celular,
-    string Cidade,
-    string Uf,
+    DadosDeEndereco Endereco,
     bool Ativo);
 
 public record PessoaDetalhada(

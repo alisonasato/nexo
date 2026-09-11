@@ -566,9 +566,9 @@ export interface components {
             nomeFantasia: string;
             documento: string;
             email: string;
+            telefone: string;
             celular: string;
-            cidade: string;
-            uf: string;
+            endereco: components["schemas"]["DadosDeEndereco"];
             ativo: boolean;
         };
         Problema: {
