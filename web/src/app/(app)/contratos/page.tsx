@@ -29,6 +29,13 @@ export default function ListagemDeContratos() {
   const [termo, definirTermo] = useState("");
   const [situacao, definirSituacao] = useState<SituacaoContrato | "">("");
 
+  /*
+   * Quem foi escolhido para gerar. Guarda ids, e não linhas, para a escolha
+   * atravessar página, busca e filtro — quem marca três contratos, procura o
+   * quarto e marca também espera encontrar os quatro no fim.
+   */
+  const [escolhidos, definirEscolhidos] = useState<Set<string>>(new Set());
+
   /* Mesmo meio segundo de espera da tela de pessoas: uma ida ao servidor por
      pausa, não por tecla. */
   useEffect(() => {
@@ -60,16 +67,53 @@ export default function ListagemDeContratos() {
   const gerar = useMutation({
     mutationFn: async () => {
       const { data, error } = await api.POST("/contratos/gerar-mensalidades", {
-        body: { ano, mes, contratoIds: null },
+        /*
+         * Nenhum escolhido quer dizer "todos", e é `null` que diz isso. Mandar
+         * lista vazia significa "nenhum" para a API, que é coisa diferente — e a
+         * diferença entre gerar a competência inteira e não gerar nada não pode
+         * depender de um detalhe de serialização.
+         */
+        body: { ano, mes, contratoIds: escolhidos.size > 0 ? [...escolhidos] : null },
       });
       if (error || !data) throw new Error("Não foi possível gerar as mensalidades.");
       return data;
     },
-    onSuccess: () => clienteDeConsultas.invalidateQueries({ queryKey: ["recebiveis"] }),
+    onSuccess: () => {
+      definirEscolhidos(new Set());
+      clienteDeConsultas.invalidateQueries({ queryKey: ["recebiveis"] });
+    },
   });
 
   /* Busca e situação afetam a lista da mesma forma: escondem parte do todo. */
   const filtrando = Boolean(termo || situacao);
+
+  const naPagina = contratos.data?.itens ?? [];
+  const todosDaPaginaEscolhidos =
+    naPagina.length > 0 && naPagina.every((contrato) => escolhidos.has(contrato.id));
+
+  function alternar(id: string) {
+    definirEscolhidos((atual) => {
+      const proximo = new Set(atual);
+      if (!proximo.delete(id)) proximo.add(id);
+      return proximo;
+    });
+  }
+
+  /*
+   * A caixa do cabeçalho age só sobre a página, e não sobre o conjunto todo.
+   * Marcar o que não está à vista é o tipo de atalho que gera cobrança para
+   * quem ninguém pretendia cobrar.
+   */
+  function alternarAPagina() {
+    definirEscolhidos((atual) => {
+      const proximo = new Set(atual);
+      for (const contrato of naPagina) {
+        if (todosDaPaginaEscolhidos) proximo.delete(contrato.id);
+        else proximo.add(contrato.id);
+      }
+      return proximo;
+    });
+  }
 
   return (
     <>
@@ -92,8 +136,9 @@ export default function ListagemDeContratos() {
           <div>
             <h2 className="font-semibold text-marca-950">Gerar mensalidades</h2>
             <p className="text-slate-500">
-              Cria um recebível para cada contrato ativo na competência escolhida. Pode ser
-              executado quantas vezes for preciso: o que já existe é ignorado, nunca duplicado.
+              Cria um recebível para cada contrato ativo na competência escolhida. Marque linhas
+              na lista abaixo para gerar só as escolhidas. Pode ser executado quantas vezes for
+              preciso: o que já existe é ignorado, nunca duplicado.
             </p>
           </div>
 
@@ -122,9 +167,29 @@ export default function ListagemDeContratos() {
               />
             </div>
 
+            {/*
+              O rótulo diz o alcance, e não só a ação. "Gerar" sozinho esconde a
+              diferença entre atingir três contratos e atingir a carteira
+              inteira — e é uma diferença que só se desfaz cancelando recebível
+              por recebível.
+            */}
             <Botao type="button" disabled={gerar.isPending} onClick={() => gerar.mutate()}>
-              {gerar.isPending ? "Gerando…" : "Gerar"}
+              {gerar.isPending
+                ? "Gerando…"
+                : escolhidos.size > 0
+                  ? `Gerar para ${escolhidos.size} escolhido${escolhidos.size > 1 ? "s" : ""}`
+                  : "Gerar para todos"}
             </Botao>
+
+            {escolhidos.size > 0 && (
+              <button
+                type="button"
+                onClick={() => definirEscolhidos(new Set())}
+                className="py-2 text-sm font-medium text-marca-700 hover:underline"
+              >
+                Limpar seleção
+              </button>
+            )}
           </div>
 
           {gerar.data && (
@@ -214,6 +279,15 @@ export default function ListagemDeContratos() {
               <table className="w-full min-w-3xl border-collapse text-left">
                 <thead>
                   <tr className="border-b border-borda text-xs tracking-wide text-slate-500 uppercase">
+                    <th scope="col" className="w-10 px-4 py-3">
+                      <input
+                        type="checkbox"
+                        checked={todosDaPaginaEscolhidos}
+                        onChange={alternarAPagina}
+                        aria-label="Escolher os contratos desta página"
+                        className="size-4 rounded border-borda-forte accent-marca-600"
+                      />
+                    </th>
                     <th scope="col" className="px-4 py-3 font-semibold">Código</th>
                     <th scope="col" className="px-4 py-3 font-semibold">Cliente</th>
                     <th scope="col" className="px-4 py-3 font-semibold">Descrição</th>
@@ -224,7 +298,22 @@ export default function ListagemDeContratos() {
                 </thead>
                 <tbody>
                   {contratos.data.itens.map((contrato) => (
-                    <tr key={contrato.id} className="border-b border-borda last:border-0 hover:bg-marca-50">
+                    <tr
+                      key={contrato.id}
+                      className={
+                        "border-b border-borda last:border-0 " +
+                        (escolhidos.has(contrato.id) ? "bg-marca-50" : "hover:bg-marca-50")
+                      }
+                    >
+                      <td className="px-4 py-3">
+                        <input
+                          type="checkbox"
+                          checked={escolhidos.has(contrato.id)}
+                          onChange={() => alternar(contrato.id)}
+                          aria-label={`Escolher o contrato ${contrato.codigo}`}
+                          className="size-4 rounded border-borda-forte accent-marca-600"
+                        />
+                      </td>
                       <td className="numeros-tabulares px-4 py-3">
                         <Link
                           href={`/contratos/${contrato.id}`}

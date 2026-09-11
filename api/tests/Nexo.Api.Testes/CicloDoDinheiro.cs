@@ -537,6 +537,76 @@ public class CicloDoDinheiro(BancoDeTestes banco) : IDisposable
         return (await resposta.Content.ReadFromJsonAsync<ResultadoDaGeracao>(Json))!;
     }
 
+    /* --------------------------------------- geração por seleção */
+
+    [Fact]
+    public async Task Gerar_com_a_lista_de_ids_so_atinge_os_escolhidos()
+    {
+        var http = await Contas.Entrar(_aplicacao, await Contas.Criar(banco, _aplicacao));
+
+        var escolhido = await CriarContrato(http, 500m, 10);
+        await CriarContrato(http, 900m, 10);
+        await CriarContrato(http, 700m, 10);
+
+        var resposta = await http.PostAsJsonAsync("/contratos/gerar-mensalidades",
+            new PedidoDeGeracao(2026, 3, [escolhido]), Json);
+
+        var resultado = await resposta.Content.ReadFromJsonAsync<ResultadoDaGeracao>(Json);
+        Assert.Equal(1, resultado!.Geradas);
+
+        var recebiveis = await Listar(http);
+        Assert.Equal(500m, Assert.Single(recebiveis.Itens).Valor);
+    }
+
+    [Fact]
+    public async Task Lista_vazia_nao_gera_nada_e_lista_nula_gera_tudo()
+    {
+        var http = await Contas.Entrar(_aplicacao, await Contas.Criar(banco, _aplicacao));
+
+        await CriarContrato(http, 400m, 10);
+        await CriarContrato(http, 600m, 10);
+
+        /*
+         * A distinção entre lista vazia e lista ausente é o que a tela usa para
+         * dizer "só estes" e "todos" com o mesmo botão. Trocar uma pela outra
+         * geraria a competência inteira quando alguém quis gerar nada, e isso
+         * não se desfaz sem cancelar recebível por recebível.
+         */
+        var vazia = await http.PostAsJsonAsync("/contratos/gerar-mensalidades",
+            new PedidoDeGeracao(2026, 4, []), Json);
+
+        Assert.Equal(0, (await vazia.Content.ReadFromJsonAsync<ResultadoDaGeracao>(Json))!.Geradas);
+        Assert.Empty((await Listar(http)).Itens);
+
+        var nula = await http.PostAsJsonAsync("/contratos/gerar-mensalidades",
+            new PedidoDeGeracao(2026, 4, null), Json);
+
+        Assert.Equal(2, (await nula.Content.ReadFromJsonAsync<ResultadoDaGeracao>(Json))!.Geradas);
+    }
+
+    [Fact]
+    public async Task Contrato_de_outro_tenant_na_lista_e_simplesmente_ignorado()
+    {
+        var httpA = await Contas.Entrar(_aplicacao, await Contas.Criar(banco, _aplicacao));
+        var httpB = await Contas.Entrar(_aplicacao, await Contas.Criar(banco, _aplicacao));
+
+        var doA = await CriarContrato(httpA, 800m, 10);
+        var doB = await CriarContrato(httpB, 300m, 10);
+
+        /*
+         * B manda o id do contrato de A junto com o seu. A política de RLS
+         * filtra antes: para B, o contrato de A não existe, então não há o que
+         * ignorar explicitamente — ele nunca entra na lista de candidatos.
+         */
+        var resposta = await httpB.PostAsJsonAsync("/contratos/gerar-mensalidades",
+            new PedidoDeGeracao(2026, 5, [doA, doB]), Json);
+
+        Assert.Equal(1, (await resposta.Content.ReadFromJsonAsync<ResultadoDaGeracao>(Json))!.Geradas);
+
+        Assert.Equal(300m, Assert.Single((await Listar(httpB)).Itens).Valor);
+        Assert.Empty((await Listar(httpA)).Itens);
+    }
+
     /* ------------------------------------------------ cobrança avulsa */
 
     [Fact]

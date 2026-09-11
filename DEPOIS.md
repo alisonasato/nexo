@@ -88,8 +88,6 @@ e não atrapalha.
 
 - **Cobrança automática pelo PSP.** Não é dívida técnica: é a decisão de
   qual PSP e a conta nele, que só você pode tomar. Detalhes em DECISOES.md.
-- Gerar mensalidade só dos contratos selecionados. A API aceita a lista de
-  ids; a tela sempre manda todos.
 - Editar ou cancelar uma cobrança avulsa recém-lançada. Hoje o conserto de um
   valor digitado errado é cancelar e lançar de novo, o que funciona e deixa
   duas linhas no histórico onde bastaria uma.
