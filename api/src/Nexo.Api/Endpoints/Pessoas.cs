@@ -69,7 +69,9 @@ public static class Pessoas
         [FromQuery] Papel? papel = null,
         [FromQuery] bool incluirInativos = false,
         [FromQuery] int pagina = 1,
-        [FromQuery] int tamanho = 25)
+        [FromQuery] int tamanho = 25,
+        [FromQuery] OrdemDaListagem ordenarPor = OrdemDaListagem.Nome,
+        [FromQuery] Direcao direcao = Direcao.Crescente)
     {
         pagina = Math.Max(1, pagina);
         tamanho = Math.Clamp(tamanho, 1, 200);
@@ -109,8 +111,7 @@ public static class Pessoas
 
         var total = await consulta.CountAsync(cancelamento);
 
-        var itens = await consulta
-            .OrderBy(pessoa => pessoa.Nome)
+        var itens = await Ordenar(consulta, ordenarPor, direcao)
             .Skip((pagina - 1) * tamanho)
             .Take(tamanho)
             .Select(pessoa => new PessoaNaLista(
@@ -136,6 +137,45 @@ public static class Pessoas
             .ToListAsync(cancelamento);
 
         return Results.Ok(new PaginaDePessoas(itens, total, pagina, tamanho));
+    }
+
+    /// <summary>
+    /// A ordem da listagem, decidida no banco.
+    ///
+    /// <para>
+    /// <b>Ordenar no navegador ordenaria a página, não a lista.</b> Com 25 de
+    /// 300, classificar por nome no cliente produziria uma ordem perfeita
+    /// dentro de um recorte arbitrário — e a página 2 traria nomes que deviam
+    /// vir antes dos da página 1. O resultado é plausível e errado, que é o
+    /// jeito mais caro de errar. É a mesma razão pela qual nenhum total desta
+    /// aplicação é somado na tela.
+    /// </para>
+    /// <para>
+    /// <b>Código ordena pelo comprimento antes do texto.</b> Ele é número
+    /// guardado como texto, e em texto "10" vem antes de "2". Comparar o
+    /// tamanho primeiro devolve a ordem numérica sem converter nada — e
+    /// converter seria pior: um código vazio derrubaria a consulta inteira.
+    /// </para>
+    /// </summary>
+    private static IOrderedQueryable<Pessoa> Ordenar(
+        IQueryable<Pessoa> consulta,
+        OrdemDaListagem por,
+        Direcao direcao)
+    {
+        var decrescente = direcao == Direcao.Decrescente;
+
+        if (por == OrdemDaListagem.Codigo)
+        {
+            return decrescente
+                ? consulta.OrderByDescending(pessoa => pessoa.Codigo.Length)
+                    .ThenByDescending(pessoa => pessoa.Codigo)
+                : consulta.OrderBy(pessoa => pessoa.Codigo.Length)
+                    .ThenBy(pessoa => pessoa.Codigo);
+        }
+
+        return decrescente
+            ? consulta.OrderByDescending(pessoa => pessoa.Nome)
+            : consulta.OrderBy(pessoa => pessoa.Nome);
     }
 
     private static async Task<IResult> Obter(Guid id, NexoDbContext banco, CancellationToken cancelamento)
@@ -530,6 +570,19 @@ public record PessoaDetalhada(
     string Observacoes,
     bool Ativo,
     DateTimeOffset CriadoEm);
+
+/// <summary>Por qual coluna a listagem é ordenada.</summary>
+public enum OrdemDaListagem
+{
+    Nome = 1,
+    Codigo = 2,
+}
+
+public enum Direcao
+{
+    Crescente = 1,
+    Decrescente = 2,
+}
 
 public record PaginaDePessoas(List<PessoaNaLista> Itens, int Total, int Pagina, int Tamanho);
 

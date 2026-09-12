@@ -22,6 +22,14 @@ export type Coluna = {
    * regular que se varre de cima a baixo sem tropeço.
    */
   alinhamento?: "esquerda" | "centro" | "direita";
+  /**
+   * O nome pelo qual a API ordena esta coluna, quando ela pode ser ordenada.
+   *
+   * Só existe para as colunas em que o banco sabe ordenar. Deixar a tela
+   * oferecer ordenação de uma coluna que a API não entende produziria um
+   * cabeçalho que responde ao clique e não muda nada.
+   */
+  ordenarPor?: "Nome" | "Codigo";
   conteudo: (pessoa: PessoaNaLista) => ReactNode;
 };
 
@@ -47,6 +55,7 @@ export const colunasDisponiveis: Coluna[] = [
     titulo: "Código",
     padrao: true,
     alinhamento: "direita",
+    ordenarPor: "Codigo",
     classe: "numeros-tabulares font-medium text-slate-800",
     conteudo: (pessoa) => pessoa.codigo,
   },
@@ -54,6 +63,7 @@ export const colunasDisponiveis: Coluna[] = [
     chave: "nome",
     titulo: "Nome",
     padrao: true,
+    ordenarPor: "Nome",
     conteudo: (pessoa) => (
       <>
         {pessoa.nome}
