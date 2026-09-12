@@ -2,30 +2,14 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 
 import { api } from "@/api/cliente";
-import { Botao } from "@/componentes/controles";
 import { Paginacao } from "@/componentes/paginacao";
 import type { components } from "@/api/esquema";
 import { formatarDocumento, formatarEndereco, formatarTelefone } from "@/lib/formato";
 
 type Papel = components["schemas"]["Papel"];
-type Problema = components["schemas"]["Problema"];
-
-/**
- * Os problemas que vieram no 422, ou lista vazia.
- *
- * O openapi-fetch entrega o corpo do erro como `unknown`, então a checagem é
- * de forma, não de tipo — e um erro de rede, que não tem corpo nenhum, cai no
- * mesmo caminho sem quebrar.
- */
-function problemasDaResposta(erro: unknown): Problema[] {
-  if (erro && typeof erro === "object" && "problemas" in erro && Array.isArray(erro.problemas)) {
-    return erro.problemas as Problema[];
-  }
-  return [];
-}
 
 const papeis: Papel[] = ["Cliente", "Fornecedor", "Vendedor", "Colaborador"];
 
@@ -37,29 +21,12 @@ export default function ListagemDePessoas() {
   const [papel, definirPapel] = useState<Papel | "">("");
 
   /*
-   * Inativar pede o segundo clique; reativar não.
-   *
-   * A assimetria é de propósito. Inativar some com a pessoa da lista, e um
-   * clique de mira errada faria isso sem aviso — o botão vira "Confirmar?" e
-   * volta ao normal em cinco segundos. Reativar só devolve o que já existia, e
-   * quem errar o alvo desfaz com um clique. Pedir confirmação nos dois lados
-   * ensinaria a clicar duas vezes sem ler, que é como confirmação vira ruído.
+   * A listagem não inativa ninguém, de propósito. Inativar exige olhar o
+   * cadastro — quantos contratos a pessoa tem, o que ainda deve — e essa
+   * conferência não cabe numa linha de tabela. Sair daqui só para descobrir
+   * que não podia era o caminho mais provável, e a ação mudou para dentro do
+   * cadastro, onde a informação para decidir já está na tela.
    */
-  const [confirmando, definirConfirmando] = useState<string | null>(null);
-
-  /*
-   * O motivo da recusa fica na tela até a próxima tentativa. Some sozinho
-   * seria pior: a mensagem diz qual contrato encerrar, e quem foi conferir
-   * isso em outra aba volta e precisa dela ainda ali.
-   */
-  const [impedimentos, definirImpedimentos] = useState<string[]>([]);
-
-  useEffect(() => {
-    if (!confirmando) return;
-    const relogio = setTimeout(() => definirConfirmando(null), 5000);
-    return () => clearTimeout(relogio);
-  }, [confirmando]);
-  const clienteDeConsultas = useQueryClient();
 
   /*
    * O termo só vira consulta depois de meio segundo parado. Sem isso, cada
@@ -93,37 +60,6 @@ export default function ListagemDePessoas() {
     },
     /* A lista antiga fica na tela enquanto a nova chega: sem piscar a cada letra. */
     placeholderData: keepPreviousData,
-  });
-
-  const inativar = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await api.DELETE("/pessoas/{id}", { params: { path: { id } } });
-      if (error) throw error;
-    },
-    onMutate: () => definirImpedimentos([]),
-    onSuccess: () => {
-      definirConfirmando(null);
-      clienteDeConsultas.invalidateQueries({ queryKey: ["pessoas"] });
-    },
-    onError: (erro: unknown) => {
-      /* O botão volta a "Inativar": insistir no mesmo clique não muda nada. */
-      definirConfirmando(null);
-
-      const problemas = problemasDaResposta(erro);
-      definirImpedimentos(
-        problemas.length > 0
-          ? problemas.map((problema) => `${problema.descricao} ${problema.sugestao}`)
-          : ["Não foi possível inativar este cadastro. Tente de novo em instantes."],
-      );
-    },
-  });
-
-  const reativar = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await api.POST("/pessoas/{id}/reativar", { params: { path: { id } } });
-      if (error) throw new Error("Não foi possível reativar este cadastro.");
-    },
-    onSuccess: () => clienteDeConsultas.invalidateQueries({ queryKey: ["pessoas"] }),
   });
 
   return (
@@ -191,20 +127,6 @@ export default function ListagemDePessoas() {
           ))}
         </div>
 
-        {impedimentos.length > 0 && (
-          <div
-            role="alert"
-            className="rounded-[--radius-controle] border border-amber-200 bg-amber-50 px-4 py-3 text-amber-900"
-          >
-            <p className="font-medium">Este cadastro ainda está em uso.</p>
-            <ul className="mt-1 list-disc space-y-1 pl-5">
-              {impedimentos.map((motivo) => (
-                <li key={motivo}>{motivo}</li>
-              ))}
-            </ul>
-          </div>
-        )}
-
         {pessoas.isError && (
           <p role="alert" className="rounded-[--radius-controle] bg-red-50 px-4 py-3 text-red-700">
             {pessoas.error.message} Verifique se a API está no ar e tente de novo.
@@ -237,9 +159,6 @@ export default function ListagemDePessoas() {
                     <th scope="col" className="px-4 py-3 font-semibold">Documento</th>
                     <th scope="col" className="px-4 py-3 font-semibold">Endereço</th>
                     <th scope="col" className="px-4 py-3 font-semibold">Contato</th>
-                    <th scope="col" className="px-4 py-3 font-semibold">
-                      <span className="sr-only">Ações</span>
-                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -280,33 +199,6 @@ export default function ListagemDePessoas() {
                       */}
                       <td className="numeros-tabulares px-4 py-3 text-slate-700">
                         {formatarTelefone(pessoa.telefone || pessoa.celular) || "—"}
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        {pessoa.ativo ? (
-                          <Botao
-                            aparencia={confirmando === pessoa.id ? "perigo" : "secundario"}
-                            type="button"
-                            disabled={inativar.isPending}
-                            onClick={() =>
-                              confirmando === pessoa.id
-                                ? inativar.mutate(pessoa.id)
-                                : definirConfirmando(pessoa.id)
-                            }
-                            className="px-3 py-1 text-xs"
-                          >
-                            {confirmando === pessoa.id ? "Confirmar?" : "Inativar"}
-                          </Botao>
-                        ) : (
-                          <Botao
-                            aparencia="secundario"
-                            type="button"
-                            disabled={reativar.isPending}
-                            onClick={() => reativar.mutate(pessoa.id)}
-                            className="px-3 py-1 text-xs"
-                          >
-                            Reativar
-                          </Botao>
-                        )}
                       </td>
                     </tr>
                   ))}
