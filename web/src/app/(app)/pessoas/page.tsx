@@ -24,6 +24,7 @@ import {
 } from "@/componentes/icones";
 import type { components } from "@/api/esquema";
 import { formatarDocumento } from "@/lib/formato";
+import { useConsultaDaUrl, useLinkComRetorno } from "@/lib/estado-na-url";
 import {
   assinarEscolhas,
   classeDeAlinhamento,
@@ -57,15 +58,25 @@ export default function ListagemDePessoas() {
   const navegacao = useRouter();
   const avisar = useAvisos();
 
-  const [busca, definirBusca] = useState("");
-  const [termo, definirTermo] = useState("");
-  const [pagina, definirPagina] = useState(1);
-  const [tamanho, definirTamanho] = useState(25);
-  const [incluirInativas, definirIncluirInativas] = useState(false);
-  const [papel, definirPapel] = useState<Papel | "">("");
-  const [configurando, definirConfigurando] = useState(false);
-  const [filtrosAbertos, definirFiltrosAbertos] = useState(false);
-  const [inativando, definirInativando] = useState(false);
+  /*
+   * O recorte inteiro mora na URL: busca, filtro, página, tamanho e ordem.
+   *
+   * É o que faz a lista ser compartilhável por link e voltar da edição
+   * devolvê-la como estava. O que <b>não</b> mora lá é a configuração de
+   * colunas — ela é preferência de quem usa, não recorte do que se está
+   * olhando, e mandar um link não deveria impor a largura da tela de ninguém.
+   */
+  const { ler, gravar, estabilizada } = useConsultaDaUrl("/pessoas");
+
+  /* Todo caminho que sai daqui para um cadastro leva junto o recorte, para que
+     Cancelar e Salvar saibam para qual lista voltar. */
+  const cadastro = useLinkComRetorno();
+
+  const busca = ler("busca") ?? "";
+  const papel = (ler("papel") ?? "") as Papel | "";
+  const pagina = Math.max(1, Number(ler("pagina")) || 1);
+  const tamanho = Number(ler("tamanho")) || 25;
+  const incluirInativas = ler("inativas") === "1";
 
   /*
    * A ordem vai para a API, e não para um `sort` aqui.
@@ -75,29 +86,48 @@ export default function ListagemDePessoas() {
    * página 2 traria nomes que deviam vir antes dos da página 1. Plausível e
    * errado, que é o jeito mais caro de errar.
    */
-  const [ordem, definirOrdem] = useState<{ por: OrdemDaListagem; direcao: Direcao }>({
-    por: "Nome",
-    direcao: "Crescente",
-  });
+  const ordem = {
+    por: (ler("ordem") ?? "Nome") as OrdemDaListagem,
+    direcao: (ler("direcao") ?? "Crescente") as Direcao,
+  };
+
+  /*
+   * O que está sendo digitado, enquanto ainda não virou busca.
+   *
+   * Começa <b>nulo</b>, e não com o termo da URL: numa transição de rota o
+   * campo montaria antes de o endereço trocar e guardaria o termo da tela
+   * anterior para sempre. Nulo quer dizer «ninguém digitou aqui ainda», e aí o
+   * campo mostra o que a URL disser — inclusive depois de ela se acertar.
+   */
+  const [rascunho, definirRascunho] = useState<string | null>(null);
+  const textoDaBusca = rascunho ?? busca;
+
+  const [configurando, definirConfigurando] = useState(false);
+  const [filtrosAbertos, definirFiltrosAbertos] = useState(false);
+  const [inativando, definirInativando] = useState(false);
 
   const escolhas = useSyncExternalStore(assinarEscolhas, escolhasEmUso, escolhasNoServidor);
   const colunas = colunasVisiveis(escolhas);
 
   /*
-   * O termo só vira consulta depois de meio segundo parado. Sem isso, cada
-   * tecla digitada é uma ida ao servidor — e num cadastro grande a busca fica
-   * pior justamente para quem tem mais dados.
+   * O que foi digitado só vira busca depois de meio segundo parado. Sem isso,
+   * cada tecla é uma ida ao servidor — e num cadastro grande a busca fica pior
+   * justamente para quem tem mais dados.
+   *
+   * Quem espera é a <b>URL</b>, não a consulta: o endereço guarda o termo que
+   * já foi aplicado, então um link compartilhado nunca sai pela metade e a
+   * lista nunca precisa de um segundo atraso para se acertar.
    */
   useEffect(() => {
-    const relogio = setTimeout(() => {
-      definirTermo(busca);
-      /* Busca nova recomeça na primeira página: a sétima do termo velho não existe mais. */
-      definirPagina(1);
-    }, 500);
-    return () => clearTimeout(relogio);
-  }, [busca]);
+    if (rascunho === null || rascunho === busca) return;
 
-  const consulta = { termo, papel, pagina, tamanho, incluirInativas, ordem };
+    /* Busca nova recomeça na primeira página: a sétima do termo velho não
+       existe mais. */
+    const relogio = setTimeout(() => gravar({ busca: rascunho, pagina: null }), 500);
+    return () => clearTimeout(relogio);
+  }, [rascunho, busca, gravar]);
+
+  const consulta = { busca, papel, pagina, tamanho, incluirInativas, ordem };
 
   const pessoas = useQuery({
     queryKey: ["pessoas", consulta],
@@ -109,7 +139,7 @@ export default function ListagemDePessoas() {
             tamanho,
             ordenarPor: ordem.por,
             direcao: ordem.direcao,
-            ...(termo ? { busca: termo } : {}),
+            ...(busca ? { busca } : {}),
             ...(papel ? { papel } : {}),
             ...(incluirInativas ? { incluirInativos: true } : {}),
           },
@@ -118,6 +148,16 @@ export default function ListagemDePessoas() {
       if (error || !data) throw new Error("Não foi possível carregar o cadastro.");
       return data;
     },
+    /*
+     * Nada de consultar antes de o endereço ser desta tela.
+     *
+     * Chegando por navegação, o primeiro render enxerga a URL da tela anterior
+     * — e uma consulta feita ali sairia com o recorte errado, voltaria antes da
+     * certa e pintaria a lista errada. É um render de esqueleto a mais, que
+     * ninguém enxerga, no lugar de uma ida ao servidor que ninguém pediu.
+     */
+    enabled: estabilizada,
+
     /* A lista antiga fica na tela enquanto a nova chega: sem piscar a cada letra. */
     placeholderData: keepPreviousData,
   });
@@ -126,16 +166,18 @@ export default function ListagemDePessoas() {
   const itens = pessoas.data?.itens ?? [];
 
   const filtrosAtivos = (papel ? 1 : 0) + (incluirInativas ? 1 : 0);
-  const filtrandoAlgo = filtrosAtivos > 0 || termo.length > 0;
+  const filtrandoAlgo = filtrosAtivos > 0 || busca.length > 0;
+
+  const definirPagina = (numero: number) => gravar({ pagina: numero === 1 ? null : numero });
 
   function limparFiltros() {
-    definirPapel("");
-    definirIncluirInativas(false);
-    definirBusca("");
-    definirPagina(1);
+    /* O rascunho volta a ser nulo junto: sem isso o campo continuaria mostrando
+       o que foi digitado, com a lista já sem filtro nenhum. */
+    definirRascunho(null);
+    gravar({ busca: null, papel: null, inativas: null, pagina: null });
   }
 
-  const abrir = (id: string) => navegacao.push(`/pessoas/${id}`);
+  const abrir = (id: string) => navegacao.push(cadastro(`/pessoas/${id}`));
 
   /**
    * Clicar no cabeçalho ordena por ele; clicar de novo inverte.
@@ -145,14 +187,15 @@ export default function ListagemDePessoas() {
    * frente, que ninguém pede ao clicar pela primeira vez.
    */
   function ordenarPor(por: OrdemDaListagem) {
-    definirOrdem((atual) =>
-      atual.por === por
-        ? { por, direcao: atual.direcao === "Crescente" ? "Decrescente" : "Crescente" }
-        : { por, direcao: "Crescente" },
-    );
+    const inverter = ordem.por === por && ordem.direcao === "Crescente";
 
-    /* A página 3 da ordem antiga não é a página 3 da nova. */
-    definirPagina(1);
+    gravar({
+      ordem: por === "Nome" ? null : por,
+      direcao: inverter ? "Decrescente" : null,
+      /* A página 3 da ordem antiga não é a página 3 da nova. */
+      pagina: null,
+    });
+
     selecao.limpar();
   }
 
@@ -223,7 +266,7 @@ export default function ListagemDePessoas() {
       {
         tipo: "link",
         rotulo: "Abrir cadastro",
-        href: `/pessoas/${pessoa.id}`,
+        href: cadastro(`/pessoas/${pessoa.id}`),
         icone: <IconeDeAbrir className="size-4" />,
       },
     ];
@@ -280,7 +323,7 @@ export default function ListagemDePessoas() {
         </div>
 
         <Link
-          href="/pessoas/novo"
+          href={cadastro("/pessoas/novo")}
           className="inline-flex min-h-11 w-full items-center justify-center rounded-[--radius-controle] bg-marca-600 px-4 text-sm font-semibold text-white transition-colors hover:bg-marca-700 sm:w-auto"
         >
           Nova pessoa
@@ -297,8 +340,8 @@ export default function ListagemDePessoas() {
               <IconeDeBusca className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-400" />
               <input
                 type="search"
-                value={busca}
-                onChange={(evento) => definirBusca(evento.target.value)}
+                value={textoDaBusca}
+                onChange={(evento) => definirRascunho(evento.target.value)}
                 placeholder="Buscar por nome, nome fantasia ou documento"
                 aria-label="Buscar pessoas"
                 className="min-h-11 w-full rounded-[--radius-controle] border border-borda-forte bg-superficie py-2.5 pr-24 pl-9 placeholder:text-slate-400 focus:border-marca-500"
@@ -369,10 +412,7 @@ export default function ListagemDePessoas() {
                   <button
                     key={valor || "todos"}
                     type="button"
-                    onClick={() => {
-                      definirPapel(valor);
-                      definirPagina(1);
-                    }}
+                    onClick={() => gravar({ papel: valor, pagina: null })}
                     aria-pressed={papel === valor}
                     className={
                       "inline-flex min-h-9 items-center rounded-full px-3.5 text-sm font-medium transition-colors " +
@@ -390,10 +430,10 @@ export default function ListagemDePessoas() {
                 <input
                   type="checkbox"
                   checked={incluirInativas}
-                  onChange={(evento) => {
-                    definirIncluirInativas(evento.target.checked);
-                    definirPagina(1);
-                  }}
+                  onChange={(evento) =>
+                    /* A página sete sem os inativos não é a página sete com eles. */
+                    gravar({ inativas: evento.target.checked ? "1" : null, pagina: null })
+                  }
                   className="size-4 rounded border-borda-forte accent-marca-600"
                 />
                 Mostrar inativas
@@ -446,7 +486,7 @@ export default function ListagemDePessoas() {
               )}
 
               <Link
-                href="/pessoas/novo"
+                href={cadastro("/pessoas/novo")}
                 className="rounded-[--radius-controle] bg-marca-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-marca-700"
               >
                 Nova pessoa
@@ -497,7 +537,7 @@ export default function ListagemDePessoas() {
 
                         <div className="min-w-0 flex-1">
                           <Link
-                            href={`/pessoas/${pessoa.id}`}
+                            href={cadastro(`/pessoas/${pessoa.id}`)}
                             className="font-semibold text-marca-700 hover:underline"
                           >
                             {pessoa.nome}
@@ -665,7 +705,7 @@ export default function ListagemDePessoas() {
                             {indice === 0 ? (
                               <>
                                 <Link
-                                  href={`/pessoas/${pessoa.id}`}
+                                  href={cadastro(`/pessoas/${pessoa.id}`)}
                                   className="font-medium text-marca-700 hover:underline"
                                 >
                                   {coluna.conteudo(pessoa)}
@@ -697,11 +737,10 @@ export default function ListagemDePessoas() {
               tamanho={pessoas.data.tamanho}
               total={pessoas.data.total}
               aoMudar={definirPagina}
-              aoMudarTamanho={(novo) => {
-                definirTamanho(novo);
+              aoMudarTamanho={(novo) =>
                 /* A página sete de 25 em 25 não existe de 100 em 100. */
-                definirPagina(1);
-              }}
+                gravar({ tamanho: novo === 25 ? null : novo, pagina: null })
+              }
               comNumeros
               substantivo={{ singular: "cadastro", plural: "cadastros" }}
             />

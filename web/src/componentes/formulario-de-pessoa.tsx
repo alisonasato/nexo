@@ -9,6 +9,7 @@ import { api } from "@/api/cliente";
 import { AreaDeTexto, Botao, Entrada, EntradaMascarada, Selecao } from "@/componentes/controles";
 import type { components } from "@/api/esquema";
 import { apenasAlfanumericos, apenasDigitos } from "@/lib/formato";
+import { useRetornoDaListagem } from "@/lib/estado-na-url";
 import { mascararCep, mascararCnpj, mascararCpf, mascararTelefone } from "@/lib/mascaras";
 
 type DadosDePessoa = components["schemas"]["DadosDePessoa"];
@@ -108,6 +109,9 @@ export function FormularioDePessoa({ id }: { id?: string }) {
   const clienteDeConsultas = useQueryClient();
   const editando = Boolean(id);
 
+  /* Sair daqui devolve a listagem como ela estava, e não a listagem do zero. */
+  const listagem = useRetornoDaListagem("/pessoas");
+
   const [dados, definirDados] = useState<DadosDePessoa>(vazia);
   const [problemas, definirProblemas] = useState<Problema[]>([]);
   const [procurandoCep, definirProcurandoCep] = useState(false);
@@ -171,7 +175,7 @@ export function FormularioDePessoa({ id }: { id?: string }) {
     onSuccess: () => {
       definirProblemas([]);
       clienteDeConsultas.invalidateQueries({ queryKey: ["pessoas"] });
-      navegacao.push("/pessoas");
+      navegacao.push(listagem);
     },
     onError: (erro) => definirProblemas(problemasDaResposta(erro)),
   });
@@ -376,7 +380,7 @@ export function FormularioDePessoa({ id }: { id?: string }) {
         <p role="alert" className="rounded-[--radius-controle] bg-red-50 px-4 py-3 text-red-700">
           {existente.error.message}
         </p>
-        <Link href="/pessoas" className="mt-4 inline-block text-marca-700 hover:underline">
+        <Link href={listagem} className="mt-4 inline-block text-marca-700 hover:underline">
           Voltar para a lista
         </Link>
       </div>
@@ -735,7 +739,7 @@ export function FormularioDePessoa({ id }: { id?: string }) {
 
           <div className="flex items-center gap-3">
             <Link
-              href="/pessoas"
+              href={listagem}
               className="rounded-[--radius-controle] border border-borda-forte px-4 py-2 font-semibold text-slate-700 transition-colors hover:bg-slate-50"
             >
               Cancelar

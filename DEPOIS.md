@@ -89,15 +89,10 @@ e não atrapalha.
   recebíveis pedirem o mesmo, é a hora de extrair.
 - Ordenar as listagens de contratos e recebíveis. A de pessoas ordena por
   código e por nome, com a ordem feita no banco; as outras duas têm ordem fixa.
-- **Estado da listagem na URL.** Busca, filtro, página, ordem e itens por
-  página vivem em estado local, então a lista não é compartilhável por link e
-  sair para editar não devolve o recorte ao voltar. O protótipo ContaGestor
-  já tinha resolvido isso e documentou a armadilha: em rota pré-renderizada,
-  o `useSearchParams` do Next obriga um limite de Suspense, e o conteúdo
-  dentro dele chega renderizado do servidor mas **não hidrata** — a tabela
-  aparece e nada responde a clique. A saída de lá foi ler de
-  `window.location` com `useSyncExternalStore` e escrever com
-  `history.replaceState`.
+- ~~Estado da listagem na URL~~ — feito. A listagem de pessoas é
+  compartilhável por link e volta da edição no mesmo recorte. As armadilhas
+  estão no `DECISOES.md`; contratos e recebíveis ainda não usam o mesmo
+  mecanismo.
 
 ## Aberto pelos papéis
 

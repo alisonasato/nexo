@@ -321,6 +321,52 @@ endpoint só tem `GET`, nenhuma tela usa, e o provisionamento escreve os dados
 uma vez. CNPJ digitado errado na variável de ambiente não tem conserto pela
 aplicação.
 
+## O recorte da listagem mora na URL
+
+Busca, filtro, página, itens por página e ordem da listagem de pessoas vivem na
+barra de endereço. Isso faz duas coisas que estado local não faz: a lista vira
+link para mandar a alguém, e sair para editar um cadastro e voltar devolve o
+recorte em vez da página 1 sem filtro.
+
+O protótipo ContaGestor já tinha resolvido isso, e o aviso que ele deixou vale
+repetir: **não usar o `useSearchParams` do Next.** Em rota pré-renderizada ele
+obriga um limite de Suspense, e o conteúdo dentro desse limite chega renderizado
+do servidor mas **não hidrata** — a tabela aparece inteira e nada nela responde
+a clique. É um defeito que passa por qualquer conferência visual. A saída é ler
+de `window.location` com `useSyncExternalStore` e escrever com
+`history.replaceState`, porque filtrar não é navegar: empilhar histórico a cada
+tecla faria o botão voltar desfazer letra por letra.
+
+Três armadilhas apareceram aqui que o protótipo não tinha encontrado, e nenhuma
+das três dava erro — todas foram achadas medindo as requisições numa volta de
+cadastro para a listagem.
+
+**O endereço chega atrasado numa transição de rota.** O React monta a tela nova
+antes de o roteador trocar a URL, então o primeiro render da listagem enxerga a
+consulta da tela **anterior**. Voltar de um cadastro disparava uma consulta com
+o recorte inteiro errado, que voltava antes da certa e pintava a lista errada.
+Por isso `useConsultaDaUrl` recebe o caminho da própria tela e só libera a
+consulta quando o endereço já é dela. Um render de esqueleto que ninguém enxerga
+custa menos que uma ida ao servidor que ninguém pediu.
+
+**`popstate` não avisa o que o roteador faz.** Ele só dispara em navegação de
+histórico, nunca em `pushState`. Sem aviso, a correção do endereço atrasado só
+chegava de carona num outro render qualquer — funcionava por acidente. A
+solução é embrulhar `pushState` e `replaceState` para avisarem. O aviso sai numa
+microtarefa, e não no meio da chamada: o roteador do Next mexe no histórico de
+dentro de um efeito de inserção, onde agendar atualização rende
+`useInsertionEffect must not schedule updates` a cada troca de tela.
+
+**Quem espera o meio segundo da busca é a URL, não a consulta.** O caminho
+óbvio — URL sempre atual, consulta atrasada — mostrava a lista sem filtro por
+meio segundo a cada volta de cadastro, com o termo já visível no campo. Agora o
+endereço guarda só o termo aplicado, e a consulta sai dele direto. De quebra,
+link compartilhado nunca sai pela metade.
+
+O que **não** foi para a URL é a configuração de colunas. Ela é preferência de
+quem está olhando, não recorte do que se está olhando, e continua no
+`localStorage`: mandar um link não deve impor a largura de tela de ninguém.
+
 ## Ordem de execução
 
 1. ~~Repositório e contrato~~ — feito.
