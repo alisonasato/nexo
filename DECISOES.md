@@ -241,8 +241,28 @@ Escrever a interface antes de escolher o PSP seria adivinhar a forma dela —
 o mesmo erro que a Q20 evitou com o motor de telas. Uma abstração desenhada
 sobre nenhuma implementação real acerta por acidente ou atrapalha para sempre.
 
-**O que falta decidir, e é seu:** qual PSP (Asaas, Cobre Fácil, Iugu,
-Pagar.me), e criar a conta. Com isso em mãos, o que entra é:
+**O PSP escolhido é o Asaas** (setembro de 2026). Três razões, nesta ordem:
+
+1. **Pix Automático, com fluxo de webhook documentado.** O produto do
+   escritório é mensalidade recorrente, que é exatamente o que o Pix Automático
+   cobra. Isso muda o desenho para melhor: em vez de emitir cobrança todo mês e
+   esperar alguém pagar, a autorização fica de pé e o débito acontece.
+2. **Sandbox separado**, com chave, cobranças e webhooks próprios, que não
+   atravessam para produção. É condição para exercitar a baixa automática sem
+   mover dinheiro de verdade.
+3. **Sem piso mensal**, e R$ 1,99 por cobrança recebida — boleto ou Pix. Com
+   carteira pequena, qualquer mensalidade fixa dominaria o custo. A Iugu cobra
+   R$ 1,50 no Pix e R$ 2,50 no boleto, o que só compensaria se quase ninguém
+   pagasse por boleto.
+
+Duas coisas anotadas para não serem redescobertas: a isenção de cem transações
+mensais que o Asaas anuncia vale para chave e QR **estático**, e não para a
+cobrança dinâmica que a integração usa; e a autenticação do webhook é um
+**token fixo em cabeçalho**, não assinatura por mensagem, então ela não protege
+contra reenvio. A idempotência abaixo deixa de ser reforço e passa a ser a
+única defesa contra baixa dupla.
+
+**O que falta, e é seu:** criar a conta. Com ela em mãos, o que entra é:
 
 1. A emissão da cobrança a partir de um recebível — boleto e Pix.
 2. O webhook de pagamento, com verificação de assinatura, dando baixa com
@@ -430,8 +450,8 @@ engordaria a lista sem ganho nenhum.
 5. **O ciclo do dinheiro** — quatro dos cinco elos feitos.
    - ~~Cliente, contrato, mensalidade, recebível e baixa manual~~ — feito.
    - **Cobrança automática pelo PSP** — parada, e não por falta de tempo:
-     depende de escolher o PSP e ter conta nele. Ver abaixo.
-6. **Cobrança e baixa automática.** Depende de uma conta em PSP.
+     o PSP já foi escolhido, falta a conta nele. Ver abaixo.
+6. **Cobrança e baixa automática.** Depende de uma conta no Asaas.
 
 **No ar desde 10 de setembro de 2026**, na Railway: três serviços — front com
 domínio público, API só na rede privada, e Postgres. O papel do banco não é

@@ -111,8 +111,8 @@ e não atrapalha.
 
 ## Aberto pelo passo 5
 
-- **Cobrança automática pelo PSP.** Não é dívida técnica: é a decisão de
-  qual PSP e a conta nele, que só você pode tomar. Detalhes em DECISOES.md.
+- **Cobrança automática pelo PSP.** O PSP está escolhido — Asaas, com o
+  porquê no DECISOES.md. O que falta é a conta nele, que só você pode criar.
 - Editar ou cancelar uma cobrança avulsa recém-lançada. Hoje o conserto de um
   valor digitado errado é cancelar e lançar de novo, o que funciona e deixa
   duas linhas no histórico onde bastaria uma.
