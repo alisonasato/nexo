@@ -158,26 +158,6 @@ public class PapeisDaPessoa(BancoDeTestes banco) : IDisposable
 
     private static DadosDePessoa Dados(string nome, Papel[] papeis) => new(
         TipoPessoa.Juridica, RegimeTributario.SimplesNacional, "Shoiti", papeis,
-        nome, string.Empty, CnpjValido(), string.Empty, string.Empty,
+        nome, string.Empty, Documentos.CnpjValido(), string.Empty, string.Empty,
         string.Empty, string.Empty, string.Empty, null, string.Empty, true);
-
-    /// <summary>Um CNPJ novo com dígitos verificadores certos.</summary>
-    private static string CnpjValido()
-    {
-        var base12 = Random.Shared.NextInt64(100_000_000_000, 999_999_999_999).ToString();
-
-        int[] primeiroPeso = [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
-        int[] segundoPeso = [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
-
-        var primeiro = Digito(base12, primeiroPeso);
-        var segundo = Digito(base12 + primeiro, segundoPeso);
-        return base12 + primeiro + segundo;
-
-        static int Digito(string numero, int[] pesos)
-        {
-            var soma = numero.Select((caractere, indice) => (caractere - '0') * pesos[indice]).Sum();
-            var resto = soma % 11;
-            return resto < 2 ? 0 : 11 - resto;
-        }
-    }
 }

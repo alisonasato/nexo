@@ -24,4 +24,5 @@ public static class TitulosDeProblema
     public const string Duplicidade = "Documento já cadastrado";
     public const string Endereco = "Endereço incompleto";
     public const string Contato = "Revise os dados de contato";
+    public const string Vinculo = "Cadastro ainda em uso";
 }

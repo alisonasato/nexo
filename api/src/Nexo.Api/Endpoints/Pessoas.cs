@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Nexo.Api.Dados;
@@ -46,8 +47,9 @@ public static class Pessoas
         grupo.MapDelete("/{id:guid}", Inativar)
             .WithName("InativarPessoa")
             .WithSummary("Inativa um cadastro")
-            .WithDescription("Não apaga: marca como inativo. Quem já apareceu em contrato ou cobrança precisa continuar existindo no histórico.")
+            .WithDescription("Não apaga: marca como inativo. Quem já apareceu em contrato ou cobrança precisa continuar existindo no histórico. Recusa enquanto houver contrato não encerrado ou cobrança em aberto.")
             .Produces(StatusCodes.Status204NoContent)
+            .Produces<RespostaComProblemas>(StatusCodes.Status422UnprocessableEntity)
             .Produces(StatusCodes.Status404NotFound);
 
         grupo.MapPost("/{id:guid}/reativar", Reativar)
@@ -204,6 +206,12 @@ public static class Pessoas
         var pessoa = await banco.Pessoas.FirstOrDefaultAsync(pessoa => pessoa.Id == id, cancelamento);
         if (pessoa is null) return Results.NotFound();
 
+        var impedimentos = await Impedimentos(pessoa, banco, cancelamento);
+        if (impedimentos.Count > 0)
+        {
+            return Results.UnprocessableEntity(new RespostaComProblemas(impedimentos));
+        }
+
         pessoa.Ativo = false;
         pessoa.AtualizadoEm = DateTimeOffset.UtcNow;
         await banco.SaveChangesAsync(cancelamento);
@@ -227,6 +235,102 @@ public static class Pessoas
 
         return Results.NoContent();
     }
+
+    /// <summary>
+    /// O que impede este cadastro de sair de circulação.
+    ///
+    /// <para>
+    /// <b>Não é o papel que impede, é o vínculo vivo.</b> Quase toda pessoa
+    /// carrega algum papel — é para isso que eles existem —, então recusar por
+    /// papel tornaria inativar quase impossível, que é pior do que não conferir
+    /// nada. O que dói são outras duas coisas: contrato não encerrado continua
+    /// gerando mensalidade todo mês para alguém que sumiu da lista, e cobrança
+    /// em aberto é dinheiro a receber que some da tela sem ninguém ter decidido
+    /// isso.
+    /// </para>
+    /// <para>
+    /// <b>Recusa, e não avisa.</b> Aviso vira segundo clique, e segundo clique
+    /// vira hábito — e o custo do hábito aqui é cobrança recorrente invisível.
+    /// Não é armadilha como um índice cego seria, porque a saída existe e é a
+    /// escrituração certa: encerrar o contrato e dar baixa ou cancelar a
+    /// cobrança é o que de fato aconteceu quando um cliente foi embora.
+    /// </para>
+    /// </summary>
+    private static async Task<List<Problema>> Impedimentos(
+        Pessoa pessoa,
+        NexoDbContext banco,
+        CancellationToken cancelamento)
+    {
+        var problemas = new List<Problema>();
+
+        var contratos = await banco.Contratos
+            .Where(contrato => contrato.PessoaId == pessoa.Id
+                && contrato.Situacao != SituacaoContrato.Encerrado)
+            .OrderBy(contrato => contrato.Codigo)
+            .Select(contrato => contrato.Codigo)
+            .ToListAsync(cancelamento);
+
+        if (contratos.Count == 1)
+        {
+            problemas.Add(new Problema("contratos", TitulosDeProblema.Vinculo,
+                $"“{pessoa.Nome}” tem o contrato {contratos[0]} ainda não encerrado.",
+                "Encerre o contrato antes de inativar o cadastro."));
+        }
+        else if (contratos.Count > 1)
+        {
+            problemas.Add(new Problema("contratos", TitulosDeProblema.Vinculo,
+                $"“{pessoa.Nome}” tem {contratos.Count} contratos ainda não encerrados ({Citar(contratos)}).",
+                "Encerre os contratos antes de inativar o cadastro."));
+        }
+
+        /*
+         * Quantidade e soma saem do banco numa consulta só. Trazer as linhas
+         * para somar aqui daria o mesmo número hoje e o número errado no dia em
+         * que alguém paginasse — é a mesma regra que vale para os totais da tela.
+         */
+        var abertas = await banco.Recebiveis
+            .Where(recebivel => recebivel.PessoaId == pessoa.Id
+                && recebivel.Situacao == SituacaoRecebivel.Aberto)
+            .GroupBy(recebivel => 1)
+            .Select(grupo => new { Quantidade = grupo.Count(), Total = grupo.Sum(r => r.Valor) })
+            .FirstOrDefaultAsync(cancelamento);
+
+        if (abertas is { Quantidade: 1 })
+        {
+            problemas.Add(new Problema("recebiveis", TitulosDeProblema.Vinculo,
+                $"“{pessoa.Nome}” tem uma cobrança em aberto, de {EmReais(abertas.Total)}.",
+                "Dê baixa ou cancele a cobrança antes de inativar o cadastro."));
+        }
+        else if (abertas is { Quantidade: > 1 })
+        {
+            problemas.Add(new Problema("recebiveis", TitulosDeProblema.Vinculo,
+                $"“{pessoa.Nome}” tem {abertas.Quantidade} cobranças em aberto, somando {EmReais(abertas.Total)}.",
+                "Dê baixa ou cancele as cobranças antes de inativar o cadastro."));
+        }
+
+        return problemas;
+    }
+
+    /// <summary>
+    /// Os códigos, com um teto. Um cadastro antigo pode ter dezenas de
+    /// contratos, e uma mensagem com dezenas de códigos não é mais informativa
+    /// que uma com cinco — é só mais difícil de ler.
+    /// </summary>
+    private static string Citar(IReadOnlyList<string> codigos)
+    {
+        const int teto = 5;
+        if (codigos.Count <= teto) return string.Join(", ", codigos);
+
+        return string.Join(", ", codigos.Take(teto)) + $" e mais {codigos.Count - teto}";
+    }
+
+    /// <summary>
+    /// Reais por extenso na mensagem. A cultura vai explícita porque a do
+    /// servidor não é a do escritório: o contêiner sobe em inglês, e sem isto a
+    /// dívida de mil e quinhentos apareceria como "$1,500.00".
+    /// </summary>
+    private static string EmReais(decimal valor) =>
+        valor.ToString("C", CultureInfo.GetCultureInfo("pt-BR"));
 
     /* ------------------------------------------------------------- apoio */
 

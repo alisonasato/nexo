@@ -217,7 +217,7 @@ export interface paths {
         post?: never;
         /**
          * Inativa um cadastro
-         * @description Não apaga: marca como inativo. Quem já apareceu em contrato ou cobrança precisa continuar existindo no histórico.
+         * @description Não apaga: marca como inativo. Quem já apareceu em contrato ou cobrança precisa continuar existindo no histórico. Recusa enquanto houver contrato não encerrado ou cobrança em aberto.
          */
         delete: operations["InativarPessoa"];
         options?: never;
@@ -1199,6 +1199,15 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespostaComProblemas"];
+                };
             };
         };
     };
