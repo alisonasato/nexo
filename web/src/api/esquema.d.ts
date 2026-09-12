@@ -185,6 +185,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/empresas/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Corrige os dados do estabelecimento
+         * @description O provisionamento grava razão social e CNPJ uma vez, a partir de variável de ambiente. Sem isto, um dígito errado ali não teria conserto pela aplicação.
+         */
+        put: operations["AlterarEmpresa"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/pessoas": {
         parameters: {
             query?: never;
@@ -403,6 +423,11 @@ export interface components {
             /** @enum {string} */
             situacao: "Ativo" | "Suspenso" | "Encerrado";
             observacoes?: string | null;
+        };
+        DadosDeEmpresa: {
+            razaoSocial?: string | null;
+            nomeFantasia?: string | null;
+            cnpj?: string | null;
         };
         DadosDeEndereco: {
             cep: string;
@@ -1041,6 +1066,48 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EmpresaNaLista"][];
+                };
+            };
+        };
+    };
+    AlterarEmpresa: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DadosDeEmpresa"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmpresaNaLista"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespostaComProblemas"];
                 };
             };
         };

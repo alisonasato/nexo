@@ -139,6 +139,24 @@ contrato e dar baixa ou cancelar a cobrança é o que de fato aconteceu quando
 um cliente foi embora. A recusa diz qual contrato e quanto se deve, então o
 caminho até ela é a própria escrituração certa.
 
+### O estabelecimento se conserta pela tela
+
+O provisionamento grava razão social e CNPJ uma vez, lendo variável de
+ambiente, e não conferia nada. Um dígito trocado ali ficava gravado para
+sempre: não havia `PUT`, não havia tela, e reprovisionar não resolve porque
+só age com o banco vazio. O conserto exigia `psql`.
+
+Agora há `PUT /empresas/{id}` e uma tela, e a validação é mais dura que a do
+cadastro de pessoas — de propósito. Pessoa entra pela metade porque o cliente
+ligou e o resto chega depois; a empresa é o próprio estabelecimento, e a razão
+social e o CNPJ dela vão sair na nota e no boleto. Aqui o dado incompleto não
+é a vida real, é erro.
+
+**Não há `POST` ao lado do `PUT`**, e a falta é decisão. Abrir filial mexe em
+qual empresa vai no token, em como o usuário troca de estabelecimento e no que
+acontece com o dado já gravado. Enquanto essas perguntas não tiverem resposta,
+criar empresa pela tela produziria linha órfã que ninguém alcança.
+
 ## A disciplina
 
 | | |

@@ -65,13 +65,13 @@ e não atrapalha.
   carimbo a cada requisição derruba a sessão no ato, e trocar o carimbo é uma
   linha (`UpdateSecurityStampAsync`). O que falta é a tela e a decisão de quem
   pode desligar quem, que só faz sentido junto com papéis e permissões.
-- **Editar a empresa do próprio escritório.** Não existe: o endpoint de
-  empresas só tem `GET`, nenhuma tela usa, e o provisionamento escreve razão
-  social e CNPJ uma vez. Se o CNPJ foi digitado errado na variável de ambiente,
-  não há conserto pela aplicação. É a falta mais concreta que a análise de
-  centralização do cadastro encontrou, e é independente dela.
+- **Abrir filial.** Editar a empresa já existe; criar a segunda, não. Não é
+  formulário que falta: é decidir qual empresa vai no token, como o usuário
+  troca de estabelecimento e o que acontece com o dado já gravado. Sem isso,
+  criar empresa pela tela produziria linha órfã que ninguém alcança.
 - Endereço e contato da empresa. `Empresa` não tem nenhum dos dois, e a NFS-e
-  vai exigir os dois do estabelecimento.
+  vai exigir os dois do estabelecimento. A tela de empresa já existe e diz isso
+  a quem a abre, para a falta não parecer esquecimento.
 - `Empresa` como vínculo com `Pessoa`, como os papéis agora são. A incoerência
   está analisada em DECISOES.md, com o argumento contra: `Empresa` é a espinha
   do isolamento, não um terceiro. A hora de mexer é junto com a NFS-e, que é o

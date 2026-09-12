@@ -87,10 +87,18 @@ export default function LayoutDaAplicacao({ children }: { children: ReactNode })
           ))}
 
           {/*
-            No desktop a conta se alcança pelo e-mail no rodapé da barra. No
-            celular não existe rodapé, então ela precisa estar aqui — senão não
-            haveria como trocar a senha pelo telefone.
+            No desktop a conta e a empresa se alcançam pelo rodapé da barra. No
+            celular não existe rodapé, então elas precisam estar aqui — senão
+            não haveria como trocar a senha pelo telefone.
           */}
+          <Link
+            href="/empresa"
+            aria-current={caminho.startsWith("/empresa") ? "page" : undefined}
+            className={aparencia(caminho.startsWith("/empresa")) + " sm:hidden"}
+          >
+            Empresa
+          </Link>
+
           <Link
             href="/conta"
             aria-current={caminho.startsWith("/conta") ? "page" : undefined}
@@ -101,6 +109,15 @@ export default function LayoutDaAplicacao({ children }: { children: ReactNode })
         </nav>
 
         <div className="hidden flex-col gap-2 border-t border-marca-900 px-5 py-4 sm:flex">
+          {/* A empresa fica no canto das configurações, e não no menu: mexe-se
+              nela uma vez na instalação e quase nunca mais. */}
+          <Link
+            href="/empresa"
+            className="text-xs font-semibold text-marca-200 underline-offset-2 hover:underline"
+          >
+            Empresa
+          </Link>
+
           <Link
             href="/conta"
             className="truncate text-xs text-marca-300 underline-offset-2 hover:text-white hover:underline"
