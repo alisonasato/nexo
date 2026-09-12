@@ -367,7 +367,7 @@ export function FormularioDePessoa({ id }: { id?: string }) {
   }
 
   if (editando && existente.isPending) {
-    return <p className="p-6 text-slate-500">Carregando o cadastro…</p>;
+    return <p className="p-6 text-slate-600">Carregando o cadastro…</p>;
   }
 
   if (editando && existente.isError) {
@@ -402,7 +402,7 @@ export function FormularioDePessoa({ id }: { id?: string }) {
               </span>
             )}
           </h1>
-          <p className="text-slate-500">
+          <p className="text-slate-600">
             Só o nome e o documento são obrigatórios. O resto pode entrar depois.
           </p>
         </div>
@@ -434,7 +434,7 @@ export function FormularioDePessoa({ id }: { id?: string }) {
             <h2 className="text-xs font-semibold tracking-wide text-slate-500 uppercase">
               Papéis
             </h2>
-            <p className="mt-1 text-slate-500">
+            <p className="mt-1 text-slate-600">
               O que esta pessoa é para o escritório. Pode ser mais de um: a gráfica que imprime
               os carnês costuma ser fornecedora e cliente ao mesmo tempo.
             </p>

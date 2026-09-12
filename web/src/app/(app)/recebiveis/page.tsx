@@ -6,6 +6,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/api/cliente";
 import { Botao, Entrada, EntradaMascarada, Selecao } from "@/componentes/controles";
 import { Paginacao } from "@/componentes/paginacao";
+import { VoltarAoTopo } from "@/componentes/voltar-ao-topo";
 import type { components } from "@/api/esquema";
 import {
   competenciaAtual,
@@ -178,8 +179,10 @@ export default function ListagemDeRecebiveis() {
     <>
       <header className="flex flex-wrap items-center justify-between gap-4 border-b border-borda bg-superficie px-6 py-4">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight text-marca-950">Recebíveis</h1>
-          <p className="text-slate-500">O que o escritório tem a receber, e o que já entrou.</p>
+          <h1 id="conteudo" tabIndex={-1} className="text-xl font-semibold tracking-tight text-marca-950">
+            Recebíveis
+          </h1>
+          <p className="text-slate-600">O que o escritório tem a receber, e o que já entrou.</p>
         </div>
 
         <Botao type="button" onClick={() => definirLancando((atual) => !atual)}>
@@ -198,7 +201,7 @@ export default function ListagemDeRecebiveis() {
           >
             <div>
               <h2 className="font-semibold text-marca-950">Cobrança avulsa</h2>
-              <p className="text-slate-500">
+              <p className="text-slate-600">
                 Para o que não é mensalidade: declaração de imposto de renda, abertura de empresa,
                 certidão. Não fica preso a contrato nenhum.
               </p>
@@ -342,7 +345,7 @@ export default function ListagemDeRecebiveis() {
           ))}
         </div>
 
-        {recebiveis.isPending && <p className="text-slate-500">Carregando os recebíveis…</p>}
+        {recebiveis.isPending && <p className="text-slate-600">Carregando os recebíveis…</p>}
 
         {recebiveis.isError && (
           <p role="alert" className="rounded-[--radius-controle] bg-red-50 px-4 py-3 text-red-700">
@@ -353,7 +356,7 @@ export default function ListagemDeRecebiveis() {
         {resumo && resumo.itens.length === 0 && (
           <div className="rounded-[--radius-cartao] border border-dashed border-borda-forte bg-superficie px-6 py-12 text-center">
             <p className="font-medium text-slate-700">Nenhum recebível nesta seleção.</p>
-            <p className="mt-1 text-slate-500">
+            <p className="mt-1 text-slate-600">
               As mensalidades saem dos contratos, em Contratos → Gerar mensalidades.
             </p>
           </div>
@@ -381,13 +384,16 @@ export default function ListagemDeRecebiveis() {
                   const emCancelamento = cancelando === item.id;
 
                   return (
-                    <tr key={item.id} className="border-b border-borda last:border-0 align-top">
+                    <tr
+                      key={item.id}
+                      className="border-b border-borda align-top transition-colors last:border-0 hover:bg-slate-50"
+                    >
                       <td className="px-4 py-3">
-                        <span className="numeros-tabulares text-slate-500">
+                        <span className="numeros-tabulares text-slate-600">
                           {item.codigoDaPessoa}
                         </span>{" "}
                         <span className="text-slate-800">{item.nomeDaPessoa}</span>
-                        <span className="block text-slate-500">{item.descricao}</span>
+                        <span className="block text-slate-600">{item.descricao}</span>
                       </td>
                       <td className="px-4 py-3 text-slate-700">
                         {formatarCompetencia(item.competenciaAno, item.competenciaMes)}
@@ -416,7 +422,7 @@ export default function ListagemDeRecebiveis() {
                             (item.situacao === "Pago"
                               ? "bg-emerald-50 text-emerald-800"
                               : item.situacao === "Cancelado"
-                                ? "bg-slate-100 text-slate-500 line-through"
+                                ? "bg-slate-100 text-slate-600 line-through"
                                 : vencido
                                   ? "bg-red-50 text-red-800"
                                   : "bg-slate-100 text-slate-600")
@@ -431,12 +437,12 @@ export default function ListagemDeRecebiveis() {
                                 : "Em aberto"}
                         </span>
                         {item.motivoDoCancelamento && (
-                          <span className="mt-1 block max-w-48 text-xs text-slate-500">
+                          <span className="mt-1 block max-w-48 text-xs text-slate-600">
                             {item.motivoDoCancelamento}
                           </span>
                         )}
                         {item.pagoEm && (
-                          <span className="mt-1 block text-xs text-slate-500">
+                          <span className="mt-1 block text-xs text-slate-600">
                             {formatarData(item.pagoEm)}
                           </span>
                         )}
@@ -596,6 +602,8 @@ export default function ListagemDeRecebiveis() {
           />
         )}
       </div>
+
+      <VoltarAoTopo />
     </>
   );
 }

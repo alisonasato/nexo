@@ -102,11 +102,11 @@ export default function EmpresaDoEscritorio() {
     <>
       <header className="border-b border-borda bg-superficie px-6 py-4">
         <h1 className="text-xl font-semibold tracking-tight text-marca-950">Empresa</h1>
-        <p className="text-slate-500">O estabelecimento do escritório, como sai na nota e no boleto.</p>
+        <p className="text-slate-600">O estabelecimento do escritório, como sai na nota e no boleto.</p>
       </header>
 
       <div className="flex flex-1 flex-col gap-6 p-6">
-        {empresas.isPending && <p className="text-slate-500">Carregando a empresa…</p>}
+        {empresas.isPending && <p className="text-slate-600">Carregando a empresa…</p>}
 
         {empresas.isError && (
           <p role="alert" className="rounded-[--radius-controle] bg-red-50 px-4 py-3 text-red-700">
@@ -124,7 +124,7 @@ export default function EmpresaDoEscritorio() {
           >
             <div>
               <h2 className="font-semibold text-marca-950">Dados do estabelecimento</h2>
-              <p className="text-slate-500">
+              <p className="text-slate-600">
                 Foram gravados uma vez, na instalação, a partir de configuração. Se algum dígito
                 entrou errado lá, é aqui que se conserta.
               </p>
@@ -171,7 +171,7 @@ export default function EmpresaDoEscritorio() {
           </form>
         )}
 
-        <p className="max-w-xl text-slate-500">
+        <p className="max-w-xl text-slate-600">
           Endereço e contato do estabelecimento ainda não existem aqui. Vão entrar junto com a
           NFS-e, que é o que passa a exigir os dois.
         </p>

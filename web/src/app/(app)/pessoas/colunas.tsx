@@ -68,7 +68,7 @@ export const colunasDisponiveis: Coluna[] = [
       <>
         {pessoa.nome}
         {pessoa.nomeFantasia && (
-          <span className="block text-slate-500">{pessoa.nomeFantasia}</span>
+          <span className="block text-slate-600">{pessoa.nomeFantasia}</span>
         )}
       </>
     ),

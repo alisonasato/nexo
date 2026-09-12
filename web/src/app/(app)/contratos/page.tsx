@@ -8,6 +8,7 @@ import { api } from "@/api/cliente";
 import type { components } from "@/api/esquema";
 import { Botao, Entrada, Selecao } from "@/componentes/controles";
 import { Paginacao } from "@/componentes/paginacao";
+import { VoltarAoTopo } from "@/componentes/voltar-ao-topo";
 import { competenciaAtual, formatarValor } from "@/lib/dinheiro";
 
 type SituacaoContrato = components["schemas"]["SituacaoContrato"];
@@ -119,8 +120,10 @@ export default function ListagemDeContratos() {
     <>
       <header className="flex flex-wrap items-center justify-between gap-4 border-b border-borda bg-superficie px-6 py-4">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight text-marca-950">Contratos</h1>
-          <p className="text-slate-500">O que cada cliente paga por mês, e desde quando.</p>
+          <h1 id="conteudo" tabIndex={-1} className="text-xl font-semibold tracking-tight text-marca-950">
+            Contratos
+          </h1>
+          <p className="text-slate-600">O que cada cliente paga por mês, e desde quando.</p>
         </div>
 
         <Link
@@ -135,7 +138,7 @@ export default function ListagemDeContratos() {
         <section className="flex flex-col gap-3 rounded-[--radius-cartao] border border-borda bg-superficie p-5">
           <div>
             <h2 className="font-semibold text-marca-950">Gerar mensalidades</h2>
-            <p className="text-slate-500">
+            <p className="text-slate-600">
               Cria um recebível para cada contrato ativo na competência escolhida. Marque linhas
               na lista abaixo para gerar só as escolhidas. Pode ser executado quantas vezes for
               preciso: o que já existe é ignorado, nunca duplicado.
@@ -223,7 +226,7 @@ export default function ListagemDeContratos() {
             aria-label="Buscar contratos"
             className="w-full max-w-md rounded-[--radius-controle] border border-borda-forte bg-superficie px-3 py-2 placeholder:text-slate-400 focus:border-marca-500"
           />
-          {contratos.isFetching && <span className="text-xs text-slate-500">buscando…</span>}
+          {contratos.isFetching && <span className="text-xs text-slate-600">buscando…</span>}
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -248,7 +251,7 @@ export default function ListagemDeContratos() {
           ))}
         </div>
 
-        {contratos.isPending && <p className="text-slate-500">Carregando os contratos…</p>}
+        {contratos.isPending && <p className="text-slate-600">Carregando os contratos…</p>}
 
         {contratos.isError && (
           <p role="alert" className="rounded-[--radius-controle] bg-red-50 px-4 py-3 text-red-700">
@@ -261,7 +264,7 @@ export default function ListagemDeContratos() {
             <p className="font-medium text-slate-700">
               {filtrando ? "Nenhum contrato encontrado." : "Nenhum contrato cadastrado."}
             </p>
-            <p className="mt-1 text-slate-500">
+            <p className="mt-1 text-slate-600">
               {termo && situacao
                 ? "Nenhum contrato nessa situação bate com a busca. Tente outra situação."
                 : termo
@@ -323,7 +326,7 @@ export default function ListagemDeContratos() {
                         </Link>
                       </td>
                       <td className="px-4 py-3 text-slate-700">
-                        <span className="numeros-tabulares text-slate-500">
+                        <span className="numeros-tabulares text-slate-600">
                           {contrato.codigoDaPessoa}
                         </span>{" "}
                         {contrato.nomeDaPessoa}
@@ -366,7 +369,7 @@ export default function ListagemDeContratos() {
               />
 
               {/* Somado no servidor sobre todos os ativos — não sobre esta página. */}
-              <p className="text-slate-500">
+              <p className="text-slate-600">
                 <span className="numeros-tabulares font-medium text-slate-700">
                   {formatarValor(contratos.data.totalMensalAtivo)}
                 </span>{" "}
@@ -380,6 +383,8 @@ export default function ListagemDeContratos() {
           </>
         )}
       </div>
+
+      <VoltarAoTopo />
     </>
   );
 }

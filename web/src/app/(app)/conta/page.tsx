@@ -59,7 +59,7 @@ export default function Conta() {
     <>
       <header className="border-b border-borda bg-superficie px-6 py-4">
         <h1 className="text-xl font-semibold tracking-tight text-marca-950">Minha conta</h1>
-        <p className="text-slate-500">{sessao.data?.email}</p>
+        <p className="text-slate-600">{sessao.data?.email}</p>
       </header>
 
       <div className="flex flex-1 flex-col gap-6 p-6">
@@ -72,7 +72,7 @@ export default function Conta() {
         >
           <div>
             <h2 className="font-semibold text-marca-950">Trocar a senha</h2>
-            <p className="text-slate-500">
+            <p className="text-slate-600">
               A senha atual é pedida mesmo com a sessão aberta: sessão aberta prova que alguém
               entrou, não que continua sendo você.
             </p>
@@ -127,7 +127,7 @@ export default function Conta() {
           </Botao>
         </form>
 
-        <p className="max-w-md text-slate-500">
+        <p className="max-w-md text-slate-600">
           Uma sessão aberta em outro navegador continua funcionando até expirar — o token não é
           consultado no banco a cada requisição. Se a troca for por suspeita de vazamento, saia de
           todos os aparelhos que você conseguir alcançar.

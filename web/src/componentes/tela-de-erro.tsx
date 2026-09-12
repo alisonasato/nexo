@@ -31,7 +31,7 @@ export function TelaDeErro({ titulo, descricao, tentarDeNovo, digest }: Props) {
     <div className="flex flex-1 items-center justify-center p-6">
       <div className="w-full max-w-md rounded-[--radius-cartao] border border-borda bg-superficie p-8 text-center shadow-nivel-1">
         <h1 className="text-xl font-semibold tracking-tight text-marca-950">{titulo}</h1>
-        <p className="mt-2 text-slate-500">{descricao}</p>
+        <p className="mt-2 text-slate-600">{descricao}</p>
 
         <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
           {tentarDeNovo && (

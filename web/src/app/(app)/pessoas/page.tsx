@@ -10,6 +10,7 @@ import { Paginacao } from "@/componentes/paginacao";
 import { GerenciadorDeColunas } from "@/componentes/gerenciador-de-colunas";
 import { MenuDeAcoes, type AcaoDeLinha } from "@/componentes/menu-de-acoes";
 import { BarraDeSelecao } from "@/componentes/barra-de-selecao";
+import { VoltarAoTopo } from "@/componentes/voltar-ao-topo";
 import { useAvisos } from "@/componentes/avisos";
 import {
   DesenhoDeCadastroVazio,
@@ -270,8 +271,10 @@ export default function ListagemDePessoas() {
     <>
       <header className="flex flex-wrap items-start justify-between gap-4 border-b border-borda bg-superficie px-6 py-5 sm:px-8">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-marca-950">Pessoas</h1>
-          <p className="mt-1 text-slate-500">
+          <h1 id="conteudo" tabIndex={-1} className="text-2xl font-semibold tracking-tight text-marca-950">
+            Pessoas
+          </h1>
+          <p className="mt-1 text-slate-600">
             Clientes, fornecedores e demais cadastros do escritório.
           </p>
         </div>
@@ -304,7 +307,7 @@ export default function ListagemDePessoas() {
               {pessoas.isFetching && (
                 <span
                   role="status"
-                  className="absolute top-1/2 right-3 -translate-y-1/2 text-xs text-slate-500"
+                  className="absolute top-1/2 right-3 -translate-y-1/2 text-xs text-slate-600"
                 >
                   buscando…
                 </span>
@@ -425,7 +428,7 @@ export default function ListagemDePessoas() {
               {filtrandoAlgo ? "Nenhuma pessoa com esses filtros." : "O cadastro ainda está vazio."}
             </p>
 
-            <p className="mt-1 max-w-sm text-slate-500">
+            <p className="mt-1 max-w-sm text-slate-600">
               {filtrandoAlgo
                 ? "Talvez o termo esteja diferente do que foi cadastrado, ou a pessoa esteja inativa."
                 : "Cadastre o primeiro cliente do escritório para começar a montar contratos e cobranças."}
@@ -468,10 +471,16 @@ export default function ListagemDePessoas() {
                       }}
                       onDoubleClick={() => abrir(pessoa.id)}
                       className={
-                        "cursor-pointer rounded-[--radius-cartao] border p-4 transition-colors " +
+                        /*
+                          Sobe dois pixels por transform, que não reflui: o
+                          cartão de baixo não se mexe junto. Só sobe o que é
+                          clicável — cartão que levanta sem levar a lugar
+                          nenhum promete uma ação que não existe.
+                        */
+                        "cursor-pointer rounded-[--radius-cartao] border p-4 transition-all hover:-translate-y-0.5 " +
                         (marcada
                           ? "border-marca-400 bg-marca-50 shadow-nivel-2"
-                          : "border-borda bg-superficie shadow-nivel-1")
+                          : "border-borda bg-superficie shadow-nivel-1 hover:shadow-nivel-2")
                       }
                     >
                       <div className="flex items-start gap-3">
@@ -707,6 +716,8 @@ export default function ListagemDePessoas() {
           </>
         )}
       </div>
+
+      <VoltarAoTopo />
     </>
   );
 }

@@ -24,7 +24,7 @@ export default function PaginaDeEntrada() {
       <div className="w-full max-w-sm">
         <header className="mb-8 flex flex-col gap-1">
           <h1 className="text-2xl font-semibold tracking-tight text-marca-950">Nexo</h1>
-          <p className="text-slate-500">Entre para continuar.</p>
+          <p className="text-slate-600">Entre para continuar.</p>
         </header>
 
         <form
