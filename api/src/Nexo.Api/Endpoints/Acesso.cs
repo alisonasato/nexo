@@ -78,23 +78,7 @@ public static class Acesso
 
         var (token, expira) = gerador.Gerar(usuario);
 
-        http.Response.Cookies.Append(Sessao.Cookie, token, new CookieOptions
-        {
-            /* O JavaScript não alcança — nem o legítimo, nem o injetado. */
-            HttpOnly = true,
-
-            /* Em desenvolvimento a origem é http, e um cookie Secure não seria gravado. */
-            Secure = !ambiente.IsDevelopment(),
-
-            /*
-             * Lax basta porque front e API dividem o domínio (decisão Q29), e
-             * de quebra o navegador não manda o cookie em POST vindo de outro
-             * site — que é proteção contra CSRF de graça.
-             */
-            SameSite = SameSiteMode.Lax,
-            Expires = expira,
-            Path = "/",
-        });
+        Sessao.Gravar(http.Response, token, expira, ambiente.IsDevelopment());
 
         return Results.Ok(new SessaoAberta(usuario.Nome, usuario.Email ?? string.Empty, usuario.TenantId, expira));
     }
@@ -103,15 +87,10 @@ public static class Acesso
     {
         /*
          * Apagar exige as mesmas propriedades usadas para gravar; sem elas o
-         * navegador entende que é outro cookie e mantém o original.
+         * navegador entende que é outro cookie e mantém o original. É por isso
+         * que elas moram num lugar só.
          */
-        http.Response.Cookies.Delete(Sessao.Cookie, new CookieOptions
-        {
-            HttpOnly = true,
-            Secure = !ambiente.IsDevelopment(),
-            SameSite = SameSiteMode.Lax,
-            Path = "/",
-        });
+        Sessao.Apagar(http.Response, ambiente.IsDevelopment());
 
         return Results.NoContent();
     }
@@ -192,14 +171,7 @@ public static class Acesso
          */
         var (token, expira) = gerador.Gerar(usuario);
 
-        http.Response.Cookies.Append(Sessao.Cookie, token, new CookieOptions
-        {
-            HttpOnly = true,
-            Secure = !ambiente.IsDevelopment(),
-            SameSite = SameSiteMode.Lax,
-            Expires = expira,
-            Path = "/",
-        });
+        Sessao.Gravar(http.Response, token, expira, ambiente.IsDevelopment());
 
         return Results.NoContent();
     }

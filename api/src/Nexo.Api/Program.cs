@@ -5,6 +5,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Options;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -131,6 +133,9 @@ construtor.Services.AddScoped<IConsultaDeCep>(provedor => new ConsultaDeCepComCa
 construtor.Services.Configure<OpcoesDeToken>(construtor.Configuration.GetSection(OpcoesDeToken.Secao));
 construtor.Services.AddScoped<GeradorDeToken>();
 
+/* O relógio é um serviço para que a renovação de sessão seja testável sem esperar horas. */
+construtor.Services.TryAddSingleton(TimeProvider.System);
+
 var opcoesDeToken = construtor.Configuration.GetSection(OpcoesDeToken.Secao).Get<OpcoesDeToken>()
     ?? new OpcoesDeToken();
 
@@ -226,7 +231,12 @@ construtor.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
                     .FirstOrDefaultAsync(contexto.HttpContext.RequestAborted);
 
                 if (atual is null || atual != carimbo)
+                {
                     contexto.Fail("Sessão encerrada: a senha mudou desde que este acesso começou.");
+                    return;
+                }
+
+                RenovarSeEstiverAcabando(contexto, escopo.ServiceProvider);
             },
         };
 
@@ -453,6 +463,63 @@ app.MapRecebiveis();
 app.MapConsultas();
 
 app.Run();
+
+/// <summary>
+/// Estende a sessão de quem está trabalhando, sem interromper.
+///
+/// <para>
+/// <b>Renova só na segunda metade da validade.</b> Assinar um token a cada
+/// requisição custaria criptografia por requisição e reescreveria o cookie o
+/// tempo todo, sem ganho nenhum: o prazo já estava longe. Esperar a segunda
+/// metade faz a renovação acontecer no máximo uma vez a cada quatro horas de
+/// uso, e ainda assim ninguém chega ao fim do prazo trabalhando.
+/// </para>
+/// <para>
+/// <b>E para de renovar no teto.</b> Sem ele, uma aba esquecida aberta
+/// sustentaria a mesma sessão para sempre. Passado o teto, o token atual
+/// continua valendo até o prazo dele — quem está no meio de um lançamento não
+/// perde o trabalho —, e depois a entrada é pedida de novo.
+/// </para>
+/// <para>
+/// A renovação acontece depois da conferência do carimbo de segurança, e não
+/// antes: trocar a senha precisa derrubar a sessão mesmo que ela fosse ser
+/// renovada nesta mesma requisição.
+/// </para>
+/// </summary>
+static void RenovarSeEstiverAcabando(TokenValidatedContext contexto, IServiceProvider servicos)
+{
+    var sessao = contexto.Principal;
+    if (sessao is null) return;
+
+    var opcoes = servicos.GetRequiredService<IOptions<OpcoesDeToken>>().Value;
+    var relogio = servicos.GetRequiredService<TimeProvider>();
+    var agora = relogio.GetUtcNow();
+
+    /*
+     * O prazo sai da claim, e não do objeto do token.
+     *
+     * O handler do .NET 8 valida com `JsonWebToken`, enquanto a assinatura
+     * aqui é escrita com `JwtSecurityTokenHandler` — testar o tipo concreto
+     * fazia esta função sair calada e nada nunca ser renovado. A claim `exp`
+     * existe nos dois e já veio validada.
+     */
+    var exp = sessao.FindFirst(JwtRegisteredClaimNames.Exp)?.Value;
+    if (!long.TryParse(exp, out var segundos)) return;
+
+    var expira = DateTimeOffset.FromUnixTimeSeconds(segundos);
+    var metade = TimeSpan.FromHours(opcoes.HorasDeValidade / 2.0);
+
+    if (expira - agora > metade) return;
+
+    var inicio = GeradorDeToken.InicioDaSessao(sessao);
+    if (inicio is null || agora - inicio.Value > TimeSpan.FromDays(opcoes.DiasDeSessao)) return;
+
+    var gerador = servicos.GetRequiredService<GeradorDeToken>();
+    var ambiente = servicos.GetRequiredService<IHostEnvironment>();
+
+    var (novo, novoPrazo) = gerador.Renovar(sessao);
+    Sessao.Gravar(contexto.HttpContext.Response, novo, novoPrazo, ambiente.IsDevelopment());
+}
 
 /*
  * Público só para o projeto de testes conseguir subir a aplicação inteira com

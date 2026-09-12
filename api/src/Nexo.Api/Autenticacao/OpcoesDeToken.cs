@@ -20,4 +20,17 @@ public sealed class OpcoesDeToken
 
     /// <summary>Uma jornada de trabalho. Quem sai, entra de novo no dia seguinte.</summary>
     public int HorasDeValidade { get; set; } = 8;
+
+    /// <summary>
+    /// Quanto tempo uma sessão pode ser renovada, contado da entrada.
+    ///
+    /// <para>
+    /// A renovação é deslizante: quem está usando o sistema não é interrompido.
+    /// Sem um teto, porém, uma aba esquecida aberta sustentaria a mesma sessão
+    /// para sempre, e um cookie roubado junto com ela. O teto é o que garante
+    /// que toda sessão termina — a senha continua sendo o jeito de terminar
+    /// antes, derrubando todas de uma vez.
+    /// </para>
+    /// </summary>
+    public int DiasDeSessao { get; set; } = 7;
 }

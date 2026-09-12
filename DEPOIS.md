@@ -28,8 +28,8 @@ e não atrapalha.
 
 ## Herdado do protótipo, ainda sem dono
 
-- Visão em cartão para tabelas no celular.
-- Seleção de linhas e painel de colunas na listagem de produtos.
+- Visão em cartão para as tabelas de contratos e recebíveis no celular. A de
+  pessoas já tem; as outras duas ainda rolam de lado.
 - Comissão padrão por categoria de produto.
 - Comissão fixa em reais, além do percentual.
 - Geração de lançamento a partir da venda.
@@ -59,8 +59,6 @@ e não atrapalha.
 - Uma pessoa pertence a exatamente um tenant, e o e-mail é único no sistema
   inteiro. Quem trabalha em dois escritórios precisaria de duas contas com
   e-mails diferentes. É limitação conhecida, não descuido.
-- Renovação de sessão. O token vale oito horas e acabou: não há refresh nem
-  expiração deslizante, então quem passa do prazo entra de novo.
 - Desligar um usuário. O mecanismo de revogação já existe — a conferência do
   carimbo a cada requisição derruba a sessão no ato, e trocar o carimbo é uma
   linha (`UpdateSecurityStampAsync`). O que falta é a tela e a decisão de quem
@@ -86,8 +84,20 @@ e não atrapalha.
 ## Aberto pelo passo 4
 
 - O motor de telas declarativas (Q20). Sai por extração quando a segunda ou
-  terceira tela mostrar o que se repete — não antes.
-- Ordenar a listagem por outra coluna que não o nome.
+  terceira tela mostrar o que se repete — não antes. A listagem de pessoas já
+  tem colunas configuráveis, seleção e ordenação; quando contratos ou
+  recebíveis pedirem o mesmo, é a hora de extrair.
+- Ordenar as listagens de contratos e recebíveis. A de pessoas ordena por
+  código e por nome, com a ordem feita no banco; as outras duas têm ordem fixa.
+- **Estado da listagem na URL.** Busca, filtro, página, ordem e itens por
+  página vivem em estado local, então a lista não é compartilhável por link e
+  sair para editar não devolve o recorte ao voltar. O protótipo ContaGestor
+  já tinha resolvido isso e documentou a armadilha: em rota pré-renderizada,
+  o `useSearchParams` do Next obriga um limite de Suspense, e o conteúdo
+  dentro dele chega renderizado do servidor mas **não hidrata** — a tabela
+  aparece e nada responde a clique. A saída de lá foi ler de
+  `window.location` com `useSyncExternalStore` e escrever com
+  `history.replaceState`.
 
 ## Aberto pelos papéis
 
