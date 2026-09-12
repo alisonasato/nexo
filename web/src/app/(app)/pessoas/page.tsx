@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 
@@ -8,6 +9,8 @@ import { api } from "@/api/cliente";
 import { Paginacao } from "@/componentes/paginacao";
 import { GerenciadorDeColunas } from "@/componentes/gerenciador-de-colunas";
 import { MenuDeAcoes, type AcaoDeLinha } from "@/componentes/menu-de-acoes";
+import { BarraDeSelecao } from "@/componentes/barra-de-selecao";
+import { useAvisos } from "@/componentes/avisos";
 import {
   DesenhoDeCadastroVazio,
   IconeDeAbrir,
@@ -27,30 +30,41 @@ import {
   escolhasNoServidor,
   gravarEscolhas,
 } from "./colunas";
+import { useSelecaoPorConsulta } from "./selecao";
 
 type Papel = components["schemas"]["Papel"];
 type PessoaNaLista = components["schemas"]["PessoaNaLista"];
+type Problema = components["schemas"]["Problema"];
 
 const papeis: Papel[] = ["Cliente", "Fornecedor", "Vendedor", "Colaborador"];
 
+/** "1 inativado" e "3 inativados": o número manda no participio. */
+const concordar = (quantos: number, participio: string) =>
+  `${quantos} ${participio}${quantos === 1 ? "" : "s"}`;
+
+function problemasDaResposta(erro: unknown): Problema[] {
+  if (erro && typeof erro === "object" && "problemas" in erro && Array.isArray(erro.problemas)) {
+    return erro.problemas as Problema[];
+  }
+  return [];
+}
+
 export default function ListagemDePessoas() {
+  const navegacao = useRouter();
+  const avisar = useAvisos();
+
   const [busca, definirBusca] = useState("");
   const [termo, definirTermo] = useState("");
   const [pagina, definirPagina] = useState(1);
+  const [tamanho, definirTamanho] = useState(25);
   const [incluirInativas, definirIncluirInativas] = useState(false);
   const [papel, definirPapel] = useState<Papel | "">("");
   const [configurando, definirConfigurando] = useState(false);
   const [filtrosAbertos, definirFiltrosAbertos] = useState(false);
+  const [inativando, definirInativando] = useState(false);
 
   const escolhas = useSyncExternalStore(assinarEscolhas, escolhasEmUso, escolhasNoServidor);
   const colunas = colunasVisiveis(escolhas);
-
-  /*
-   * A listagem não inativa ninguém, de propósito. Inativar exige olhar o
-   * cadastro — quantos contratos a pessoa tem, o que ainda deve — e essa
-   * conferência não cabe numa linha de tabela. Por isso o menu de três pontos
-   * não a traz de volta: ele guarda o que se resolve sem sair daqui.
-   */
 
   /*
    * O termo só vira consulta depois de meio segundo parado. Sem isso, cada
@@ -66,13 +80,16 @@ export default function ListagemDePessoas() {
     return () => clearTimeout(relogio);
   }, [busca]);
 
+  const consulta = { termo, papel, pagina, tamanho, incluirInativas };
+
   const pessoas = useQuery({
-    queryKey: ["pessoas", termo, papel, pagina, incluirInativas],
+    queryKey: ["pessoas", consulta],
     queryFn: async () => {
       const { data, error } = await api.GET("/pessoas", {
         params: {
           query: {
             pagina,
+            tamanho,
             ...(termo ? { busca: termo } : {}),
             ...(papel ? { papel } : {}),
             ...(incluirInativas ? { incluirInativos: true } : {}),
@@ -86,13 +103,9 @@ export default function ListagemDePessoas() {
     placeholderData: keepPreviousData,
   });
 
-  /*
-   * Quantos filtros estão valendo, para o número aparecer no botão.
-   *
-   * É o que permite recolher os filtros sem escondê-los: sem essa contagem,
-   * fechar o painel apagaria da tela a informação de que a lista está
-   * recortada, e o próximo a olhar juraria que o cadastro encolheu.
-   */
+  const selecao = useSelecaoPorConsulta(JSON.stringify(consulta));
+  const itens = pessoas.data?.itens ?? [];
+
   const filtrosAtivos = (papel ? 1 : 0) + (incluirInativas ? 1 : 0);
   const filtrandoAlgo = filtrosAtivos > 0 || termo.length > 0;
 
@@ -101,6 +114,70 @@ export default function ListagemDePessoas() {
     definirIncluirInativas(false);
     definirBusca("");
     definirPagina(1);
+  }
+
+  const abrir = (id: string) => navegacao.push(`/pessoas/${id}`);
+
+  /**
+   * Inativa o que está marcado, uma requisição por cadastro.
+   *
+   * Não existe rota de lote na API, e inventar uma aqui esconderia o que
+   * interessa: a inativação é recusada quando a pessoa ainda tem contrato não
+   * encerrado ou cobrança em aberto. Numa seleção de cinco, três podem passar e
+   * duas serem recusadas — e o aviso precisa dizer isso, com o motivo, em vez
+   * de um "erro ao excluir" que não ajuda ninguém.
+   */
+  async function inativarSelecionadas() {
+    const alvos = itens.filter((pessoa) => selecao.marcadas.has(pessoa.id));
+    if (alvos.length === 0) return;
+
+    const pergunta =
+      alvos.length === 1 ? `Inativar “${alvos[0].nome}”?` : `Inativar ${alvos.length} cadastros?`;
+
+    if (!window.confirm(`${pergunta}\n\nEles saem da listagem, mas continuam no histórico.`)) {
+      return;
+    }
+
+    definirInativando(true);
+
+    const recusas: string[] = [];
+    let feitas = 0;
+
+    for (const pessoa of alvos) {
+      const { error } = await api.DELETE("/pessoas/{id}", { params: { path: { id: pessoa.id } } });
+
+      if (!error) {
+        feitas += 1;
+        continue;
+      }
+
+      const problemas = problemasDaResposta(error);
+      recusas.push(problemas[0]?.descricao ?? `“${pessoa.nome}” não pôde ser inativada.`);
+    }
+
+    definirInativando(false);
+    selecao.limpar();
+    pessoas.refetch();
+
+    if (recusas.length === 0) {
+      avisar({
+        tom: "sucesso",
+        titulo: feitas === 1 ? "Cadastro inativado." : `${feitas} cadastros inativados.`,
+      });
+      return;
+    }
+
+    avisar({
+      tom: feitas === 0 ? "erro" : "informacao",
+      titulo:
+        feitas === 0
+          ? recusas.length === 1
+            ? "O cadastro não pôde ser inativado."
+            : `Nenhum dos ${recusas.length} cadastros pôde ser inativado.`
+          : `${concordar(feitas, "inativado")}, ${concordar(recusas.length, "recusado")}.`,
+      /* O primeiro motivo por extenso: é o que diz o que fazer a seguir. */
+      detalhe: recusas[0],
+    });
   }
 
   function acoesDaLinha(pessoa: PessoaNaLista): AcaoDeLinha[] {
@@ -113,11 +190,6 @@ export default function ListagemDePessoas() {
       },
     ];
 
-    /*
-     * Copiar o documento é a ação mais repetida de um escritório de
-     * contabilidade: ele é digitado de novo em cada portal, e cada redigitação
-     * é uma chance de trocar um dígito.
-     */
     if (pessoa.documento) {
       acoes.push({
         tipo: "botao",
@@ -128,7 +200,6 @@ export default function ListagemDePessoas() {
             await navigator.clipboard.writeText(formatarDocumento(pessoa.documento));
             return "CPF/CNPJ copiado";
           } catch {
-            /* Sem permissão de área de transferência, ou navegador antigo. */
             return "Não foi possível copiar";
           }
         },
@@ -138,13 +209,28 @@ export default function ListagemDePessoas() {
     return acoes;
   }
 
+  /*
+   * Clique na linha marca; clique no que já é controle, não.
+   *
+   * Sem esta checagem, abrir o menu de três pontos ou seguir o link do nome
+   * marcaria a linha de brinde. O alvo do evento decide: se veio de dentro de
+   * um link, botão ou campo, a linha não se mete.
+   */
+  function cliqueVeioDeControle(evento: React.MouseEvent) {
+    return Boolean((evento.target as HTMLElement).closest("a,button,input,select,label"));
+  }
+
+  /*
+   * Quem anuncia "marcada" é a caixa de marcação, e não a linha.
+   * `aria-selected` só é entendido em linha de `role="grid"`, e numa tabela
+   * comum ele é inventar semântica que nenhum leitor de tela vai ler.
+   */
+
+  const todasMarcadas = itens.length > 0 && selecao.quantidade === itens.length;
+  const algumaMarcada = selecao.quantidade > 0;
+
   return (
     <>
-      {/*
-        Cabeçalho: título, uma linha dizendo o que a tela é, e a ação principal
-        no canto superior direito — canto, e não meio, porque a borda da tela
-        segura o ponteiro e o alvo fica maior do que o desenho dele.
-      */}
       <header className="flex flex-wrap items-start justify-between gap-4 border-b border-borda bg-superficie px-6 py-5 sm:px-8">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-marca-950">Pessoas</h1>
@@ -155,21 +241,18 @@ export default function ListagemDePessoas() {
 
         <Link
           href="/pessoas/novo"
-          className="inline-flex min-h-11 w-full items-center justify-center rounded-[--radius-controle] bg-marca-600 px-4 text-sm font-semibold text-white transition-colors hover:bg-marca-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-marca-600 sm:w-auto"
+          className="inline-flex min-h-11 w-full items-center justify-center rounded-[--radius-controle] bg-marca-600 px-4 text-sm font-semibold text-white transition-colors hover:bg-marca-700 sm:w-auto"
         >
           Nova pessoa
         </Link>
       </header>
 
       <div className="flex flex-1 flex-col gap-5 p-6 sm:p-8">
-        {/* Busca e filtros num bloco só: são a mesma pergunta feita de dois jeitos. */}
         <section
           aria-label="Busca e filtros"
           className="rounded-[--radius-cartao] border border-borda bg-superficie p-4 shadow-nivel-1"
         >
           <div className="flex flex-wrap items-center gap-3">
-            {/* No celular a busca fica com a linha inteira: dividindo espaço com
-                dois botões ela sobrava com 134px, e o texto digitado não cabia. */}
             <div className="relative min-w-0 basis-full sm:flex-1 sm:basis-auto">
               <IconeDeBusca className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-400" />
               <input
@@ -178,10 +261,9 @@ export default function ListagemDePessoas() {
                 onChange={(evento) => definirBusca(evento.target.value)}
                 placeholder="Buscar por nome, nome fantasia ou documento"
                 aria-label="Buscar pessoas"
-                className="min-h-11 w-full rounded-[--radius-controle] border border-borda-forte bg-superficie py-2.5 pr-24 pl-9 placeholder:text-slate-400 focus:border-marca-500 focus-visible:outline-none"
+                className="min-h-11 w-full rounded-[--radius-controle] border border-borda-forte bg-superficie py-2.5 pr-24 pl-9 placeholder:text-slate-400 focus:border-marca-500"
               />
 
-              {/* Dentro do campo, onde os olhos já estão enquanto se digita. */}
               {pessoas.isFetching && (
                 <span
                   role="status"
@@ -196,7 +278,7 @@ export default function ListagemDePessoas() {
               type="button"
               onClick={() => definirFiltrosAbertos((aberto) => !aberto)}
               aria-expanded={filtrosAbertos}
-              className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-[--radius-controle] border border-borda-forte bg-superficie px-3 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-marca-500"
+              className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-[--radius-controle] border border-borda-forte bg-superficie px-3 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50"
             >
               <IconeDeFiltro />
               Filtros
@@ -207,7 +289,8 @@ export default function ListagemDePessoas() {
               )}
               <IconeDeSeta
                 className={
-                  "size-4 transition-transform duration-200 " + (filtrosAbertos ? "rotate-180" : "")
+                  "size-4 motion-safe:transition-transform motion-safe:duration-200 " +
+                  (filtrosAbertos ? "rotate-180" : "")
                 }
               />
             </button>
@@ -218,7 +301,7 @@ export default function ListagemDePessoas() {
                 onClick={() => definirConfigurando((aberto) => !aberto)}
                 aria-expanded={configurando}
                 aria-haspopup="dialog"
-                className="inline-flex min-h-11 items-center gap-2 rounded-[--radius-controle] border border-borda-forte bg-superficie px-3 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-marca-500"
+                className="inline-flex min-h-11 items-center gap-2 rounded-[--radius-controle] border border-borda-forte bg-superficie px-3 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50"
               >
                 <IconeDeColunas />
                 Colunas
@@ -231,6 +314,7 @@ export default function ListagemDePessoas() {
                   aoAplicar={(novas) => {
                     gravarEscolhas(novas);
                     definirConfigurando(false);
+                    avisar({ tom: "sucesso", titulo: "Colunas atualizadas." });
                   }}
                 />
               )}
@@ -251,7 +335,7 @@ export default function ListagemDePessoas() {
                     }}
                     aria-pressed={papel === valor}
                     className={
-                      "inline-flex min-h-9 items-center rounded-full px-3.5 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-marca-500 " +
+                      "inline-flex min-h-9 items-center rounded-full px-3.5 text-sm font-medium transition-colors " +
                       (papel === valor
                         ? "bg-marca-600 text-white"
                         : "border border-borda-forte bg-superficie text-slate-700 hover:bg-slate-50")
@@ -268,7 +352,6 @@ export default function ListagemDePessoas() {
                   checked={incluirInativas}
                   onChange={(evento) => {
                     definirIncluirInativas(evento.target.checked);
-                    /* A página sete sem os inativos não é a página sete com eles. */
                     definirPagina(1);
                   }}
                   className="size-4 rounded border-borda-forte accent-marca-600"
@@ -295,29 +378,9 @@ export default function ListagemDePessoas() {
           </p>
         )}
 
-        {/*
-          Esqueleto, e não a palavra "carregando". Ele já ocupa a altura que a
-          tabela vai ocupar, então o conteúdo chega no lugar em vez de empurrar
-          o resto da página para baixo.
-        */}
-        {pessoas.isPending && (
-          <div
-            role="status"
-            aria-label="Carregando o cadastro"
-            className="overflow-hidden rounded-[--radius-cartao] border border-borda bg-superficie shadow-nivel-1"
-          >
-            {Array.from({ length: 8 }).map((_, linha) => (
-              <div key={linha} className="flex items-center gap-4 border-b border-borda px-4 py-4 last:border-0">
-                <div className="h-3 w-10 animate-pulse rounded bg-slate-100" />
-                <div className="h-3 flex-1 animate-pulse rounded bg-slate-100" />
-                <div className="h-3 w-32 animate-pulse rounded bg-slate-100" />
-                <div className="h-3 w-24 animate-pulse rounded bg-slate-100" />
-              </div>
-            ))}
-          </div>
-        )}
+        {pessoas.isPending && <Esqueleto colunas={colunas.length} />}
 
-        {pessoas.data && pessoas.data.itens.length === 0 && (
+        {pessoas.data && itens.length === 0 && (
           <div className="flex flex-col items-center rounded-[--radius-cartao] border border-dashed border-borda-forte bg-superficie px-6 py-16 text-center">
             <DesenhoDeCadastroVazio className="size-14 text-slate-300" />
 
@@ -352,12 +415,98 @@ export default function ListagemDePessoas() {
           </div>
         )}
 
-        {pessoas.data && pessoas.data.itens.length > 0 && (
+        {pessoas.data && itens.length > 0 && (
           <>
-            <div className="overflow-x-auto rounded-[--radius-cartao] border border-borda bg-superficie shadow-nivel-1">
-              <table className="w-full min-w-4xl border-collapse">
+            {/* Cartões no celular; tabela a partir de 768px. */}
+            <ul className="flex flex-col gap-3 md:hidden">
+              {itens.map((pessoa) => {
+                const marcada = selecao.marcadas.has(pessoa.id);
+
+                return (
+                  <li key={pessoa.id}>
+                    <article
+                      onClick={(evento) => {
+                        if (cliqueVeioDeControle(evento)) return;
+                        selecao.alternar(pessoa.id);
+                      }}
+                      onDoubleClick={() => abrir(pessoa.id)}
+                      className={
+                        "cursor-pointer rounded-[--radius-cartao] border p-4 transition-colors " +
+                        (marcada
+                          ? "border-marca-400 bg-marca-50 shadow-nivel-2"
+                          : "border-borda bg-superficie shadow-nivel-1")
+                      }
+                    >
+                      <div className="flex items-start gap-3">
+                        <input
+                          type="checkbox"
+                          checked={marcada}
+                          onChange={() => selecao.alternar(pessoa.id)}
+                          aria-label={`Selecionar ${pessoa.nome}`}
+                          className={
+                            "mt-1 size-5 shrink-0 rounded border-borda-forte accent-marca-600 transition-opacity " +
+                            (algumaMarcada ? "opacity-100" : "opacity-40")
+                          }
+                        />
+
+                        <div className="min-w-0 flex-1">
+                          <Link
+                            href={`/pessoas/${pessoa.id}`}
+                            className="font-semibold text-marca-700 hover:underline"
+                          >
+                            {pessoa.nome}
+                          </Link>
+
+                          {!pessoa.ativo && (
+                            <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
+                              inativa
+                            </span>
+                          )}
+
+                          <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
+                            {colunas
+                              .filter((coluna) => coluna.chave !== "nome")
+                              .map((coluna) => (
+                                <div key={coluna.chave} className="contents">
+                                  <dt className="text-xs tracking-wide text-slate-400 uppercase">
+                                    {coluna.titulo}
+                                  </dt>
+                                  <dd className={`min-w-0 text-slate-700 ${coluna.classe ?? ""}`}>
+                                    {coluna.conteudo(pessoa)}
+                                  </dd>
+                                </div>
+                              ))}
+                          </dl>
+                        </div>
+
+                        <MenuDeAcoes rotulo={pessoa.nome} acoes={acoesDaLinha(pessoa)} />
+                      </div>
+                    </article>
+                  </li>
+                );
+              })}
+            </ul>
+
+            <div className="hidden overflow-x-auto rounded-[--radius-cartao] border border-borda bg-superficie shadow-nivel-1 md:block">
+              <table className="w-full min-w-3xl border-collapse">
                 <thead>
                   <tr className="border-b border-borda bg-slate-50/60 text-xs tracking-wide text-slate-500 uppercase">
+                    <th scope="col" className="w-px pr-2 pl-4">
+                      <input
+                        type="checkbox"
+                        checked={todasMarcadas}
+                        ref={(caixa) => {
+                          if (caixa) caixa.indeterminate = algumaMarcada && !todasMarcadas;
+                        }}
+                        onChange={() => selecao.trocarTodas(itens.map((pessoa) => pessoa.id))}
+                        aria-label="Selecionar todas as pessoas desta página"
+                        className={
+                          "size-4 rounded border-borda-forte accent-marca-600 transition-opacity " +
+                          (algumaMarcada ? "opacity-100" : "opacity-30")
+                        }
+                      />
+                    </th>
+
                     {colunas.map((coluna) => (
                       <th
                         key={coluna.chave}
@@ -367,54 +516,82 @@ export default function ListagemDePessoas() {
                         {coluna.titulo}
                       </th>
                     ))}
+
                     <th scope="col" className="w-px px-4 py-3">
                       <span className="sr-only">Ações</span>
                     </th>
                   </tr>
                 </thead>
-                <tbody>
-                  {pessoas.data.itens.map((pessoa) => (
-                    <tr
-                      key={pessoa.id}
-                      className="border-b border-borda transition-colors last:border-0 hover:bg-marca-50/60"
-                    >
-                      {colunas.map((coluna, indice) => (
-                        <td
-                          key={coluna.chave}
-                          className={`px-4 py-4 ${classeDeAlinhamento(coluna)} ${coluna.classe ?? ""}`}
-                        >
-                          {/*
-                            A primeira coluna visível abre o cadastro, seja ela
-                            qual for. Prender o link ao nome deixaria a linha
-                            sem caminho de entrada para quem escondesse essa
-                            coluna — e esconder qualquer uma é o ponto do
-                            configurador.
-                          */}
-                          {indice === 0 ? (
-                            <>
-                              <Link
-                                href={`/pessoas/${pessoa.id}`}
-                                className="font-medium text-marca-700 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-marca-500"
-                              >
-                                {coluna.conteudo(pessoa)}
-                              </Link>
-                              {!pessoa.ativo && (
-                                <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
-                                  inativa
-                                </span>
-                              )}
-                            </>
-                          ) : (
-                            coluna.conteudo(pessoa)
-                          )}
-                        </td>
-                      ))}
 
-                      <td className="px-2 py-2">
-                        <MenuDeAcoes rotulo={pessoa.nome} acoes={acoesDaLinha(pessoa)} />
-                      </td>
-                    </tr>
-                  ))}
+                <tbody>
+                  {itens.map((pessoa) => {
+                    const marcada = selecao.marcadas.has(pessoa.id);
+
+                    return (
+                      <tr
+                        key={pessoa.id}
+                        onClick={(evento) => {
+                          if (cliqueVeioDeControle(evento)) return;
+                          selecao.alternar(pessoa.id);
+                        }}
+                        onDoubleClick={() => abrir(pessoa.id)}
+                        className={
+                          "group cursor-pointer border-b border-borda transition-colors last:border-0 " +
+                          (marcada ? "bg-marca-50" : "hover:bg-slate-50")
+                        }
+                      >
+                        {/*
+                          A coluna da marcação existe sempre, com a mesma
+                          largura. Fazer a caixa aparecer só depois da primeira
+                          marcação empurraria a tabela inteira para o lado no
+                          exato quadro em que a pessoa acabou de clicar.
+                        */}
+                        <td className="pr-2 pl-4">
+                          <input
+                            type="checkbox"
+                            checked={marcada}
+                            onChange={() => selecao.alternar(pessoa.id)}
+                            aria-label={`Selecionar ${pessoa.nome}`}
+                            className={
+                              "size-4 rounded border-borda-forte accent-marca-600 transition-opacity " +
+                              (algumaMarcada
+                                ? "opacity-100"
+                                : "opacity-0 group-hover:opacity-60 focus:opacity-100")
+                            }
+                          />
+                        </td>
+
+                        {colunas.map((coluna, indice) => (
+                          <td
+                            key={coluna.chave}
+                            className={`px-4 py-4 ${classeDeAlinhamento(coluna)} ${coluna.classe ?? ""}`}
+                          >
+                            {indice === 0 ? (
+                              <>
+                                <Link
+                                  href={`/pessoas/${pessoa.id}`}
+                                  className="font-medium text-marca-700 hover:underline"
+                                >
+                                  {coluna.conteudo(pessoa)}
+                                </Link>
+                                {!pessoa.ativo && (
+                                  <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
+                                    inativa
+                                  </span>
+                                )}
+                              </>
+                            ) : (
+                              coluna.conteudo(pessoa)
+                            )}
+                          </td>
+                        ))}
+
+                        <td className="px-2 py-2">
+                          <MenuDeAcoes rotulo={pessoa.nome} acoes={acoesDaLinha(pessoa)} />
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -424,11 +601,58 @@ export default function ListagemDePessoas() {
               tamanho={pessoas.data.tamanho}
               total={pessoas.data.total}
               aoMudar={definirPagina}
-              substantivo={{ singular: "pessoa encontrada", plural: "pessoas encontradas" }}
+              aoMudarTamanho={(novo) => {
+                definirTamanho(novo);
+                /* A página sete de 25 em 25 não existe de 100 em 100. */
+                definirPagina(1);
+              }}
+              comNumeros
+              substantivo={{ singular: "cadastro", plural: "cadastros" }}
+            />
+
+            <BarraDeSelecao
+              quantidade={selecao.quantidade}
+              ocupada={inativando}
+              aoEditar={() => abrir(selecao.ids[0])}
+              aoInativar={inativarSelecionadas}
+              aoLimpar={selecao.limpar}
             />
           </>
         )}
       </div>
     </>
+  );
+}
+
+/**
+ * O lugar da tabela enquanto ela não chegou.
+ *
+ * Com a mesma quantidade de colunas do que vai aparecer, para o conteúdo real
+ * ocupar o espaço já reservado em vez de empurrar a página para baixo.
+ */
+function Esqueleto({ colunas }: { colunas: number }) {
+  return (
+    <div
+      role="status"
+      aria-label="Carregando o cadastro"
+      className="overflow-hidden rounded-[--radius-cartao] border border-borda bg-superficie shadow-nivel-1"
+    >
+      {Array.from({ length: 8 }).map((_, linha) => (
+        <div
+          key={linha}
+          className="flex items-center gap-4 border-b border-borda px-4 py-4 last:border-0"
+        >
+          {Array.from({ length: colunas }).map((__, coluna) => (
+            <div
+              key={coluna}
+              className={
+                "h-3 rounded bg-slate-100 motion-safe:animate-pulse " +
+                (coluna === 0 ? "w-12" : coluna === 1 ? "flex-1" : "w-28")
+              }
+            />
+          ))}
+        </div>
+      ))}
+    </div>
   );
 }

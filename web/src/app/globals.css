@@ -66,3 +66,21 @@ body {
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum";
 }
+
+/*
+ * A barra de seleção entrando.
+ *
+ * Curta e de baixo para cima, na direção de onde ela vem. Fica sob
+ * `motion-safe` no componente, então quem pediu menos movimento no sistema vê
+ * a barra aparecer sem animação nenhuma.
+ */
+@keyframes subir {
+  from {
+    opacity: 0;
+    transform: translateY(0.5rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
