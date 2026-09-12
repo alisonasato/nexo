@@ -12,8 +12,25 @@ export type Coluna = {
   padrao: boolean;
   /** Classes da célula. Números tabulares alinham coluna de dígitos. */
   classe?: string;
+  /**
+   * Texto à esquerda; identificador, não.
+   *
+   * Regra de tipografia de tabela: o olho lê texto pela margem esquerda, e
+   * compara número pela direita. Código é número curto de largura variável, e
+   * alinhado à direita as unidades ficam na mesma coluna. CPF/CNPJ tem sempre a
+   * mesma largura depois de formatado, então centralizar forma um bloco
+   * regular que se varre de cima a baixo sem tropeço.
+   */
+  alinhamento?: "esquerda" | "centro" | "direita";
   conteudo: (pessoa: PessoaNaLista) => ReactNode;
 };
+
+export const classeDeAlinhamento = (coluna: Coluna): string =>
+  coluna.alinhamento === "direita"
+    ? "text-right"
+    : coluna.alinhamento === "centro"
+      ? "text-center"
+      : "text-left";
 
 /**
  * As colunas que a listagem sabe mostrar, na ordem em que aparecem sem
@@ -29,6 +46,7 @@ export const colunasDisponiveis: Coluna[] = [
     chave: "codigo",
     titulo: "Código",
     padrao: true,
+    alinhamento: "direita",
     classe: "numeros-tabulares font-medium text-slate-800",
     conteudo: (pessoa) => pessoa.codigo,
   },
@@ -49,6 +67,7 @@ export const colunasDisponiveis: Coluna[] = [
     chave: "documento",
     titulo: "CPF/CNPJ",
     padrao: true,
+    alinhamento: "centro",
     classe: "numeros-tabulares text-slate-700",
     conteudo: (pessoa) => formatarDocumento(pessoa.documento) || "—",
   },
