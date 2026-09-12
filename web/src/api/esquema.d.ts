@@ -507,7 +507,11 @@ export interface components {
             mensagem: string;
         };
         /** @enum {string} */
-        OrdemDaListagem: "Nome" | "Codigo";
+        OrdemDeContratos: "Codigo" | "Cliente" | "Valor" | "Vencimento";
+        /** @enum {string} */
+        OrdemDePessoas: "Nome" | "Codigo";
+        /** @enum {string} */
+        OrdemDeRecebiveis: "Vencimento" | "Cliente" | "Competencia" | "Valor";
         PaginaDeContratos: {
             itens: components["schemas"]["ContratoNaLista"][];
             /** Format: int32 */
@@ -908,6 +912,8 @@ export interface operations {
                 situacao?: components["schemas"]["SituacaoContrato"];
                 pagina?: number;
                 tamanho?: number;
+                ordenarPor?: "Codigo" | "Cliente" | "Valor" | "Vencimento";
+                direcao?: "Crescente" | "Decrescente";
             };
             header?: never;
             path?: never;
@@ -1319,6 +1325,8 @@ export interface operations {
                 mes?: number;
                 pagina?: number;
                 tamanho?: number;
+                ordenarPor?: "Vencimento" | "Cliente" | "Competencia" | "Valor";
+                direcao?: "Crescente" | "Decrescente";
             };
             header?: never;
             path?: never;

@@ -38,7 +38,7 @@ import { useSelecaoPorConsulta } from "./selecao";
 type Papel = components["schemas"]["Papel"];
 type PessoaNaLista = components["schemas"]["PessoaNaLista"];
 type Problema = components["schemas"]["Problema"];
-type OrdemDaListagem = components["schemas"]["OrdemDaListagem"];
+type OrdemDePessoas = components["schemas"]["OrdemDePessoas"];
 type Direcao = components["schemas"]["Direcao"];
 
 const papeis: Papel[] = ["Cliente", "Fornecedor", "Vendedor", "Colaborador"];
@@ -87,7 +87,7 @@ export default function ListagemDePessoas() {
    * errado, que é o jeito mais caro de errar.
    */
   const ordem = {
-    por: (ler("ordem") ?? "Nome") as OrdemDaListagem,
+    por: (ler("ordem") ?? "Nome") as OrdemDePessoas,
     direcao: (ler("direcao") ?? "Crescente") as Direcao,
   };
 
@@ -186,7 +186,7 @@ export default function ListagemDePessoas() {
    * faria o primeiro clique num cabeçalho devolver a ordem de trás para a
    * frente, que ninguém pede ao clicar pela primeira vez.
    */
-  function ordenarPor(por: OrdemDaListagem) {
+  function ordenarPor(por: OrdemDePessoas) {
     const inverter = ordem.por === por && ordem.direcao === "Crescente";
 
     gravar({

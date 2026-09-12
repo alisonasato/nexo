@@ -70,7 +70,7 @@ public static class Pessoas
         [FromQuery] bool incluirInativos = false,
         [FromQuery] int pagina = 1,
         [FromQuery] int tamanho = 25,
-        [FromQuery] OrdemDaListagem ordenarPor = OrdemDaListagem.Nome,
+        [FromQuery] OrdemDePessoas ordenarPor = OrdemDePessoas.Nome,
         [FromQuery] Direcao direcao = Direcao.Crescente)
     {
         pagina = Math.Max(1, pagina);
@@ -156,26 +156,34 @@ public static class Pessoas
     /// tamanho primeiro devolve a ordem numérica sem converter nada — e
     /// converter seria pior: um código vazio derrubaria a consulta inteira.
     /// </para>
+    /// <para>
+    /// <b>E tudo termina no identificador.</b> Dois homônimos ordenados por
+    /// nome não têm posição definida entre si, e o banco pode devolvê-los
+    /// trocados de uma consulta para a outra. Paginando, um apareceria em duas
+    /// páginas e o outro em nenhuma — ver <see cref="Direcao"/>.
+    /// </para>
     /// </summary>
     private static IOrderedQueryable<Pessoa> Ordenar(
         IQueryable<Pessoa> consulta,
-        OrdemDaListagem por,
+        OrdemDePessoas por,
         Direcao direcao)
     {
         var decrescente = direcao == Direcao.Decrescente;
 
-        if (por == OrdemDaListagem.Codigo)
+        if (por == OrdemDePessoas.Codigo)
         {
-            return decrescente
-                ? consulta.OrderByDescending(pessoa => pessoa.Codigo.Length)
-                    .ThenByDescending(pessoa => pessoa.Codigo)
-                : consulta.OrderBy(pessoa => pessoa.Codigo.Length)
-                    .ThenBy(pessoa => pessoa.Codigo);
+            return (decrescente
+                    ? consulta.OrderByDescending(pessoa => pessoa.Codigo.Length)
+                        .ThenByDescending(pessoa => pessoa.Codigo)
+                    : consulta.OrderBy(pessoa => pessoa.Codigo.Length)
+                        .ThenBy(pessoa => pessoa.Codigo))
+                .ThenBy(pessoa => pessoa.Id);
         }
 
-        return decrescente
-            ? consulta.OrderByDescending(pessoa => pessoa.Nome)
-            : consulta.OrderBy(pessoa => pessoa.Nome);
+        return (decrescente
+                ? consulta.OrderByDescending(pessoa => pessoa.Nome)
+                : consulta.OrderBy(pessoa => pessoa.Nome))
+            .ThenBy(pessoa => pessoa.Id);
     }
 
     private static async Task<IResult> Obter(Guid id, NexoDbContext banco, CancellationToken cancelamento)
@@ -571,17 +579,11 @@ public record PessoaDetalhada(
     bool Ativo,
     DateTimeOffset CriadoEm);
 
-/// <summary>Por qual coluna a listagem é ordenada.</summary>
-public enum OrdemDaListagem
+/// <summary>Por qual coluna a listagem de pessoas é ordenada.</summary>
+public enum OrdemDePessoas
 {
     Nome = 1,
     Codigo = 2,
-}
-
-public enum Direcao
-{
-    Crescente = 1,
-    Decrescente = 2,
 }
 
 public record PaginaDePessoas(List<PessoaNaLista> Itens, int Total, int Pagina, int Tamanho);
