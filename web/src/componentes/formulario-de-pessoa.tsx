@@ -115,6 +115,27 @@ export function FormularioDePessoa({ id }: { id?: string }) {
   const [procurandoCnpj, definirProcurandoCnpj] = useState(false);
   const [avisoDoCnpj, definirAvisoDoCnpj] = useState<string | null>(null);
 
+  /*
+   * Inativar pede o segundo clique; reativar não.
+   *
+   * A assimetria é de propósito. Inativar tira a pessoa de circulação, e um
+   * clique de mira errada faria isso sem aviso — o botão vira "Confirmar?" e
+   * volta ao normal em cinco segundos. Reativar só devolve o que já existia, e
+   * quem errar desfaz com um clique. Pedir confirmação nos dois lados
+   * ensinaria a clicar duas vezes sem ler, que é como confirmação vira ruído.
+   */
+  const [confirmando, definirConfirmando] = useState(false);
+
+  /* O motivo da recusa fica até a próxima tentativa: ele diz qual contrato
+     encerrar, e quem for conferir isso volta precisando dele ainda ali. */
+  const [impedimentos, definirImpedimentos] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (!confirmando) return;
+    const relogio = setTimeout(() => definirConfirmando(false), 5000);
+    return () => clearTimeout(relogio);
+  }, [confirmando]);
+
   const existente = useQuery({
     queryKey: ["pessoa", id],
     enabled: editando,
@@ -153,6 +174,54 @@ export function FormularioDePessoa({ id }: { id?: string }) {
       navegacao.push("/pessoas");
     },
     onError: (erro) => definirProblemas(problemasDaResposta(erro)),
+  });
+
+  /*
+   * Inativar e reativar ficam aqui, e não na listagem. A decisão precisa do
+   * cadastro aberto: quantos contratos a pessoa tem, o que ela ainda deve. Na
+   * linha da tabela o clique vinha antes da informação, e o desfecho mais
+   * provável era descobrir que não podia depois de já ter clicado.
+   *
+   * Nenhum dos dois passa pelo <b>Salvar</b>. São mudanças de situação, não de
+   * cadastro: exigir salvar junto misturaria "quero esta pessoa fora de
+   * circulação" com "corrigi o telefone dela", e um rascunho pela metade
+   * impediria a inativação sem ter nada a ver com ela.
+   */
+  const mudarSituacao = useMutation({
+    mutationFn: async (paraAtivo: boolean) => {
+      const resposta = paraAtivo
+        ? await api.POST("/pessoas/{id}/reativar", { params: { path: { id: id! } } })
+        : await api.DELETE("/pessoas/{id}", { params: { path: { id: id! } } });
+
+      if (resposta.error) throw resposta.error;
+      return paraAtivo;
+    },
+    onMutate: () => definirImpedimentos([]),
+    onSuccess: (paraAtivo) => {
+      definirConfirmando(false);
+      alterar("ativo", paraAtivo);
+
+      /*
+       * A listagem recarrega; este cadastro, não. Invalidar a consulta daqui
+       * traria o cadastro do servidor de volta por cima do formulário, e
+       * apagaria o que estivesse digitado e ainda não salvo — alguém que
+       * corrigiu o telefone e inativou na mesma visita perderia a correção sem
+       * saber. O único campo que mudou no servidor é este, e ele já está certo
+       * aqui.
+       */
+      clienteDeConsultas.invalidateQueries({ queryKey: ["pessoas"] });
+    },
+    onError: (erro: unknown) => {
+      /* Volta a "Inativar": insistir no mesmo clique não muda nada. */
+      definirConfirmando(false);
+
+      const recusas = problemasDaResposta(erro);
+      definirImpedimentos(
+        recusas.length > 0
+          ? recusas.map((problema) => `${problema.descricao} ${problema.sugestao}`)
+          : ["Não foi possível mudar a situação deste cadastro. Tente de novo em instantes."],
+      );
+    },
   });
 
   const erroDe = (campo: string) => problemas.find((p) => p.campo === campo)?.descricao;
@@ -321,8 +390,14 @@ export function FormularioDePessoa({ id }: { id?: string }) {
     >
       <header className="flex flex-wrap items-center justify-between gap-4 border-b border-borda bg-superficie px-6 py-4">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight text-marca-950">
+          <h1 className="flex flex-wrap items-center gap-2 text-xl font-semibold tracking-tight text-marca-950">
             {editando ? dados.nome || "Cadastro" : "Nova pessoa"}
+
+            {editando && !dados.ativo && (
+              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
+                inativa
+              </span>
+            )}
           </h1>
           <p className="text-slate-500">
             Só o nome e o documento são obrigatórios. O resto pode entrar depois.
@@ -608,18 +683,66 @@ export function FormularioDePessoa({ id }: { id?: string }) {
         </section>
       </div>
 
-      <footer className="sticky bottom-0 flex items-center justify-end gap-3 border-t border-borda bg-superficie px-6 py-3">
-        <Link
-          href="/pessoas"
-          className="rounded-[--radius-controle] border border-borda-forte px-4 py-2 font-semibold text-slate-700 transition-colors hover:bg-slate-50"
-        >
-          Cancelar
-        </Link>
+      {/*
+        O motivo da recusa encosta no botão que a provocou. No topo da página
+        ele estaria fora da tela: o rodapé é fixo, e quem clicou está olhando
+        para cá.
+      */}
+      <div className="sticky bottom-0 border-t border-borda bg-superficie">
+        {impedimentos.length > 0 && (
+          <div
+            role="alert"
+            className="border-b border-amber-200 bg-amber-50 px-6 py-3 text-amber-900"
+          >
+            <p className="font-medium">Este cadastro ainda está em uso.</p>
+            <ul className="mt-1 list-disc space-y-1 pl-5">
+              {impedimentos.map((motivo) => (
+                <li key={motivo}>{motivo}</li>
+              ))}
+            </ul>
+          </div>
+        )}
 
-        <Botao type="submit" disabled={salvar.isPending}>
-          {salvar.isPending ? "Salvando…" : "Salvar"}
-        </Botao>
-      </footer>
+        <footer className="flex flex-wrap items-center justify-between gap-3 px-6 py-3">
+          {/* Fica sozinho à esquerda, longe do Salvar: é a ação que se clica sem querer. */}
+          {editando ? (
+            dados.ativo ? (
+              <Botao
+                aparencia={confirmando ? "perigo" : "secundario"}
+                type="button"
+                disabled={mudarSituacao.isPending}
+                onClick={() => (confirmando ? mudarSituacao.mutate(false) : definirConfirmando(true))}
+              >
+                {confirmando ? "Confirmar?" : "Inativar cadastro"}
+              </Botao>
+            ) : (
+              <Botao
+                aparencia="secundario"
+                type="button"
+                disabled={mudarSituacao.isPending}
+                onClick={() => mudarSituacao.mutate(true)}
+              >
+                Reativar cadastro
+              </Botao>
+            )
+          ) : (
+            <span />
+          )}
+
+          <div className="flex items-center gap-3">
+            <Link
+              href="/pessoas"
+              className="rounded-[--radius-controle] border border-borda-forte px-4 py-2 font-semibold text-slate-700 transition-colors hover:bg-slate-50"
+            >
+              Cancelar
+            </Link>
+
+            <Botao type="submit" disabled={salvar.isPending}>
+              {salvar.isPending ? "Salvando…" : "Salvar"}
+            </Botao>
+          </div>
+        </footer>
+      </div>
     </form>
   );
 }
