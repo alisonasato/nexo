@@ -17,6 +17,8 @@ Três variáveis, e nenhuma tem valor padrão útil:
 |---|---|
 | `DATABASE_URL` ou `ConnectionStrings__Nexo` | Aceita a URI `postgresql://…` ou os pares `Host=…;Port=…`. A explícita vence. |
 | `Jwt__Chave` | Mínimo de 32 bytes. **Sem ela a aplicação não sobe** — de propósito. |
+| `Jwt__HorasDeValidade` | Quanto vale um token. Padrão 8, uma jornada. |
+| `Jwt__DiasDeSessao` | Por quantos dias a sessão pode ser renovada, contados da entrada. Padrão 7. Depois disso, entrar de novo. |
 | `ASPNETCORE_ENVIRONMENT` | `Production` |
 
 O duplo sublinhado é a forma de escrever hierarquia de configuração em variável

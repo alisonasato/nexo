@@ -188,6 +188,40 @@ própria implementação só provaria que ela concorda consigo mesma.
 para documento alfanumérico. O atalho de preencher o cadastro pelo CNPJ pode
 não funcionar para inscrição nova, e isso não impede cadastrar à mão.
 
+### A sessão desliza, mas termina
+
+O token vale oito horas, e valia só isso: quem passava do prazo caía para a
+tela de entrada no meio do trabalho. Num ERP usado por jornadas inteiras, isso
+é interrupção por desenho.
+
+Agora ele se renova **na segunda metade da validade**. Renovar a cada
+requisição custaria uma assinatura por requisição e reescreveria o cookie o
+tempo todo, sem ganho nenhum — o prazo já estava longe. Esperando a metade, a
+renovação acontece no máximo uma vez a cada quatro horas de uso, e ainda assim
+ninguém chega ao fim do prazo trabalhando.
+
+**E para de renovar em sete dias**, contados da entrada. Sem teto, uma aba
+esquecida aberta sustentaria a mesma sessão para sempre, e um cookie roubado
+junto com ela. O teto garante que toda sessão termina; a senha continua sendo
+o jeito de terminar antes, derrubando todas de uma vez.
+
+Duas ordens importam, e as duas estão fixadas por teste:
+
+1. **A conferência do carimbo vem antes da renovação.** Na ordem inversa, uma
+   sessão que deveria cair por troca de senha sairia com prazo novo em folha.
+2. **Passado o teto, o token atual continua valendo até o prazo dele.** Cortar
+   na hora tiraria a tela de quem está no meio de um lançamento.
+
+Não há refresh token, e não é omissão. Ele existe para reduzir a janela de um
+token de acesso curto, e aqui a janela já é fechada de outro jeito: o carimbo
+de segurança é conferido **a cada requisição**, então revogar é imediato sem
+segunda credencial para guardar, girar e revogar.
+
+A renovação é invisível para o front — o cookie é `httpOnly` e chega no
+cabeçalho da resposta. E o relógio virou serviço injetável, porque provar que
+um token perto do fim é renovado e um recém-assinado não é exigiria esperar
+horas de verdade.
+
 ## A disciplina
 
 | | |
