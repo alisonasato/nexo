@@ -93,16 +93,6 @@ export const colunasDisponiveis: Coluna[] = [
     classe: "text-slate-700",
     conteudo: (pessoa) => pessoa.email || "—",
   },
-  {
-    chave: "cidade",
-    titulo: "Cidade/UF",
-    padrao: false,
-    classe: "text-slate-700",
-    conteudo: (pessoa) =>
-      pessoa.endereco.cidade
-        ? `${pessoa.endereco.cidade}${pessoa.endereco.uf ? "/" + pessoa.endereco.uf : ""}`
-        : "—",
-  },
 ];
 
 /** Chave e visibilidade, que é tudo o que a configuração guarda. */
