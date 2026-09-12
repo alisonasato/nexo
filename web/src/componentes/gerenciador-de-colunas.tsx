@@ -88,7 +88,7 @@ export function GerenciadorDeColunas({ escolhas, aoAplicar, aoFechar }: Props) {
       className="fixed inset-x-4 top-24 z-20 rounded-[--radius-cartao] border border-borda bg-superficie p-4 shadow-nivel-2 sm:absolute sm:inset-x-auto sm:top-full sm:right-0 sm:mt-2 sm:w-80"
     >
       <p className="font-semibold text-marca-950">Colunas</p>
-      <p className="mt-1 text-slate-500">
+      <p className="mt-1 text-slate-600">
         Marque o que aparece e use as setas para mudar a ordem.
       </p>
 

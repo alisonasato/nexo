@@ -19,7 +19,7 @@ export default function NaoEncontrado() {
         <h1 className="mt-2 text-xl font-semibold tracking-tight text-marca-950">
           Esta página não existe
         </h1>
-        <p className="mt-2 text-slate-500">
+        <p className="mt-2 text-slate-600">
           O endereço pode ter mudado, ou o link estar errado.
         </p>
 

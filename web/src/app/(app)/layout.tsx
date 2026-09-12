@@ -38,7 +38,7 @@ export default function LayoutDaAplicacao({ children }: { children: ReactNode })
 
   if (sessao.isPending) {
     return (
-      <div className="flex min-h-dvh items-center justify-center text-slate-500">
+      <div className="flex min-h-dvh items-center justify-center text-slate-600">
         Carregando…
       </div>
     );

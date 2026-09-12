@@ -50,18 +50,18 @@ export function Paginacao({
 
   /* Sem seletor e com uma página só, não há o que controlar: fica só a contagem. */
   if (paginas <= 1 && !aoMudarTamanho) {
-    return <p className="text-slate-500">{contagem}</p>;
+    return <p className="text-slate-600">{contagem}</p>;
   }
 
   return (
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div className="flex flex-wrap items-center gap-4">
-        <p className="numeros-tabulares text-slate-500">
+        <p className="numeros-tabulares text-slate-600">
           {total === 0 ? contagem : `Mostrando ${primeiro} a ${ultimo} de ${contagem}`}
         </p>
 
         {aoMudarTamanho && (
-          <label className="flex items-center gap-2 text-slate-500">
+          <label className="flex items-center gap-2 text-slate-600">
             <span className="sr-only sm:not-sr-only">Por página</span>
             <select
               value={tamanho}
@@ -119,7 +119,7 @@ export function Paginacao({
               )}
             </ol>
           ) : (
-            <span className="numeros-tabulares text-slate-500">
+            <span className="numeros-tabulares text-slate-600">
               {pagina} / {paginas}
             </span>
           )}

@@ -103,14 +103,14 @@ export function FormularioDeContrato({ id }: { id?: string }) {
   }
 
   if (editando && existente.isPending) {
-    return <p className="p-6 text-slate-500">Carregando o contrato…</p>;
+    return <p className="p-6 text-slate-600">Carregando o contrato…</p>;
   }
 
   if (clientes.data && clientes.data.length === 0) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
         <p className="font-medium text-slate-700">Não há clientes ainda.</p>
-        <p className="max-w-md text-slate-500">
+        <p className="max-w-md text-slate-600">
           Um contrato é o acordo com um cliente. Cadastre a pessoa e marque nela o papel
           Cliente.
         </p>
@@ -133,7 +133,7 @@ export function FormularioDeContrato({ id }: { id?: string }) {
         <h1 className="text-xl font-semibold tracking-tight text-marca-950">
           {editando ? `Contrato ${existente.data?.codigo ?? ""}` : "Novo contrato"}
         </h1>
-        <p className="text-slate-500">
+        <p className="text-slate-600">
           O dia do vencimento vale para todos os meses. Em meses mais curtos, cai no último dia.
         </p>
       </header>

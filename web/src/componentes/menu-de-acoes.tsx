@@ -71,7 +71,7 @@ export function MenuDeAcoes({ rotulo, acoes }: { rotulo: string; acoes: AcaoDeLi
           A área de toque é maior que o desenho. Três pontos têm uns 4px de
           largura visível, e mirar nisso num celular é loteria.
         */
-        className="inline-flex size-11 items-center justify-center rounded-[--radius-controle] text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-marca-500"
+        className="inline-flex size-11 items-center justify-center rounded-[--radius-controle] text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-marca-500"
       >
         <IconeDeMaisAcoes className="size-5" />
       </button>

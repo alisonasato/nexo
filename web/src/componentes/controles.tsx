@@ -23,7 +23,7 @@ import { indiceApos } from "@/lib/mascaras";
 
 const baseDoCampo =
   "w-full rounded-[--radius-controle] border bg-superficie px-3 py-2 text-slate-800 " +
-  "transition-colors placeholder:text-slate-400 disabled:bg-slate-50 disabled:text-slate-500";
+  "transition-colors placeholder:text-slate-400 disabled:bg-slate-50 disabled:text-slate-600";
 
 function bordaDoCampo(temErro: boolean) {
   return temErro
@@ -60,7 +60,7 @@ export function Campo({ rotulo, erro, ajuda, children }: RotuloDeCampo) {
         </p>
       )}
       {ajuda && !erro && (
-        <p id={idDaAjuda} className="text-xs text-slate-500">
+        <p id={idDaAjuda} className="text-xs text-slate-600">
           {ajuda}
         </p>
       )}
