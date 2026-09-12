@@ -64,7 +64,7 @@ public static class ProvisionamentoInicial
                 email.Trim(),
                 senha,
                 secao["EmpresaRazaoSocial"] ?? secao["TenantNome"] ?? "Escritório",
-                Documento.ApenasDigitos(secao["EmpresaCnpj"]));
+                Documento.NormalizarCnpj(secao["EmpresaCnpj"]));
         }
 
         /* Sem configuração: só desenvolvimento ganha um tenant de brinde. */

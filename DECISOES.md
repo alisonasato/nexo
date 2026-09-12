@@ -157,6 +157,37 @@ qual empresa vai no token, em como o usuário troca de estabelecimento e no que
 acontece com o dado já gravado. Enquanto essas perguntas não tiverem resposta,
 criar empresa pela tela produziria linha órfã que ninguém alcança.
 
+### O CNPJ ganhou letras, e a conferência era para ontem
+
+Esta linha estava em DEPOIS.md como "conferir a regra vigente antes de o
+primeiro cliente digitar um". A conferência foi feita, e a resposta é que a
+regra **já mudou**: desde **31 de julho de 2026** a Receita emite CNPJ
+alfanumérico para inscrição nova (IN RFB 2.229/2024). Não era item de lista,
+era defeito em produção esperando o primeiro cliente aberto depois dessa data.
+
+O que muda: as **12 primeiras posições** aceitam `0-9` e `A-Z`; os **2
+dígitos verificadores continuam numéricos**; e quem já tem CNPJ **não muda de
+número**.
+
+O cálculo do dígito não mudou, e essa é a parte bonita. Continua módulo 11 com
+os mesmos pesos, e o valor de cada caractere passa a ser o código ASCII menos
+48 — que é exatamente o que `caractere - '0'` já fazia. Para dígito dá o
+dígito; para letra dá 17 no `A`. **Nenhuma linha da conta mudou.** O que mudou
+foi parar de jogar as letras fora antes de chegar nela.
+
+E era aí que o sistema errava, do jeito pior: não recusava com mensagem,
+**encurtava o documento em silêncio** e gravava outro número, que não é de
+ninguém. Por isso `ApenasDigitos` deixou de ser usado em CNPJ e existe um
+`NormalizarCnpj` ao lado dele.
+
+O número que prova o cálculo é `12ABC34501DE35`, o exemplo oficial do Serpro,
+e está nos testes. Ele vem de fora de propósito: um caso construído pela
+própria implementação só provaria que ela concorda consigo mesma.
+
+**O que ainda não foi conferido:** se a consulta de CNPJ da BrasilAPI responde
+para documento alfanumérico. O atalho de preencher o cadastro pelo CNPJ pode
+não funcionar para inscrição nova, e isso não impede cadastrar à mão.
+
 ## A disciplina
 
 | | |

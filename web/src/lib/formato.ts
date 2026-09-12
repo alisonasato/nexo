@@ -4,8 +4,20 @@ export function apenasDigitos(texto: string): string {
   return texto.replace(/\D/g, "");
 }
 
+/**
+ * O que sobra de um CNPJ: letras e números, em maiúsculas.
+ *
+ * Desde 31 de julho de 2026 a Receita emite CNPJ alfanumérico para inscrição
+ * nova. Limpar um CNPJ com `apenasDigitos` encurtaria o documento sem avisar,
+ * e o que sobrasse não seria o documento de ninguém.
+ */
+export function apenasAlfanumericos(texto: string): string {
+  return texto.replace(/[^0-9A-Za-z]/g, "").toUpperCase();
+}
+
 export function formatarDocumento(documento: string): string {
-  const numero = apenasDigitos(documento);
+  /* Alfanumérico, e não só dígitos: um CNPJ com letras precisa sair inteiro. */
+  const numero = apenasAlfanumericos(documento);
 
   if (numero.length === 11) {
     return `${numero.slice(0, 3)}.${numero.slice(3, 6)}.${numero.slice(6, 9)}-${numero.slice(9)}`;

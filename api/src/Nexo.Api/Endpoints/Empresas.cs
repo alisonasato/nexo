@@ -75,7 +75,7 @@ public static class Empresas
         var empresa = await banco.Empresas.FirstOrDefaultAsync(empresa => empresa.Id == id, cancelamento);
         if (empresa is null) return Results.NotFound();
 
-        var cnpj = Documento.ApenasDigitos(dados.Cnpj);
+        var cnpj = Documento.NormalizarCnpj(dados.Cnpj);
 
         /*
          * O CNPJ é único dentro do escritório, e a busca exclui a própria

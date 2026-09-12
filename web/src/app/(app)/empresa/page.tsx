@@ -6,6 +6,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/api/cliente";
 import { Botao, Entrada, EntradaMascarada } from "@/componentes/controles";
 import type { components } from "@/api/esquema";
+import { apenasAlfanumericos } from "@/lib/formato";
 import { mascararCnpj } from "@/lib/mascaras";
 
 type Problema = components["schemas"]["Problema"];
@@ -157,6 +158,7 @@ export default function EmpresaDoEscritorio() {
               rotulo="CNPJ"
               inputMode="numeric"
               mascara={mascararCnpj}
+              limpar={apenasAlfanumericos}
               digitos={valores.cnpj}
               aoMudar={(valor) => alterar("cnpj", valor)}
               erro={erroDe("cnpj")}

@@ -8,7 +8,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/api/cliente";
 import { AreaDeTexto, Botao, Entrada, EntradaMascarada, Selecao } from "@/componentes/controles";
 import type { components } from "@/api/esquema";
-import { apenasDigitos } from "@/lib/formato";
+import { apenasAlfanumericos, apenasDigitos } from "@/lib/formato";
 import { mascararCep, mascararCnpj, mascararCpf, mascararTelefone } from "@/lib/mascaras";
 
 type DadosDePessoa = components["schemas"]["DadosDePessoa"];
@@ -245,7 +245,10 @@ export function FormularioDePessoa({ id }: { id?: string }) {
     definirDados((atual) => ({
       ...atual,
       tipo,
-      documento: apenasDigitos(atual.documento ?? "").slice(0, tipo === "Fisica" ? 11 : 14),
+      documento:
+        tipo === "Fisica"
+          ? apenasDigitos(atual.documento ?? "").slice(0, 11)
+          : apenasAlfanumericos(atual.documento ?? "").slice(0, 14),
     }));
   }
 
@@ -483,6 +486,7 @@ export function FormularioDePessoa({ id }: { id?: string }) {
               rotulo={ehFisica ? "CPF" : "CNPJ"}
               digitos={dados.documento ?? ""}
               mascara={ehFisica ? mascararCpf : mascararCnpj}
+              limpar={ehFisica ? apenasDigitos : apenasAlfanumericos}
               aoMudar={(digitos) => {
                 alterar("documento", digitos);
                 /* Só para empresa: não existe consulta pública de CPF, e nem

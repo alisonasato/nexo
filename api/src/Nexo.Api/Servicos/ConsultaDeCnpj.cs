@@ -46,7 +46,7 @@ public sealed class ConsultaDeCnpjBrasilApi(HttpClient http, ILogger<ConsultaDeC
 {
     public async Task<RespostaDoCnpj> BuscarAsync(string cnpj, CancellationToken cancelamento)
     {
-        var numero = Documento.ApenasDigitos(cnpj);
+        var numero = Documento.NormalizarCnpj(cnpj);
         if (numero.Length != 14) return new RespostaDoCnpj(ResultadoDaConsulta.NaoEncontrado);
 
         try

@@ -74,7 +74,7 @@ public static class Consultas
         IConsultaDeCnpj consulta,
         CancellationToken cancelamento)
     {
-        var numero = Documento.ApenasDigitos(cnpj);
+        var numero = Documento.NormalizarCnpj(cnpj);
 
         if (numero.Length != 14)
         {
