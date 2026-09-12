@@ -6,11 +6,11 @@
  * metade — é o estado normal de um campo em uso —, então a máscara cresce junto
  * com o que a pessoa digita.
  *
- * Todas recebem e devolvem texto, e ignoram o que não for dígito. O que se
- * guarda continua sendo só o número: a máscara é da tela.
+ * Todas recebem e devolvem texto e descartam a pontuação. O que se guarda é o
+ * documento limpo: a máscara é da tela.
  */
 
-import { apenasDigitos } from "./formato";
+import { apenasAlfanumericos, apenasDigitos } from "./formato";
 
 export function mascararCpf(texto: string): string {
   const numero = apenasDigitos(texto).slice(0, 11);
@@ -23,8 +23,14 @@ export function mascararCpf(texto: string): string {
   return saida;
 }
 
+/**
+ * CNPJ, que desde 31/07/2026 pode ter letras nas 12 primeiras posições.
+ *
+ * A pontuação fica onde sempre esteve — "12.ABC.345/01DE-35" —, porque a
+ * quantidade de posições não mudou. Só o que cabe em cada uma mudou.
+ */
 export function mascararCnpj(texto: string): string {
-  const numero = apenasDigitos(texto).slice(0, 14);
+  const numero = apenasAlfanumericos(texto).slice(0, 14);
 
   let saida = numero.slice(0, 2);
   if (numero.length > 2) saida += "." + numero.slice(2, 5);
@@ -63,17 +69,27 @@ export function mascararCep(texto: string): string {
 }
 
 /**
- * Onde o cursor precisa ficar para continuar depois do n-ésimo dígito.
+ * Onde o cursor precisa ficar para continuar depois do n-ésimo caractere que
+ * conta.
  *
- * A máscara reescreve o campo inteiro a cada tecla, e sem isto o cursor saltaria
- * para o fim — o que só não incomoda quem digita do começo ao fim sem errar.
+ * A máscara reescreve o campo inteiro a cada tecla, e sem isto o cursor
+ * saltaria para o fim — o que só não incomoda quem digita do começo ao fim sem
+ * errar.
+ *
+ * O que conta depende do campo, e por isso vem de fora: no telefone são os
+ * dígitos, no CNPJ também são as letras. Quem decide é a própria função de
+ * limpeza do campo, em vez de uma segunda regra que poderia discordar dela.
  */
-export function indiceApos(texto: string, quantosDigitos: number): number {
+export function indiceApos(
+  texto: string,
+  quantosDigitos: number,
+  limpar: (texto: string) => string = apenasDigitos,
+): number {
   if (quantosDigitos <= 0) return 0;
 
   let vistos = 0;
   for (let indice = 0; indice < texto.length; indice++) {
-    if (/\d/.test(texto[indice])) {
+    if (limpar(texto[indice]).length > 0) {
       vistos++;
       if (vistos === quantosDigitos) return indice + 1;
     }

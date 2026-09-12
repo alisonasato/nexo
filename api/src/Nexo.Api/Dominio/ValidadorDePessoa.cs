@@ -33,7 +33,15 @@ public static partial class ValidadorDePessoa
     {
         var problemas = new List<Problema>();
         var ehFisica = pessoa.Tipo == TipoPessoa.Fisica;
-        var documento = Documento.ApenasDigitos(pessoa.Documento);
+
+        /*
+         * CPF limpa para dígitos; CNPJ, não. Desde 31/07/2026 a Receita emite
+         * CNPJ com letras, e limpar para dígitos encurtaria o documento de um
+         * cliente novo sem avisar ninguém.
+         */
+        var documento = ehFisica
+            ? Documento.ApenasDigitos(pessoa.Documento)
+            : Documento.NormalizarCnpj(pessoa.Documento);
 
         /* --------------------------------------------------- identificação */
 
@@ -64,7 +72,7 @@ public static partial class ValidadorDePessoa
                 ehFisica ? "O CPF não foi informado." : "O CNPJ não foi informado.",
                 ehFisica
                     ? "Digite os 11 dígitos do CPF, sem pontos ou traço."
-                    : "Digite os 14 dígitos do CNPJ, sem pontos, barra ou traço."));
+                    : "Digite as 14 posições do CNPJ, sem pontos, barra ou traço."));
         }
         else if (ehFisica && documento.Length != 11)
         {
@@ -79,8 +87,8 @@ public static partial class ValidadorDePessoa
             problemas.Add(new Problema(
                 "documento",
                 TitulosDeProblema.Documento,
-                $"O CNPJ informado tem {documento.Length} dígitos, e não 14.",
-                "Confira se não faltou nenhum dígito. Para pessoa física, troque o tipo para Física."));
+                $"O CNPJ informado tem {documento.Length} posições, e não 14.",
+                "Confira se não faltou nada. Para pessoa física, troque o tipo para Física."));
         }
         else if (ehFisica && !Dominio.Documento.CpfValido(documento))
         {
@@ -95,8 +103,8 @@ public static partial class ValidadorDePessoa
             problemas.Add(new Problema(
                 "documento",
                 TitulosDeProblema.Documento,
-                "O número do CNPJ informado é inválido.",
-                "Verifique os dígitos verificadores e digite apenas números, sem pontos, barra ou traço."));
+                "O CNPJ informado é inválido.",
+                "Confira os dois dígitos do fim. O CNPJ pode ter letras nas 12 primeiras posições, mas os dois últimos são sempre números."));
         }
 
         /*

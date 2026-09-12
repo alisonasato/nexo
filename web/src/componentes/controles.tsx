@@ -97,12 +97,20 @@ type PropsDeEntradaMascarada = Omit<
   rotulo: string;
   erro?: string;
   ajuda?: string;
-  /** O que está guardado: só dígitos. */
+  /** O que está guardado: o documento sem pontuação. */
   digitos: string;
-  /** Como esses dígitos aparecem enquanto a pessoa digita. */
+  /** Como isso aparece enquanto a pessoa digita. */
   mascara: (texto: string) => string;
-  /** Recebe os dígitos já limpos e limitados pela máscara. */
+  /** Recebe o valor já limpo e limitado pela máscara. */
   aoMudar: (digitos: string) => void;
+  /**
+   * O que sobrevive à limpeza. Dígitos, por padrão.
+   *
+   * O CNPJ passa `apenasAlfanumericos`, porque desde 31/07/2026 ele pode ter
+   * letras. É um valor só, e não uma regra repetida: a mesma função limpa o que
+   * foi digitado e diz ao cursor o que contar.
+   */
+  limpar?: (texto: string) => string;
 };
 
 /**
@@ -132,6 +140,7 @@ export function EntradaMascarada({
   digitos,
   mascara,
   aoMudar,
+  limpar = apenasDigitos,
   ...resto
 }: PropsDeEntradaMascarada) {
   const referencia = useRef<HTMLInputElement>(null);
@@ -147,8 +156,8 @@ export function EntradaMascarada({
     const bruto = evento.target.value;
     const cursor = evento.target.selectionStart ?? bruto.length;
 
-    let novos = apenasDigitos(bruto);
-    let ateOCursor = apenasDigitos(bruto.slice(0, cursor)).length;
+    let novos = limpar(bruto);
+    let ateOCursor = limpar(bruto.slice(0, cursor)).length;
 
     const apagou = (evento.nativeEvent as InputEvent).inputType === "deleteContentBackward";
 
@@ -158,9 +167,9 @@ export function EntradaMascarada({
     }
 
     const exibido = mascara(novos);
-    cursorPendente.current = indiceApos(exibido, ateOCursor);
+    cursorPendente.current = indiceApos(exibido, ateOCursor, limpar);
 
-    aoMudar(apenasDigitos(exibido));
+    aoMudar(limpar(exibido));
   }
 
   return (

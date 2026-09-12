@@ -86,19 +86,25 @@ public static class Pessoas
         if (!string.IsNullOrWhiteSpace(busca))
         {
             var termo = busca.Trim();
-            var digitos = Documento.ApenasDigitos(termo);
 
             /*
-             * A busca cobre os três jeitos de alguém procurar um cadastro:
-             * pelo nome, pelo nome fantasia ou pelo documento. Quando o termo
-             * tem dígitos, eles viram uma busca própria no documento — que é
+             * O termo vira documento do mesmo jeito que o documento é guardado:
+             * maiúsculas, sem pontuação, letras preservadas. Limpar para
+             * dígitos deixaria de achar o CNPJ alfanumérico — "12ABC34501DE35"
+             * viraria "123450135", que não é o documento de ninguém.
+             */
+            var documento = Documento.NormalizarCnpj(termo);
+
+            /*
+             * A busca cobre os três jeitos de alguém procurar um cadastro: pelo
+             * nome, pelo nome fantasia ou pelo documento. O documento é
              * guardado sem pontuação, então digitar o CNPJ formatado também
              * encontra.
              */
             consulta = consulta.Where(pessoa =>
                 EF.Functions.ILike(pessoa.Nome, $"%{termo}%")
                 || EF.Functions.ILike(pessoa.NomeFantasia, $"%{termo}%")
-                || (digitos.Length > 0 && EF.Functions.Like(pessoa.Documento, $"%{digitos}%")));
+                || (documento.Length > 0 && EF.Functions.Like(pessoa.Documento, $"%{documento}%")));
         }
 
         var total = await consulta.CountAsync(cancelamento);
@@ -391,8 +397,13 @@ public static class Pessoas
         pessoa.Nome = (dados.Nome ?? string.Empty).Trim();
         pessoa.NomeFantasia = (dados.NomeFantasia ?? string.Empty).Trim();
 
-        /* Guardado só com dígitos: assim a busca acha com ou sem pontuação. */
-        pessoa.Documento = Documento.ApenasDigitos(dados.Documento);
+        /*
+         * Guardado sem pontuação, para a busca achar com ou sem ela. CPF vira
+         * só dígitos; CNPJ preserva as letras, que existem desde 31/07/2026.
+         */
+        pessoa.Documento = dados.Tipo == TipoPessoa.Fisica
+            ? Documento.ApenasDigitos(dados.Documento)
+            : Documento.NormalizarCnpj(dados.Documento);
 
         pessoa.InscricaoEstadual = (dados.InscricaoEstadual ?? string.Empty).Trim();
         pessoa.InscricaoMunicipal = (dados.InscricaoMunicipal ?? string.Empty).Trim();

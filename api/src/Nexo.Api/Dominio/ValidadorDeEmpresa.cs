@@ -20,7 +20,7 @@ public static class ValidadorDeEmpresa
     public static List<Problema> Validar(Empresa empresa, Empresa? outraComMesmoCnpj = null)
     {
         var problemas = new List<Problema>();
-        var cnpj = Documento.ApenasDigitos(empresa.Cnpj);
+        var cnpj = Documento.NormalizarCnpj(empresa.Cnpj);
 
         if (string.IsNullOrWhiteSpace(empresa.RazaoSocial))
         {
@@ -37,15 +37,15 @@ public static class ValidadorDeEmpresa
                 "cnpj",
                 TitulosDeProblema.Documento,
                 "O CNPJ não foi informado.",
-                "Digite os 14 dígitos do CNPJ, sem pontos, barra ou traço."));
+                "Digite as 14 posições do CNPJ, sem pontos, barra ou traço."));
         }
         else if (cnpj.Length != 14)
         {
             problemas.Add(new Problema(
                 "cnpj",
                 TitulosDeProblema.Documento,
-                $"O CNPJ informado tem {cnpj.Length} dígitos, e não 14.",
-                "Confira se não faltou nenhum dígito."));
+                $"O CNPJ informado tem {cnpj.Length} posições, e não 14.",
+                "Confira se não faltou nada."));
         }
         else if (!Documento.CnpjValido(cnpj))
         {
@@ -53,7 +53,7 @@ public static class ValidadorDeEmpresa
                 "cnpj",
                 TitulosDeProblema.Documento,
                 "O CNPJ informado não passa na conferência dos dígitos.",
-                "Confira o número no cartão CNPJ: algum dígito foi trocado."));
+                "Confira o número no cartão CNPJ. Ele pode ter letras nas 12 primeiras posições, mas os dois últimos são sempre números."));
         }
         else if (outraComMesmoCnpj is not null)
         {

@@ -87,8 +87,6 @@ e não atrapalha.
 
 - O motor de telas declarativas (Q20). Sai por extração quando a segunda ou
   terceira tela mostrar o que se repete — não antes.
-- CNPJ alfanumérico. A validação implementada é a numérica clássica;
-  conferir a regra vigente antes de o primeiro cliente digitar um.
 - Ordenar a listagem por outra coluna que não o nome.
 
 ## Aberto pelos papéis
