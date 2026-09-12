@@ -19,12 +19,12 @@ import {
   IconeDeColunas,
   IconeDeCopiar,
   IconeDeFiltro,
-  IconeDeOrdenacao,
   IconeDeSeta,
 } from "@/componentes/icones";
 import type { components } from "@/api/esquema";
 import { formatarDocumento } from "@/lib/formato";
 import { useConsultaDaUrl, useLinkComRetorno } from "@/lib/estado-na-url";
+import { CabecalhoOrdenavel, useOrdenacao } from "@/componentes/tabela";
 import {
   assinarEscolhas,
   classeDeAlinhamento,
@@ -39,7 +39,6 @@ type Papel = components["schemas"]["Papel"];
 type PessoaNaLista = components["schemas"]["PessoaNaLista"];
 type Problema = components["schemas"]["Problema"];
 type OrdemDePessoas = components["schemas"]["OrdemDePessoas"];
-type Direcao = components["schemas"]["Direcao"];
 
 const papeis: Papel[] = ["Cliente", "Fornecedor", "Vendedor", "Colaborador"];
 
@@ -86,10 +85,10 @@ export default function ListagemDePessoas() {
    * página 2 traria nomes que deviam vir antes dos da página 1. Plausível e
    * errado, que é o jeito mais caro de errar.
    */
-  const ordem = {
-    por: (ler("ordem") ?? "Nome") as OrdemDePessoas,
-    direcao: (ler("direcao") ?? "Crescente") as Direcao,
-  };
+  const { ordenarPor: aplicarOrdem, ...ordem } = useOrdenacao<OrdemDePessoas>(
+    { ler, gravar },
+    "Nome",
+  );
 
   /*
    * O que está sendo digitado, enquanto ainda não virou busca.
@@ -180,22 +179,14 @@ export default function ListagemDePessoas() {
   const abrir = (id: string) => navegacao.push(cadastro(`/pessoas/${id}`));
 
   /**
-   * Clicar no cabeçalho ordena por ele; clicar de novo inverte.
+   * Ordenar desmarca o que estava marcado.
    *
-   * Coluna nova começa sempre crescente. Herdar a direção da coluna anterior
-   * faria o primeiro clique num cabeçalho devolver a ordem de trás para a
-   * frente, que ninguém pede ao clicar pela primeira vez.
+   * A seleção é de linhas visíveis, e reordenar troca quais são. Mantê-la
+   * deixaria marcada uma pessoa que saiu da página — e a próxima ação em lote
+   * atingiria quem ninguém está mais vendo.
    */
   function ordenarPor(por: OrdemDePessoas) {
-    const inverter = ordem.por === por && ordem.direcao === "Crescente";
-
-    gravar({
-      ordem: por === "Nome" ? null : por,
-      direcao: inverter ? "Decrescente" : null,
-      /* A página 3 da ordem antiga não é a página 3 da nova. */
-      pagina: null,
-    });
-
+    aplicarOrdem(por);
     selecao.limpar();
   }
 
@@ -593,65 +584,16 @@ export default function ListagemDePessoas() {
                       />
                     </th>
 
-                    {colunas.map((coluna) => {
-                      const ativa = coluna.ordenarPor === ordem.por;
-
-                      return (
-                        <th
-                          key={coluna.chave}
-                          scope="col"
-                          /*
-                            `aria-sort` é o que faz um leitor de tela anunciar
-                            "ordenado de forma crescente" ao chegar na coluna.
-                            Sem ele, a seta é informação só para quem enxerga.
-                          */
-                          aria-sort={
-                            !coluna.ordenarPor || !ativa
-                              ? undefined
-                              : ordem.direcao === "Crescente"
-                                ? "ascending"
-                                : "descending"
-                          }
-                          className={`font-semibold ${classeDeAlinhamento(coluna)} ${coluna.ordenarPor ? "p-0" : "px-4 py-3"}`}
-                        >
-                          {coluna.ordenarPor ? (
-                            <button
-                              type="button"
-                              onClick={() => ordenarPor(coluna.ordenarPor!)}
-                              className={
-                                "inline-flex w-full cursor-pointer items-center gap-1.5 px-4 py-3 text-xs tracking-wide uppercase transition-colors hover:bg-slate-100 " +
-                                (coluna.alinhamento === "direita"
-                                  ? "justify-end"
-                                  : coluna.alinhamento === "centro"
-                                    ? "justify-center"
-                                    : "justify-start") +
-                                (ativa ? " text-slate-800" : "")
-                              }
-                            >
-                              {coluna.titulo}
-                              {/*
-                                O ícone ocupa o mesmo espaço nos três estados,
-                                então ordenar não faz o cabeçalho pular de
-                                largura. Inativo, ele fica pálido — convite, não
-                                informação.
-                              */}
-                              <IconeDeOrdenacao
-                                estado={
-                                  !ativa
-                                    ? "neutro"
-                                    : ordem.direcao === "Crescente"
-                                      ? "crescente"
-                                      : "decrescente"
-                                }
-                                className={ativa ? "size-3.5 text-marca-600" : "size-3.5 text-slate-300"}
-                              />
-                            </button>
-                          ) : (
-                            <span className="block px-4 py-3">{coluna.titulo}</span>
-                          )}
-                        </th>
-                      );
-                    })}
+                    {colunas.map((coluna) => (
+                      <CabecalhoOrdenavel
+                        key={coluna.chave}
+                        titulo={coluna.titulo}
+                        alinhamento={coluna.alinhamento}
+                        por={coluna.ordenarPor}
+                        ordem={ordem}
+                        aoOrdenar={ordenarPor}
+                      />
+                    ))}
 
                     <th scope="col" className="w-px px-4 py-3">
                       <span className="sr-only">Ações</span>

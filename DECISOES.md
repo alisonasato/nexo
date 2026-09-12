@@ -367,6 +367,60 @@ O que **não** foi para a URL é a configuração de colunas. Ela é preferênci
 quem está olhando, não recorte do que se está olhando, e continua no
 `localStorage`: mandar um link não deve impor a largura de tela de ninguém.
 
+As três listagens fazem isso agora. Em contratos e recebíveis ficou de fora,
+pela mesma régua, o que é **parâmetro de ação** e não recorte: a competência da
+geração de mensalidades e o formulário da cobrança avulsa. Um link que já viesse
+com mês e ano preenchidos seria um convite a gerar a competência de outra
+pessoa.
+
+## Ordenar empata, e empate sem desempate perde linha
+
+Ordenar por valor trouxe um caso que ordenar por nome não tinha mostrado: **o
+empate é a regra**, não a exceção. Mensalidade gerada de contrato sai idêntica
+para a carteira inteira, e meia dúzia de clientes na mesma faixa de honorário
+paga exatamente o mesmo.
+
+Duas linhas de mesmo valor não têm posição definida entre si, e o banco pode
+devolvê-las em ordem diferente a cada consulta. Paginando, isso não embaralha:
+faz uma linha aparecer em duas páginas e outra em nenhuma. Quem confere a lista
+nunca descobre por que o total diz 38 e ele só consegue ver 37. Por isso toda
+ordenação termina no identificador — inclusive a de pessoas, onde o caso era
+homônimo e portanto raro, mas existia.
+
+O teste disso confere o **critério**, e não o sintoma, e a diferença foi
+medida: com seis registros o Postgres devolve ordem estável enquanto o plano
+não muda, e uma conferência de duas páginas passava com o desempate removido.
+Exigir a ordem crescente de identificador, que é aleatório e não acompanha a
+inserção, só passa se o critério existir.
+
+## A primeira extração do motor de telas
+
+A regra da Q20 é extrair quando a segunda ou terceira tela mostrar o que se
+repete, não antes. Com as três listagens ordenando pelos mesmos gestos —
+clicar ordena, clicar de novo inverte, a escolha mora na URL —, a conta fechou:
+o cabeçalho ordenável e a lógica da ordem saíram para `componentes/tabela.tsx`.
+
+O que **não** saiu é a parte interessante. A tabela, o cartão do celular e o
+estado vazio continuam em cada tela, porque as três mostram dado de forma
+diferente o bastante para que um componente único virasse lista de exceções: a
+de recebíveis abre formulário de baixa dentro da própria linha, a de contratos
+marca linhas para entrar na geração de mensalidades, e só a de pessoas tem
+colunas configuráveis. Extrair isso agora trocaria repetição visível por
+condicional escondida.
+
+## Abaixo de 768 pixels, cartão
+
+As três listagens viram cartão no celular. A régua é a mesma: a tabela de
+recebíveis tem seis colunas e a de contratos sete, e nenhuma cabe em 375
+pixels. Rolando de lado, o que some primeiro é justamente o valor e o
+vencimento — que é o que se confere antes de confirmar uma baixa.
+
+No cartão de recebíveis os botões de ação sobem para 44 pixels de altura, e na
+tabela ficam compactos. É o alvo que o polegar acerta sem mirar, e importa mais
+aqui do que em outro lugar: **Cancelar** fica encostado em **Baixar**. Na
+tabela, onde quem clica é ponteiro e há um par por linha, a altura cheia
+engordaria a lista sem ganho nenhum.
+
 ## Ordem de execução
 
 1. ~~Repositório e contrato~~ — feito.

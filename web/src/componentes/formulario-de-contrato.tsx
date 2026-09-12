@@ -9,6 +9,7 @@ import { api } from "@/api/cliente";
 import { AreaDeTexto, Botao, Entrada, EntradaMascarada, Selecao } from "@/componentes/controles";
 import type { components } from "@/api/esquema";
 import { digitosDoValor, formatarValor, mascararDinheiro, valorDosDigitos } from "@/lib/dinheiro";
+import { useRetornoDaListagem } from "@/lib/estado-na-url";
 
 type DadosDeContrato = components["schemas"]["DadosDeContrato"];
 type Problema = components["schemas"]["Problema"];
@@ -39,6 +40,9 @@ export function FormularioDeContrato({ id }: { id?: string }) {
   const navegacao = useRouter();
   const clienteDeConsultas = useQueryClient();
   const editando = Boolean(id);
+
+  /* Sair daqui devolve a listagem como ela estava, e não a listagem do zero. */
+  const listagem = useRetornoDaListagem("/contratos");
 
   const [dados, definirDados] = useState<DadosDeContrato>(vazio);
   const [problemas, definirProblemas] = useState<Problema[]>([]);
@@ -90,7 +94,7 @@ export function FormularioDeContrato({ id }: { id?: string }) {
     onSuccess: () => {
       definirProblemas([]);
       clienteDeConsultas.invalidateQueries({ queryKey: ["contratos"] });
-      navegacao.push("/contratos");
+      navegacao.push(listagem);
     },
     onError: (erro) => definirProblemas(problemasDaResposta(erro)),
   });
@@ -246,7 +250,7 @@ export function FormularioDeContrato({ id }: { id?: string }) {
 
       <footer className="sticky bottom-0 flex items-center justify-end gap-3 border-t border-borda bg-superficie px-6 py-3">
         <Link
-          href="/contratos"
+          href={listagem}
           className="rounded-[--radius-controle] border border-borda-forte px-4 py-2 font-semibold text-slate-700 transition-colors hover:bg-slate-50"
         >
           Cancelar
