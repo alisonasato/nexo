@@ -265,6 +265,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/recebiveis/{id}/cobrar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Emite boleto e Pix para um recebível
+         * @description Cria a cobrança no PSP e guarda o link onde o cliente escolhe entre boleto e Pix. Recusa cobrar duas vezes o mesmo recebível: a segunda emissão não substituiria a primeira, e o cliente receberia dois boletos.
+         */
+        post: operations["CobrarRecebivel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/recebiveis": {
         parameters: {
             query?: never;
@@ -609,6 +629,12 @@ export interface components {
             titulo: string;
             descricao: string;
             sugestao: string;
+        };
+        RecebivelCobrado: {
+            /** Format: uuid */
+            id: string;
+            cobrancaId: string;
+            cobrancaUrl: string;
         };
         RecebivelNaLista: {
             /** Format: uuid */
@@ -1314,6 +1340,44 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    CobrarRecebivel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecebivelCobrado"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespostaComProblemas"];
+                };
             };
         };
     };

@@ -12,6 +12,7 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Nexo.Api;
 using Nexo.Api.Autenticacao;
+using Nexo.Api.Cobranca;
 using Nexo.Api.OpenApi;
 using Nexo.Api.Dados;
 using Nexo.Api.Dominio;
@@ -111,6 +112,15 @@ construtor.Services.AddHttpClient<ConsultaDeCepViaCep>(cliente =>
 });
 
 /*
+ * O PSP. Mais folga que as consultas de CNPJ e CEP, e por um motivo diferente:
+ * ali o atraso custa um formulário que não se preenche sozinho, e aqui custa
+ * uma cobrança que talvez tenha sido criada do outro lado sem a gente saber.
+ * Desistir cedo demais é o jeito de emitir duas.
+ */
+construtor.Services.AddHttpClient<ClienteDoAsaas>(cliente =>
+    cliente.Timeout = TimeSpan.FromSeconds(20));
+
+/*
  * O cache fica por fora, envolvendo quem fala com a rede.
  *
  * Assim quem escreveu a consulta não precisa saber que existe cache, e quem
@@ -131,6 +141,7 @@ construtor.Services.AddScoped<IConsultaDeCep>(provedor => new ConsultaDeCepComCa
 /* --------------------------------------------------------- autenticação */
 
 construtor.Services.Configure<OpcoesDeToken>(construtor.Configuration.GetSection(OpcoesDeToken.Secao));
+construtor.Services.Configure<OpcoesDoAsaas>(construtor.Configuration.GetSection(OpcoesDoAsaas.Secao));
 construtor.Services.AddScoped<GeradorDeToken>();
 
 /* O relógio é um serviço para que a renovação de sessão seja testável sem esperar horas. */
@@ -460,6 +471,7 @@ app.MapEmpresas();
 app.MapPessoas();
 app.MapContratos();
 app.MapRecebiveis();
+app.MapCobrancas();
 app.MapConsultas();
 
 app.Run();

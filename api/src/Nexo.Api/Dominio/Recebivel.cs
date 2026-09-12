@@ -55,6 +55,27 @@ public class Recebivel
 
     public SituacaoRecebivel Situacao { get; set; } = SituacaoRecebivel.Aberto;
 
+    /* --------------------------------------------------------- cobrança */
+
+    /// <summary>
+    /// O identificador da cobrança no PSP. Vazio enquanto ninguém cobrou.
+    ///
+    /// Ter valor aqui quer dizer que existe boleto e Pix emitidos lá fora, em
+    /// nome deste recebível. É por isso que cobrar duas vezes o mesmo recebível
+    /// é recusado: a segunda emissão não substituiria a primeira, criaria uma
+    /// segunda cobrança do mesmo valor, e o cliente receberia dois boletos.
+    /// </summary>
+    public string CobrancaId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// A página onde o cliente escolhe entre boleto e Pix e paga.
+    ///
+    /// É o endereço que o escritório manda para ele. Guardar o link direto do
+    /// boleto no lugar deste fecharia a escolha na hora de mandar, que é antes
+    /// de o cliente ter opinião.
+    /// </summary>
+    public string CobrancaUrl { get; set; } = string.Empty;
+
     /* ------------------------------------------------------------ baixa */
 
     /// <summary>

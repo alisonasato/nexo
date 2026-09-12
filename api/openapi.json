@@ -891,6 +891,52 @@
         }
       }
     },
+    "/recebiveis/{id}/cobrar": {
+      "post": {
+        "tags": [
+          "Recebíveis"
+        ],
+        "summary": "Emite boleto e Pix para um recebível",
+        "description": "Cria a cobrança no PSP e guarda o link onde o cliente escolhe entre boleto e Pix. Recusa cobrar duas vezes o mesmo recebível: a segunda emissão não substituiria a primeira, e o cliente receberia dois boletos.",
+        "operationId": "CobrarRecebivel",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecebivelCobrado"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RespostaComProblemas"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
     "/recebiveis": {
       "get": {
         "tags": [
@@ -2145,6 +2191,27 @@
             "type": "string"
           },
           "sugestao": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "RecebivelCobrado": {
+        "required": [
+          "cobrancaId",
+          "cobrancaUrl",
+          "id"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "cobrancaId": {
+            "type": "string"
+          },
+          "cobrancaUrl": {
             "type": "string"
           }
         },
