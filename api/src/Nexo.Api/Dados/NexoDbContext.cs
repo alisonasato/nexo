@@ -14,6 +14,7 @@ public class NexoDbContext(DbContextOptions<NexoDbContext> opcoes)
     public DbSet<PessoaPapel> PessoaPapeis => Set<PessoaPapel>();
     public DbSet<Contrato> Contratos => Set<Contrato>();
     public DbSet<Recebivel> Recebiveis => Set<Recebivel>();
+    public DbSet<EventoDeCobranca> EventosDeCobranca => Set<EventoDeCobranca>();
 
     protected override void OnModelCreating(ModelBuilder modelo)
     {
@@ -89,6 +90,7 @@ public class NexoDbContext(DbContextOptions<NexoDbContext> opcoes)
             /* A busca da listagem ordena por nome; o índice evita varrer tudo. */
             pessoa.HasIndex(p => new { p.TenantId, p.Nome });
 
+            pessoa.Property(p => p.ClienteNoAsaas).HasMaxLength(60);
             pessoa.Property(p => p.Codigo).HasMaxLength(20);
             pessoa.Property(p => p.Responsavel).HasMaxLength(200);
             pessoa.HasIndex(p => new { p.TenantId, p.Codigo }).IsUnique();
@@ -149,6 +151,8 @@ public class NexoDbContext(DbContextOptions<NexoDbContext> opcoes)
             recebivel.HasKey(r => r.Id);
             recebivel.Property(r => r.Descricao).HasMaxLength(200);
             recebivel.Property(r => r.OrigemDaBaixa).HasMaxLength(30);
+            recebivel.Property(r => r.CobrancaId).HasMaxLength(60);
+            recebivel.Property(r => r.CobrancaUrl).HasMaxLength(300);
             recebivel.Property(r => r.MotivoDoCancelamento).HasMaxLength(200);
             recebivel.Property(r => r.Valor).HasPrecision(14, 2);
             recebivel.Property(r => r.ValorPago).HasPrecision(14, 2);
@@ -185,6 +189,29 @@ public class NexoDbContext(DbContextOptions<NexoDbContext> opcoes)
                 .WithMany()
                 .HasForeignKey(r => r.ContratoId)
                 .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelo.Entity<EventoDeCobranca>(evento =>
+        {
+            /*
+             * A chave é o identificador do evento no PSP, e é o que impede
+             * baixa dupla: duas entregas simultâneas do mesmo aviso viram uma
+             * inserção que passa e outra que o banco recusa. Uma checagem no
+             * código perderia exatamente esse caso.
+             *
+             * <b>E o tenant entra na chave.</b> O identificador do evento é
+             * único dentro de uma conta do PSP, e cada escritório tem a conta
+             * dele — o dinheiro cai na conta bancária dele. Chave só pelo id
+             * faria o evento de um escritório calar o evento homônimo de outro,
+             * e o segundo escritório ficaria sem a baixa de um pagamento que
+             * aconteceu, sem erro nenhum aparecendo em lugar nenhum.
+             */
+            evento.HasKey(e => new { e.TenantId, e.Id });
+            evento.Property(e => e.Id).HasMaxLength(200);
+            evento.Property(e => e.Tipo).HasMaxLength(60);
+            evento.Property(e => e.RecebidoEm).HasDefaultValueSql("now()");
+
+            evento.HasIndex(e => new { e.TenantId, e.RecebivelId });
         });
 
         modelo.Entity<Usuario>(usuario =>

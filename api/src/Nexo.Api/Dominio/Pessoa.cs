@@ -95,6 +95,22 @@ public class Pessoa
     /// </summary>
     public bool Ativo { get; set; } = true;
 
+    /// <summary>
+    /// O identificador desta pessoa no PSP. Vazio até a primeira cobrança.
+    ///
+    /// <para>
+    /// O PSP tem cadastro próprio de pagador, e a cobrança aponta para ele. Sem
+    /// guardar o identificador aqui, cada cobrança criaria um pagador novo lá —
+    /// o mesmo cliente repetido uma vez por mensalidade, e o histórico dele
+    /// espalhado por dezenas de cadastros que ninguém consegue juntar.
+    /// </para>
+    /// <para>
+    /// Só é preenchido para quem é cobrado. Fornecedor e colaborador nunca
+    /// chegam lá, e não deveriam.
+    /// </para>
+    /// </summary>
+    public string ClienteNoAsaas { get; set; } = string.Empty;
+
     public DateTimeOffset CriadoEm { get; set; }
     public DateTimeOffset AtualizadoEm { get; set; }
 }
