@@ -604,6 +604,40 @@
               "format": "int32",
               "default": 25
             }
+          },
+          {
+            "name": "ordenarPor",
+            "in": "query",
+            "schema": {
+              "enum": [
+                "Nome",
+                "Codigo"
+              ],
+              "type": "string",
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/OrdemDaListagem"
+                }
+              ],
+              "default": 1
+            }
+          },
+          {
+            "name": "direcao",
+            "in": "query",
+            "schema": {
+              "enum": [
+                "Crescente",
+                "Decrescente"
+              ],
+              "type": "string",
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Direcao"
+                }
+              ],
+              "default": 1
+            }
           }
         ],
         "responses": {
@@ -1506,6 +1540,13 @@
         },
         "additionalProperties": false
       },
+      "Direcao": {
+        "enum": [
+          "Crescente",
+          "Decrescente"
+        ],
+        "type": "string"
+      },
       "EmpresaDoCnpj": {
         "required": [
           "bairro",
@@ -1626,6 +1667,13 @@
           }
         },
         "additionalProperties": false
+      },
+      "OrdemDaListagem": {
+        "enum": [
+          "Nome",
+          "Codigo"
+        ],
+        "type": "string"
       },
       "PaginaDeContratos": {
         "required": [

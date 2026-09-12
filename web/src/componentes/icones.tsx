@@ -84,6 +84,32 @@ export function IconeDeAbrir({ className }: Props) {
   );
 }
 
+/**
+ * O estado da ordenação de uma coluna.
+ *
+ * Os três desenhos são da mesma família e do mesmo tamanho, então trocar de
+ * estado não mexe no alinhamento do cabeçalho. O neutro é de dois sentidos, que
+ * é o convite: dá para ordenar, e ainda não está ordenado por aqui.
+ */
+export function IconeDeOrdenacao({
+  estado,
+  className = "size-3.5",
+}: Props & { estado: "neutro" | "crescente" | "decrescente" }) {
+  if (estado === "neutro") {
+    return (
+      <Traco className={className}>
+        <path d="M8 9 12 5l4 4M8 15l4 4 4-4" />
+      </Traco>
+    );
+  }
+
+  return (
+    <Traco className={className}>
+      {estado === "crescente" ? <path d="m6 14 6-6 6 6" /> : <path d="m6 10 6 6 6-6" />}
+    </Traco>
+  );
+}
+
 export function IconeDeSeta({ className }: Props) {
   return (
     <Traco className={className}>

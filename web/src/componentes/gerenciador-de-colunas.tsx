@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import { Botao } from "@/componentes/controles";
+import { IconeDeOrdenacao } from "@/componentes/icones";
 import {
   colunasDisponiveis,
   type EscolhaDeColuna,
@@ -109,9 +110,9 @@ export function GerenciadorDeColunas({ escolhas, aoAplicar, aoFechar }: Props) {
               onClick={() => mover(indice, -1)}
               disabled={indice === 0}
               aria-label={`Subir ${titulos.get(escolha.chave)}`}
-              className="rounded border border-borda-forte px-1.5 text-xs text-slate-600 transition-colors hover:bg-slate-100 disabled:cursor-not-allowed disabled:text-slate-300"
+              className="inline-flex size-7 items-center justify-center rounded border border-borda-forte text-slate-600 transition-colors hover:bg-slate-100 disabled:cursor-not-allowed disabled:text-slate-300"
             >
-              ▲
+              <IconeDeOrdenacao estado="crescente" />
             </button>
 
             <button
@@ -119,9 +120,9 @@ export function GerenciadorDeColunas({ escolhas, aoAplicar, aoFechar }: Props) {
               onClick={() => mover(indice, 1)}
               disabled={indice === rascunho.length - 1}
               aria-label={`Descer ${titulos.get(escolha.chave)}`}
-              className="rounded border border-borda-forte px-1.5 text-xs text-slate-600 transition-colors hover:bg-slate-100 disabled:cursor-not-allowed disabled:text-slate-300"
+              className="inline-flex size-7 items-center justify-center rounded border border-borda-forte text-slate-600 transition-colors hover:bg-slate-100 disabled:cursor-not-allowed disabled:text-slate-300"
             >
-              ▼
+              <IconeDeOrdenacao estado="decrescente" />
             </button>
           </li>
         ))}

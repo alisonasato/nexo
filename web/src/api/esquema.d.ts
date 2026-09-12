@@ -473,6 +473,8 @@ export interface components {
         DadosDoCancelamento: {
             motivo?: string | null;
         };
+        /** @enum {string} */
+        Direcao: "Crescente" | "Decrescente";
         EmpresaDoCnpj: {
             cnpj: string;
             razaoSocial: string;
@@ -504,6 +506,8 @@ export interface components {
         FalhaDeEntrada: {
             mensagem: string;
         };
+        /** @enum {string} */
+        OrdemDaListagem: "Nome" | "Codigo";
         PaginaDeContratos: {
             itens: components["schemas"]["ContratoNaLista"][];
             /** Format: int32 */
@@ -1120,6 +1124,8 @@ export interface operations {
                 incluirInativos?: boolean;
                 pagina?: number;
                 tamanho?: number;
+                ordenarPor?: "Nome" | "Codigo";
+                direcao?: "Crescente" | "Decrescente";
             };
             header?: never;
             path?: never;

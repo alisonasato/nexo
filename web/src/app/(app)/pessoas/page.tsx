@@ -18,6 +18,7 @@ import {
   IconeDeColunas,
   IconeDeCopiar,
   IconeDeFiltro,
+  IconeDeOrdenacao,
   IconeDeSeta,
 } from "@/componentes/icones";
 import type { components } from "@/api/esquema";
@@ -35,6 +36,8 @@ import { useSelecaoPorConsulta } from "./selecao";
 type Papel = components["schemas"]["Papel"];
 type PessoaNaLista = components["schemas"]["PessoaNaLista"];
 type Problema = components["schemas"]["Problema"];
+type OrdemDaListagem = components["schemas"]["OrdemDaListagem"];
+type Direcao = components["schemas"]["Direcao"];
 
 const papeis: Papel[] = ["Cliente", "Fornecedor", "Vendedor", "Colaborador"];
 
@@ -63,6 +66,19 @@ export default function ListagemDePessoas() {
   const [filtrosAbertos, definirFiltrosAbertos] = useState(false);
   const [inativando, definirInativando] = useState(false);
 
+  /*
+   * A ordem vai para a API, e não para um `sort` aqui.
+   *
+   * Ordenar no navegador ordenaria a página, não a lista: com 25 de 300, o
+   * resultado seria uma ordem perfeita dentro de um recorte arbitrário, e a
+   * página 2 traria nomes que deviam vir antes dos da página 1. Plausível e
+   * errado, que é o jeito mais caro de errar.
+   */
+  const [ordem, definirOrdem] = useState<{ por: OrdemDaListagem; direcao: Direcao }>({
+    por: "Nome",
+    direcao: "Crescente",
+  });
+
   const escolhas = useSyncExternalStore(assinarEscolhas, escolhasEmUso, escolhasNoServidor);
   const colunas = colunasVisiveis(escolhas);
 
@@ -80,7 +96,7 @@ export default function ListagemDePessoas() {
     return () => clearTimeout(relogio);
   }, [busca]);
 
-  const consulta = { termo, papel, pagina, tamanho, incluirInativas };
+  const consulta = { termo, papel, pagina, tamanho, incluirInativas, ordem };
 
   const pessoas = useQuery({
     queryKey: ["pessoas", consulta],
@@ -90,6 +106,8 @@ export default function ListagemDePessoas() {
           query: {
             pagina,
             tamanho,
+            ordenarPor: ordem.por,
+            direcao: ordem.direcao,
             ...(termo ? { busca: termo } : {}),
             ...(papel ? { papel } : {}),
             ...(incluirInativas ? { incluirInativos: true } : {}),
@@ -117,6 +135,25 @@ export default function ListagemDePessoas() {
   }
 
   const abrir = (id: string) => navegacao.push(`/pessoas/${id}`);
+
+  /**
+   * Clicar no cabeçalho ordena por ele; clicar de novo inverte.
+   *
+   * Coluna nova começa sempre crescente. Herdar a direção da coluna anterior
+   * faria o primeiro clique num cabeçalho devolver a ordem de trás para a
+   * frente, que ninguém pede ao clicar pela primeira vez.
+   */
+  function ordenarPor(por: OrdemDaListagem) {
+    definirOrdem((atual) =>
+      atual.por === por
+        ? { por, direcao: atual.direcao === "Crescente" ? "Decrescente" : "Crescente" }
+        : { por, direcao: "Crescente" },
+    );
+
+    /* A página 3 da ordem antiga não é a página 3 da nova. */
+    definirPagina(1);
+    selecao.limpar();
+  }
 
   /**
    * Inativa o que está marcado, uma requisição por cadastro.
@@ -507,15 +544,65 @@ export default function ListagemDePessoas() {
                       />
                     </th>
 
-                    {colunas.map((coluna) => (
-                      <th
-                        key={coluna.chave}
-                        scope="col"
-                        className={`px-4 py-3 font-semibold ${classeDeAlinhamento(coluna)}`}
-                      >
-                        {coluna.titulo}
-                      </th>
-                    ))}
+                    {colunas.map((coluna) => {
+                      const ativa = coluna.ordenarPor === ordem.por;
+
+                      return (
+                        <th
+                          key={coluna.chave}
+                          scope="col"
+                          /*
+                            `aria-sort` é o que faz um leitor de tela anunciar
+                            "ordenado de forma crescente" ao chegar na coluna.
+                            Sem ele, a seta é informação só para quem enxerga.
+                          */
+                          aria-sort={
+                            !coluna.ordenarPor || !ativa
+                              ? undefined
+                              : ordem.direcao === "Crescente"
+                                ? "ascending"
+                                : "descending"
+                          }
+                          className={`font-semibold ${classeDeAlinhamento(coluna)} ${coluna.ordenarPor ? "p-0" : "px-4 py-3"}`}
+                        >
+                          {coluna.ordenarPor ? (
+                            <button
+                              type="button"
+                              onClick={() => ordenarPor(coluna.ordenarPor!)}
+                              className={
+                                "inline-flex w-full cursor-pointer items-center gap-1.5 px-4 py-3 text-xs tracking-wide uppercase transition-colors hover:bg-slate-100 " +
+                                (coluna.alinhamento === "direita"
+                                  ? "justify-end"
+                                  : coluna.alinhamento === "centro"
+                                    ? "justify-center"
+                                    : "justify-start") +
+                                (ativa ? " text-slate-800" : "")
+                              }
+                            >
+                              {coluna.titulo}
+                              {/*
+                                O ícone ocupa o mesmo espaço nos três estados,
+                                então ordenar não faz o cabeçalho pular de
+                                largura. Inativo, ele fica pálido — convite, não
+                                informação.
+                              */}
+                              <IconeDeOrdenacao
+                                estado={
+                                  !ativa
+                                    ? "neutro"
+                                    : ordem.direcao === "Crescente"
+                                      ? "crescente"
+                                      : "decrescente"
+                                }
+                                className={ativa ? "size-3.5 text-marca-600" : "size-3.5 text-slate-300"}
+                              />
+                            </button>
+                          ) : (
+                            <span className="block px-4 py-3">{coluna.titulo}</span>
+                          )}
+                        </th>
+                      );
+                    })}
 
                     <th scope="col" className="w-px px-4 py-3">
                       <span className="sr-only">Ações</span>
