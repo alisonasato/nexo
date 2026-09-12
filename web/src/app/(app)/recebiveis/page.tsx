@@ -17,11 +17,25 @@ import {
   mascararDinheiro,
   valorDosDigitos,
 } from "@/lib/dinheiro";
+import { useConsultaDaUrl } from "@/lib/estado-na-url";
+import { CabecalhoOrdenavel, useOrdenacao } from "@/componentes/tabela";
 
 type SituacaoRecebivel = components["schemas"]["SituacaoRecebivel"];
+type RecebivelNaLista = components["schemas"]["RecebivelNaLista"];
+type OrdemDeRecebiveis = components["schemas"]["OrdemDeRecebiveis"];
 type Problema = components["schemas"]["Problema"];
 
 const hojeIso = () => new Date().toISOString().slice(0, 10);
+
+/**
+ * Os botões de ação: altura de dedo no celular, compactos na tabela.
+ *
+ * No cartão eles são a ação principal da linha, e 44 pixels é o mínimo que o
+ * polegar acerta sem mirar — ainda mais com <b>Cancelar</b> encostado em
+ * <b>Baixar</b>. Na tabela, onde quem clica é ponteiro e há um por linha, a
+ * altura cheia engordaria a lista sem ganho nenhum.
+ */
+const compacto = "min-h-11 px-4 text-xs md:min-h-0 md:px-3 md:py-1";
 
 function problemasDaResposta(erro: unknown): Problema[] {
   if (erro && typeof erro === "object" && "problemas" in erro && Array.isArray(erro.problemas)) {
@@ -33,8 +47,23 @@ function problemasDaResposta(erro: unknown): Problema[] {
 export default function ListagemDeRecebiveis() {
   const clienteDeConsultas = useQueryClient();
 
-  const [situacao, definirSituacao] = useState<SituacaoRecebivel | "">("");
-  const [pagina, definirPagina] = useState(1);
+  /*
+   * Situação, página e ordem moram na URL, como nas outras duas listagens: a
+   * lista vira link, e "os vencidos deste mês" passa a ser algo que se manda a
+   * alguém em vez de descrever por escrito.
+   *
+   * O formulário da cobrança avulsa <b>não</b> mora lá. Ele não recorta a
+   * lista, e um link que já viesse com cliente e valor preenchidos seria um
+   * convite a lançar cobrança que ninguém conferiu.
+   */
+  const { ler, gravar, estabilizada } = useConsultaDaUrl("/recebiveis");
+
+  const situacao = (ler("situacao") ?? "") as SituacaoRecebivel | "";
+  const pagina = Math.max(1, Number(ler("pagina")) || 1);
+
+  const { ordenarPor, ...ordem } = useOrdenacao<OrdemDeRecebiveis>({ ler, gravar }, "Vencimento");
+
+  const definirPagina = (numero: number) => gravar({ pagina: numero === 1 ? null : numero });
 
   /* Qual recebível está com o formulário de baixa aberto. */
   const [baixando, definirBaixando] = useState<string | null>(null);
@@ -58,14 +87,24 @@ export default function ListagemDeRecebiveis() {
   const [problemasDoAvulso, definirProblemasDoAvulso] = useState<Problema[]>([]);
 
   const recebiveis = useQuery({
-    queryKey: ["recebiveis", situacao, pagina],
+    queryKey: ["recebiveis", situacao, pagina, ordem],
     queryFn: async () => {
       const { data, error } = await api.GET("/recebiveis", {
-        params: { query: { pagina, ...(situacao ? { situacao } : {}) } },
+        params: {
+          query: {
+            pagina,
+            ordenarPor: ordem.por,
+            direcao: ordem.direcao,
+            ...(situacao ? { situacao } : {}),
+          },
+        },
       });
       if (error || !data) throw new Error("Não foi possível carregar os recebíveis.");
       return data;
     },
+    /* Chegando por navegação, o primeiro render enxerga a URL da tela anterior:
+       consultar ali sairia com o recorte errado. */
+    enabled: estabilizada,
   });
 
   const baixar = useMutation({
@@ -174,6 +213,188 @@ export default function ListagemDeRecebiveis() {
 
   const resumo = recebiveis.data;
   const hoje = hojeIso();
+
+  /*
+   * Tarja e ações são as mesmas no cartão e na tabela, e vivem aqui dentro
+   * porque dependem de meia dúzia de estados desta tela — qual linha está em
+   * baixa, qual está em cancelamento, o que foi digitado. Passar tudo isso
+   * para um componente de fora seria uma lista de propriedades maior que o
+   * componente.
+   */
+  function tarja(item: RecebivelNaLista, vencido: boolean) {
+    return (
+      <span
+        className={
+          "rounded-full px-2 py-0.5 text-xs font-semibold " +
+          (item.situacao === "Pago"
+            ? "bg-emerald-50 text-emerald-800"
+            : item.situacao === "Cancelado"
+              ? "bg-slate-100 text-slate-600 line-through"
+              : vencido
+                ? "bg-red-50 text-red-800"
+                : "bg-slate-100 text-slate-600")
+        }
+      >
+        {item.situacao === "Pago"
+          ? "Pago"
+          : item.situacao === "Cancelado"
+            ? "Cancelado"
+            : vencido
+              ? "Vencido"
+              : "Em aberto"}
+      </span>
+    );
+  }
+
+  function acoes(item: RecebivelNaLista) {
+    if (item.situacao === "Cancelado") return <span className="text-xs text-slate-400">—</span>;
+
+    if (cancelando === item.id) {
+      return (
+        <div className="flex flex-col items-stretch gap-2 md:items-end">
+          <div className="md:w-56">
+            <Entrada
+              rotulo="Motivo do cancelamento"
+              autoFocus
+              value={motivo}
+              onChange={(evento) => definirMotivo(evento.target.value)}
+              ajuda="Quem olhar isto daqui a seis meses vai perguntar."
+            />
+          </div>
+
+          <div className="flex gap-2 md:justify-end">
+            <Botao
+              aparencia="secundario"
+              type="button"
+              className={compacto}
+              onClick={() => {
+                definirCancelando(null);
+                definirMotivo("");
+                definirFalha(null);
+              }}
+            >
+              Voltar
+            </Botao>
+            <Botao
+              aparencia="perigo"
+              type="button"
+              className={compacto}
+              disabled={cancelar.isPending || motivo.trim().length === 0}
+              onClick={() => cancelar.mutate(item.id)}
+            >
+              {cancelar.isPending ? "Cancelando…" : "Confirmar"}
+            </Botao>
+          </div>
+
+          {falha && (
+            <p role="alert" className="text-xs text-red-700 md:max-w-xs md:text-right">
+              {falha}
+            </p>
+          )}
+        </div>
+      );
+    }
+
+    if (item.situacao === "Pago") {
+      return (
+        <Botao
+          aparencia="secundario"
+          type="button"
+          className={compacto}
+          disabled={estornar.isPending}
+          onClick={() => estornar.mutate(item.id)}
+        >
+          Estornar
+        </Botao>
+      );
+    }
+
+    if (baixando === item.id) {
+      return (
+        <div className="flex flex-col items-stretch gap-2 md:items-end">
+          <div className="flex flex-wrap items-end gap-2 md:justify-end">
+            <div className="w-32">
+              <EntradaMascarada
+                rotulo="Recebido"
+                className="text-right"
+                autoFocus
+                digitos={valorDigitado}
+                mascara={mascararDinheiro}
+                aoMudar={definirValorDigitado}
+              />
+            </div>
+            <div className="w-40">
+              <Entrada
+                rotulo="Data"
+                type="date"
+                value={dataDaBaixa}
+                onChange={(evento) => definirDataDaBaixa(evento.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="flex gap-2 md:justify-end">
+            <Botao
+              aparencia="secundario"
+              type="button"
+              className={compacto}
+              onClick={() => {
+                definirBaixando(null);
+                definirFalha(null);
+              }}
+            >
+              Cancelar
+            </Botao>
+            <Botao
+              type="button"
+              className={compacto}
+              disabled={baixar.isPending}
+              onClick={() => baixar.mutate(item.id)}
+            >
+              {baixar.isPending ? "Registrando…" : "Confirmar"}
+            </Botao>
+          </div>
+
+          {falha && (
+            <p role="alert" className="text-xs text-red-700 md:max-w-xs md:text-right">
+              {falha}
+            </p>
+          )}
+        </div>
+      );
+    }
+
+    return (
+      <div className="flex gap-2 md:justify-end">
+        <Botao
+          aparencia="secundario"
+          type="button"
+          className={compacto}
+          onClick={() => {
+            definirCancelando(item.id);
+            definirMotivo("");
+            definirFalha(null);
+          }}
+        >
+          Cancelar
+        </Botao>
+        <Botao
+          aparencia="secundario"
+          type="button"
+          className={compacto}
+          onClick={() => {
+            definirBaixando(item.id);
+            definirFalha(null);
+            /* O valor cobrado já vem preenchido: é o caso comum. */
+            definirValorDigitado(digitosDoValor(item.valor));
+            definirDataDaBaixa(hojeIso());
+          }}
+        >
+          Baixar
+        </Botao>
+      </div>
+    );
+  }
 
   return (
     <>
@@ -328,13 +549,11 @@ export default function ListagemDeRecebiveis() {
             <button
               key={rotulo}
               type="button"
-              onClick={() => {
-                definirSituacao(valor as SituacaoRecebivel | "");
-                definirPagina(1);
-              }}
+              /* A página sete de uma situação não é a página sete de outra. */
+              onClick={() => gravar({ situacao: valor, pagina: null })}
               aria-pressed={situacao === valor}
               className={
-                "rounded-full px-3 py-1 text-sm font-medium transition-colors " +
+                "inline-flex min-h-9 items-center rounded-full px-3.5 text-sm font-medium transition-colors " +
                 (situacao === valor
                   ? "bg-marca-600 text-white"
                   : "border border-borda-forte bg-superficie text-slate-700 hover:bg-slate-50")
@@ -363,15 +582,114 @@ export default function ListagemDeRecebiveis() {
         )}
 
         {resumo && resumo.itens.length > 0 && (
-          <div className="overflow-x-auto rounded-[--radius-cartao] border border-borda bg-superficie shadow-nivel-1">
+          <>
+            {/*
+            No celular, cartão; da largura média para cima, tabela.
+
+            Aqui a tabela é a que menos cabe das três: seis colunas, e a última
+            abre formulário de baixa dentro da célula. Rolando de lado, quem
+            fosse baixar uma cobrança precisaria achar a coluna certa antes de
+            começar — e o valor e o vencimento, que são o que se confere antes
+            de confirmar, teriam ficado para trás.
+          */}
+          <ul className="flex flex-col gap-3 md:hidden">
+            {resumo.itens.map((item) => {
+              const vencido = item.situacao === "Aberto" && item.vencimento < hoje;
+
+              return (
+                <li key={item.id}>
+                  <article className="rounded-[--radius-cartao] border border-borda bg-superficie p-4 shadow-nivel-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="numeros-tabulares text-slate-600">
+                        {item.codigoDaPessoa}
+                      </span>
+                      <span className="font-semibold text-slate-800">{item.nomeDaPessoa}</span>
+                      {tarja(item, vencido)}
+                    </div>
+
+                    <p className="mt-1 text-slate-600">{item.descricao}</p>
+
+                    <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
+                      <dt className="text-xs tracking-wide text-slate-400 uppercase">Competência</dt>
+                      <dd className="text-slate-700">
+                        {formatarCompetencia(item.competenciaAno, item.competenciaMes)}
+                      </dd>
+
+                      <dt className="text-xs tracking-wide text-slate-400 uppercase">Vence</dt>
+                      <dd
+                        className={
+                          "numeros-tabulares " +
+                          (vencido ? "font-semibold text-red-700" : "text-slate-700")
+                        }
+                      >
+                        {formatarData(item.vencimento)}
+                      </dd>
+
+                      <dt className="text-xs tracking-wide text-slate-400 uppercase">Valor</dt>
+                      <dd className="numeros-tabulares font-medium text-slate-800">
+                        {formatarValor(item.valor)}
+                        {/* != null cobre nulo e ausente: o contrato admite os dois. */}
+                        {item.valorPago != null && item.valorPago !== item.valor && (
+                          <span className="block font-normal text-emerald-700">
+                            recebido {formatarValor(item.valorPago)}
+                          </span>
+                        )}
+                      </dd>
+
+                      {item.pagoEm && (
+                        <>
+                          <dt className="text-xs tracking-wide text-slate-400 uppercase">Baixado</dt>
+                          <dd className="numeros-tabulares text-slate-700">
+                            {formatarData(item.pagoEm)}
+                          </dd>
+                        </>
+                      )}
+
+                      {item.motivoDoCancelamento && (
+                        <>
+                          <dt className="text-xs tracking-wide text-slate-400 uppercase">Motivo</dt>
+                          <dd className="min-w-0 text-slate-600">{item.motivoDoCancelamento}</dd>
+                        </>
+                      )}
+                    </dl>
+
+                    <div className="mt-3 border-t border-borda pt-3">{acoes(item)}</div>
+                  </article>
+                </li>
+              );
+            })}
+          </ul>
+
+          <div className="hidden overflow-x-auto rounded-[--radius-cartao] border border-borda bg-superficie shadow-nivel-1 md:block">
             <table className="w-full min-w-3xl border-collapse text-left">
               <thead>
-                <tr className="border-b border-borda text-xs tracking-wide text-slate-500 uppercase">
-                  <th scope="col" className="px-4 py-3 font-semibold">Cliente</th>
-                  <th scope="col" className="px-4 py-3 font-semibold">Competência</th>
-                  <th scope="col" className="px-4 py-3 font-semibold">Vencimento</th>
-                  <th scope="col" className="px-4 py-3 text-right font-semibold">Valor</th>
-                  <th scope="col" className="px-4 py-3 font-semibold">Situação</th>
+                <tr className="border-b border-borda bg-slate-50/60 text-xs tracking-wide text-slate-500 uppercase">
+                  <CabecalhoOrdenavel
+                    titulo="Cliente"
+                    por="Cliente"
+                    ordem={ordem}
+                    aoOrdenar={ordenarPor}
+                  />
+                  <CabecalhoOrdenavel
+                    titulo="Competência"
+                    por="Competencia"
+                    ordem={ordem}
+                    aoOrdenar={ordenarPor}
+                  />
+                  <CabecalhoOrdenavel
+                    titulo="Vencimento"
+                    por="Vencimento"
+                    ordem={ordem}
+                    aoOrdenar={ordenarPor}
+                  />
+                  <CabecalhoOrdenavel
+                    titulo="Valor"
+                    alinhamento="direita"
+                    por="Valor"
+                    ordem={ordem}
+                    aoOrdenar={ordenarPor}
+                  />
+                  <CabecalhoOrdenavel titulo="Situação" ordem={ordem} aoOrdenar={ordenarPor} />
                   <th scope="col" className="px-4 py-3 text-right font-semibold">
                     <span className="sr-only">Ações</span>
                   </th>
@@ -380,9 +698,6 @@ export default function ListagemDeRecebiveis() {
               <tbody>
                 {resumo.itens.map((item) => {
                   const vencido = item.situacao === "Aberto" && item.vencimento < hoje;
-                  const emBaixa = baixando === item.id;
-                  const emCancelamento = cancelando === item.id;
-
                   return (
                     <tr
                       key={item.id}
@@ -416,26 +731,7 @@ export default function ListagemDeRecebiveis() {
                         )}
                       </td>
                       <td className="px-4 py-3">
-                        <span
-                          className={
-                            "rounded-full px-2 py-0.5 text-xs font-semibold " +
-                            (item.situacao === "Pago"
-                              ? "bg-emerald-50 text-emerald-800"
-                              : item.situacao === "Cancelado"
-                                ? "bg-slate-100 text-slate-600 line-through"
-                                : vencido
-                                  ? "bg-red-50 text-red-800"
-                                  : "bg-slate-100 text-slate-600")
-                          }
-                        >
-                          {item.situacao === "Pago"
-                            ? "Pago"
-                            : item.situacao === "Cancelado"
-                              ? "Cancelado"
-                              : vencido
-                                ? "Vencido"
-                                : "Em aberto"}
-                        </span>
+                        {tarja(item, vencido)}
                         {item.motivoDoCancelamento && (
                           <span className="mt-1 block max-w-48 text-xs text-slate-600">
                             {item.motivoDoCancelamento}
@@ -447,149 +743,14 @@ export default function ListagemDeRecebiveis() {
                           </span>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-right">
-                        {item.situacao === "Cancelado" ? (
-                          <span className="text-xs text-slate-400">—</span>
-                        ) : emCancelamento ? (
-                          <div className="flex flex-col items-end gap-2">
-                            <div className="w-56">
-                              <Entrada
-                                rotulo="Motivo do cancelamento"
-                                autoFocus
-                                value={motivo}
-                                onChange={(evento) => definirMotivo(evento.target.value)}
-                                ajuda="Quem olhar isto daqui a seis meses vai perguntar."
-                              />
-                            </div>
-
-                            <div className="flex gap-2">
-                              <Botao
-                                aparencia="secundario"
-                                type="button"
-                                className="px-3 py-1 text-xs"
-                                onClick={() => {
-                                  definirCancelando(null);
-                                  definirMotivo("");
-                                  definirFalha(null);
-                                }}
-                              >
-                                Voltar
-                              </Botao>
-                              <Botao
-                                aparencia="perigo"
-                                type="button"
-                                className="px-3 py-1 text-xs"
-                                disabled={cancelar.isPending || motivo.trim().length === 0}
-                                onClick={() => cancelar.mutate(item.id)}
-                              >
-                                {cancelar.isPending ? "Cancelando…" : "Confirmar"}
-                              </Botao>
-                            </div>
-
-                            {falha && (
-                              <p role="alert" className="max-w-xs text-right text-xs text-red-700">
-                                {falha}
-                              </p>
-                            )}
-                          </div>
-                        ) : item.situacao === "Pago" ? (
-                          <Botao
-                            aparencia="secundario"
-                            type="button"
-                            className="px-3 py-1 text-xs"
-                            disabled={estornar.isPending}
-                            onClick={() => estornar.mutate(item.id)}
-                          >
-                            Estornar
-                          </Botao>
-                        ) : emBaixa ? (
-                          <div className="flex flex-col items-end gap-2">
-                            <div className="flex flex-wrap items-end justify-end gap-2">
-                              <div className="w-32">
-                                <EntradaMascarada
-                                  rotulo="Recebido"
-                                  className="text-right"
-                                  autoFocus
-                                  digitos={valorDigitado}
-                                  mascara={mascararDinheiro}
-                                  aoMudar={definirValorDigitado}
-                                />
-                              </div>
-                              <div className="w-40">
-                                <Entrada
-                                  rotulo="Data"
-                                  type="date"
-                                  value={dataDaBaixa}
-                                  onChange={(evento) => definirDataDaBaixa(evento.target.value)}
-                                />
-                              </div>
-                            </div>
-
-                            <div className="flex gap-2">
-                              <Botao
-                                aparencia="secundario"
-                                type="button"
-                                className="px-3 py-1 text-xs"
-                                onClick={() => {
-                                  definirBaixando(null);
-                                  definirFalha(null);
-                                }}
-                              >
-                                Cancelar
-                              </Botao>
-                              <Botao
-                                type="button"
-                                className="px-3 py-1 text-xs"
-                                disabled={baixar.isPending}
-                                onClick={() => baixar.mutate(item.id)}
-                              >
-                                {baixar.isPending ? "Registrando…" : "Confirmar"}
-                              </Botao>
-                            </div>
-
-                            {falha && (
-                              <p role="alert" className="max-w-xs text-right text-xs text-red-700">
-                                {falha}
-                              </p>
-                            )}
-                          </div>
-                        ) : (
-                          <div className="flex justify-end gap-2">
-                            <Botao
-                              aparencia="secundario"
-                              type="button"
-                              className="px-3 py-1 text-xs"
-                              onClick={() => {
-                                definirCancelando(item.id);
-                                definirMotivo("");
-                                definirFalha(null);
-                              }}
-                            >
-                              Cancelar
-                            </Botao>
-                            <Botao
-                              aparencia="secundario"
-                              type="button"
-                              className="px-3 py-1 text-xs"
-                              onClick={() => {
-                                definirBaixando(item.id);
-                                definirFalha(null);
-                                /* O valor cobrado já vem preenchido: é o caso comum. */
-                                definirValorDigitado(digitosDoValor(item.valor));
-                                definirDataDaBaixa(hojeIso());
-                              }}
-                            >
-                              Baixar
-                            </Botao>
-                          </div>
-                        )}
-                      </td>
+                      <td className="px-4 py-3 text-right">{acoes(item)}</td>
                     </tr>
                   );
                 })}
               </tbody>
             </table>
-          </div>
+            </div>
+          </>
         )}
 
         {resumo && resumo.itens.length > 0 && (

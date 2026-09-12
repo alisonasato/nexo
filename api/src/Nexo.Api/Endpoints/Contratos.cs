@@ -59,12 +59,14 @@ public static class Contratos
         [FromQuery] string? busca = null,
         [FromQuery] SituacaoContrato? situacao = null,
         [FromQuery] int pagina = 1,
-        [FromQuery] int tamanho = 25)
+        [FromQuery] int tamanho = 25,
+        [FromQuery] OrdemDeContratos ordenarPor = OrdemDeContratos.Codigo,
+        [FromQuery] Direcao direcao = Direcao.Crescente)
     {
         pagina = Math.Max(1, pagina);
         tamanho = Math.Clamp(tamanho, 1, 200);
 
-        var consulta = banco.Contratos.AsNoTracking();
+        IQueryable<Contrato> consulta = banco.Contratos.AsNoTracking();
 
         if (!string.IsNullOrWhiteSpace(busca))
         {
@@ -93,8 +95,7 @@ public static class Contratos
             .Select(contrato => (decimal?)contrato.Valor)
             .SumAsync(cancelamento) ?? 0m;
 
-        var itens = await consulta
-            .OrderBy(contrato => contrato.Codigo)
+        var itens = await Ordenar(consulta, ordenarPor, direcao)
             .Skip((pagina - 1) * tamanho)
             .Take(tamanho)
             .Select(contrato => new ContratoNaLista(
@@ -110,6 +111,55 @@ public static class Contratos
             .ToListAsync(cancelamento);
 
         return Results.Ok(new PaginaDeContratos(itens, total, pagina, tamanho, totalMensalAtivo));
+    }
+
+    /// <summary>
+    /// A ordem da listagem, decidida no banco — ver <see cref="Direcao"/>.
+    ///
+    /// <para>
+    /// <b>Código ordena pelo comprimento antes do texto.</b> Diferente do de
+    /// pessoa, este vem preenchido com zeros — <c>C0001</c> —, então até o
+    /// milésimo nono centésimo nonagésimo nono a ordem de texto já é a
+    /// numérica. Do <c>C10000</c> em diante ela deixa de ser, e o contrato mais
+    /// novo do escritório apareceria no meio da lista. Comparar o tamanho antes
+    /// resolve isso hoje, quando não custa nada, em vez de no dia em que
+    /// custar.
+    /// </para>
+    /// <para>
+    /// <b>Valor é a coluna em que o empate é a regra</b>, e não a exceção: meia
+    /// dúzia de clientes na mesma faixa de honorário paga exatamente o mesmo.
+    /// Por isso toda ordem daqui termina no identificador.
+    /// </para>
+    /// </summary>
+    private static IOrderedQueryable<Contrato> Ordenar(
+        IQueryable<Contrato> consulta,
+        OrdemDeContratos por,
+        Direcao direcao)
+    {
+        var decrescente = direcao == Direcao.Decrescente;
+
+        IOrderedQueryable<Contrato> ordenada = por switch
+        {
+            OrdemDeContratos.Cliente => decrescente
+                ? consulta.OrderByDescending(contrato => contrato.Pessoa!.Nome)
+                : consulta.OrderBy(contrato => contrato.Pessoa!.Nome),
+
+            OrdemDeContratos.Valor => decrescente
+                ? consulta.OrderByDescending(contrato => contrato.Valor)
+                : consulta.OrderBy(contrato => contrato.Valor),
+
+            OrdemDeContratos.Vencimento => decrescente
+                ? consulta.OrderByDescending(contrato => contrato.DiaDeVencimento)
+                : consulta.OrderBy(contrato => contrato.DiaDeVencimento),
+
+            _ => decrescente
+                ? consulta.OrderByDescending(contrato => contrato.Codigo.Length)
+                    .ThenByDescending(contrato => contrato.Codigo)
+                : consulta.OrderBy(contrato => contrato.Codigo.Length)
+                    .ThenBy(contrato => contrato.Codigo),
+        };
+
+        return ordenada.ThenBy(contrato => contrato.Id);
     }
 
     private static async Task<IResult> Obter(Guid id, NexoDbContext banco, CancellationToken cancelamento)
@@ -370,6 +420,15 @@ public record DadosDeContrato(
     DateOnly? FimDaVigencia,
     SituacaoContrato Situacao,
     string? Observacoes);
+
+/// <summary>Por qual coluna a listagem de contratos é ordenada.</summary>
+public enum OrdemDeContratos
+{
+    Codigo = 1,
+    Cliente = 2,
+    Valor = 3,
+    Vencimento = 4,
+}
 
 /// <param name="Total">Quantos contratos a seleção tem, e não quantos vieram nesta página.</param>
 /// <param name="TotalMensalAtivo">Soma dos contratos ativos, independente de busca e de página.</param>

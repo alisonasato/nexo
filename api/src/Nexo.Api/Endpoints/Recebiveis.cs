@@ -74,7 +74,9 @@ public static class Recebiveis
         [FromQuery] int? ano = null,
         [FromQuery] int? mes = null,
         [FromQuery] int pagina = 1,
-        [FromQuery] int tamanho = 25)
+        [FromQuery] int tamanho = 25,
+        [FromQuery] OrdemDeRecebiveis ordenarPor = OrdemDeRecebiveis.Vencimento,
+        [FromQuery] Direcao direcao = Direcao.Crescente)
     {
         pagina = Math.Max(1, pagina);
         tamanho = Math.Clamp(tamanho, 1, 200);
@@ -107,12 +109,7 @@ public static class Recebiveis
         var totalRecebido = await doPeriodo.Where(r => r.Situacao == SituacaoRecebivel.Pago)
             .Select(r => r.ValorPago).SumAsync(cancelamento) ?? 0m;
 
-        var itens = await daLista
-            .OrderBy(recebivel => recebivel.Vencimento)
-            /* Tamanho antes do texto: o código do cliente é número puro, e sem
-               isso o 10 viria antes do 2 dentro do mesmo vencimento. */
-            .ThenBy(recebivel => recebivel.Pessoa!.Codigo.Length)
-            .ThenBy(recebivel => recebivel.Pessoa!.Codigo)
+        var itens = await Ordenar(daLista, ordenarPor, direcao)
             .Skip((pagina - 1) * tamanho)
             .Take(tamanho)
             .Select(recebivel => new RecebivelNaLista(
@@ -133,6 +130,60 @@ public static class Recebiveis
 
         return Results.Ok(new PaginaDeRecebiveis(
             itens, total, pagina, tamanho, totalEmAberto, totalVencido, totalRecebido));
+    }
+
+    /// <summary>
+    /// A ordem da listagem, decidida no banco — ver <see cref="Direcao"/>.
+    ///
+    /// <para>
+    /// <b>Por vencimento é o padrão</b>, porque a pergunta que traz alguém a
+    /// esta tela é o que vence primeiro. Dentro do mesmo dia vem o código do
+    /// cliente, comparado pelo comprimento antes do texto: ele é número puro
+    /// guardado como texto, e sem isso o 10 viria antes do 2.
+    /// </para>
+    /// <para>
+    /// <b>Competência ordena por ano e depois por mês</b>, e não pelo texto
+    /// "03/2026" que a tela mostra: em texto, março de qualquer ano viria antes
+    /// de dezembro de qualquer outro.
+    /// </para>
+    /// <para>
+    /// Toda ordem daqui termina no identificador. Em valor, o empate é a regra:
+    /// mensalidade gerada de contrato sai idêntica para a carteira inteira.
+    /// </para>
+    /// </summary>
+    private static IOrderedQueryable<Recebivel> Ordenar(
+        IQueryable<Recebivel> consulta,
+        OrdemDeRecebiveis por,
+        Direcao direcao)
+    {
+        var decrescente = direcao == Direcao.Decrescente;
+
+        IOrderedQueryable<Recebivel> ordenada = por switch
+        {
+            OrdemDeRecebiveis.Cliente => decrescente
+                ? consulta.OrderByDescending(recebivel => recebivel.Pessoa!.Nome)
+                : consulta.OrderBy(recebivel => recebivel.Pessoa!.Nome),
+
+            OrdemDeRecebiveis.Valor => decrescente
+                ? consulta.OrderByDescending(recebivel => recebivel.Valor)
+                : consulta.OrderBy(recebivel => recebivel.Valor),
+
+            OrdemDeRecebiveis.Competencia => decrescente
+                ? consulta.OrderByDescending(recebivel => recebivel.CompetenciaAno)
+                    .ThenByDescending(recebivel => recebivel.CompetenciaMes)
+                : consulta.OrderBy(recebivel => recebivel.CompetenciaAno)
+                    .ThenBy(recebivel => recebivel.CompetenciaMes),
+
+            _ => decrescente
+                ? consulta.OrderByDescending(recebivel => recebivel.Vencimento)
+                    .ThenByDescending(recebivel => recebivel.Pessoa!.Codigo.Length)
+                    .ThenByDescending(recebivel => recebivel.Pessoa!.Codigo)
+                : consulta.OrderBy(recebivel => recebivel.Vencimento)
+                    .ThenBy(recebivel => recebivel.Pessoa!.Codigo.Length)
+                    .ThenBy(recebivel => recebivel.Pessoa!.Codigo),
+        };
+
+        return ordenada.ThenBy(recebivel => recebivel.Id);
     }
 
     /// <summary>
@@ -442,6 +493,15 @@ public record RecebivelNaLista(
     DateOnly? PagoEm,
     string OrigemDaBaixa,
     string MotivoDoCancelamento);
+
+/// <summary>Por qual coluna a listagem de recebíveis é ordenada.</summary>
+public enum OrdemDeRecebiveis
+{
+    Vencimento = 1,
+    Cliente = 2,
+    Competencia = 3,
+    Valor = 4,
+}
 
 /// <param name="Total">Quantos recebíveis a seleção tem, e não quantos vieram nesta página.</param>
 /// <param name="TotalEmAberto">Soma do que ainda não entrou, no período — independente do filtro de situação.</param>

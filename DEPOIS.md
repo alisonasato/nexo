@@ -28,8 +28,8 @@ e não atrapalha.
 
 ## Herdado do protótipo, ainda sem dono
 
-- Visão em cartão para as tabelas de contratos e recebíveis no celular. A de
-  pessoas já tem; as outras duas ainda rolam de lado.
+- ~~Visão em cartão para as tabelas de contratos e recebíveis no celular~~ —
+  feito. As três listagens viram cartão abaixo de 768 pixels.
 - Comissão padrão por categoria de produto.
 - Comissão fixa em reais, além do percentual.
 - Geração de lançamento a partir da venda.
@@ -83,16 +83,21 @@ e não atrapalha.
 
 ## Aberto pelo passo 4
 
-- O motor de telas declarativas (Q20). Sai por extração quando a segunda ou
-  terceira tela mostrar o que se repete — não antes. A listagem de pessoas já
-  tem colunas configuráveis, seleção e ordenação; quando contratos ou
-  recebíveis pedirem o mesmo, é a hora de extrair.
-- Ordenar as listagens de contratos e recebíveis. A de pessoas ordena por
-  código e por nome, com a ordem feita no banco; as outras duas têm ordem fixa.
-- ~~Estado da listagem na URL~~ — feito. A listagem de pessoas é
-  compartilhável por link e volta da edição no mesmo recorte. As armadilhas
-  estão no `DECISOES.md`; contratos e recebíveis ainda não usam o mesmo
-  mecanismo.
+- O motor de telas declarativas (Q20). Saiu a **primeira** extração, com as
+  três listagens: o cabeçalho ordenável e a ordem na URL viraram
+  `componentes/tabela.tsx`. O que **não** saiu, de propósito: a tabela em si, o
+  cartão do celular e o estado vazio. Cada tela mostra dado de forma diferente
+  o bastante para que um componente único virasse lista de exceções — a de
+  recebíveis abre formulário de baixa dentro da linha, a de contratos escolhe
+  linhas para gerar mensalidade. A próxima extração espera a próxima repetição.
+- Colunas configuráveis em contratos e recebíveis. Só pessoas tem; nas outras
+  duas as colunas são fixas. Sai junto com a segunda extração, se sair.
+- ~~Ordenar as listagens de contratos e recebíveis~~ — feito. Contratos
+  ordenam por código, cliente, valor e vencimento; recebíveis por vencimento,
+  cliente, competência e valor.
+- ~~Estado da listagem na URL~~ — feito nas três listagens. Todas são
+  compartilháveis por link e voltam da edição no mesmo recorte. As armadilhas
+  estão no `DECISOES.md`.
 
 ## Aberto pelos papéis
 
