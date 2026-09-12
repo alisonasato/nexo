@@ -97,8 +97,9 @@ e não atrapalha.
   fornecedor não tem condição de pagamento. Quando um papel precisar de campo
   próprio, ele ganha tabela própria pendurada na associativa — e não coluna
   nula em `pessoas`.
-- Impedir inativar pessoa que ainda carrega papel, ou pelo menos avisar. Hoje
-  inativar não confere nada, e o cliente some da lista sem o escritório saber.
+- Avisar antes de encerrar contrato ou cancelar cobrança de quem está prestes a
+  sair. Hoje a recusa ao inativar diz o que falta fazer, mas quem chega pelo
+  contrato não sabe que alguém está esperando aquilo para sumir do cadastro.
 
 ## Aberto pelo passo 5
 

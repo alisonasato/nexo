@@ -11,6 +11,21 @@ import type { components } from "@/api/esquema";
 import { formatarDocumento, formatarEndereco, formatarTelefone } from "@/lib/formato";
 
 type Papel = components["schemas"]["Papel"];
+type Problema = components["schemas"]["Problema"];
+
+/**
+ * Os problemas que vieram no 422, ou lista vazia.
+ *
+ * O openapi-fetch entrega o corpo do erro como `unknown`, então a checagem é
+ * de forma, não de tipo — e um erro de rede, que não tem corpo nenhum, cai no
+ * mesmo caminho sem quebrar.
+ */
+function problemasDaResposta(erro: unknown): Problema[] {
+  if (erro && typeof erro === "object" && "problemas" in erro && Array.isArray(erro.problemas)) {
+    return erro.problemas as Problema[];
+  }
+  return [];
+}
 
 const papeis: Papel[] = ["Cliente", "Fornecedor", "Vendedor", "Colaborador"];
 
@@ -31,6 +46,13 @@ export default function ListagemDePessoas() {
    * ensinaria a clicar duas vezes sem ler, que é como confirmação vira ruído.
    */
   const [confirmando, definirConfirmando] = useState<string | null>(null);
+
+  /*
+   * O motivo da recusa fica na tela até a próxima tentativa. Some sozinho
+   * seria pior: a mensagem diz qual contrato encerrar, e quem foi conferir
+   * isso em outra aba volta e precisa dela ainda ali.
+   */
+  const [impedimentos, definirImpedimentos] = useState<string[]>([]);
 
   useEffect(() => {
     if (!confirmando) return;
@@ -76,11 +98,23 @@ export default function ListagemDePessoas() {
   const inativar = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await api.DELETE("/pessoas/{id}", { params: { path: { id } } });
-      if (error) throw new Error("Não foi possível inativar este cadastro.");
+      if (error) throw error;
     },
+    onMutate: () => definirImpedimentos([]),
     onSuccess: () => {
       definirConfirmando(null);
       clienteDeConsultas.invalidateQueries({ queryKey: ["pessoas"] });
+    },
+    onError: (erro: unknown) => {
+      /* O botão volta a "Inativar": insistir no mesmo clique não muda nada. */
+      definirConfirmando(null);
+
+      const problemas = problemasDaResposta(erro);
+      definirImpedimentos(
+        problemas.length > 0
+          ? problemas.map((problema) => `${problema.descricao} ${problema.sugestao}`)
+          : ["Não foi possível inativar este cadastro. Tente de novo em instantes."],
+      );
     },
   });
 
@@ -156,6 +190,20 @@ export default function ListagemDePessoas() {
             </button>
           ))}
         </div>
+
+        {impedimentos.length > 0 && (
+          <div
+            role="alert"
+            className="rounded-[--radius-controle] border border-amber-200 bg-amber-50 px-4 py-3 text-amber-900"
+          >
+            <p className="font-medium">Este cadastro ainda está em uso.</p>
+            <ul className="mt-1 list-disc space-y-1 pl-5">
+              {impedimentos.map((motivo) => (
+                <li key={motivo}>{motivo}</li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         {pessoas.isError && (
           <p role="alert" className="rounded-[--radius-controle] bg-red-50 px-4 py-3 text-red-700">

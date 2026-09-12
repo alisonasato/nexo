@@ -699,7 +699,7 @@
           "Pessoas"
         ],
         "summary": "Inativa um cadastro",
-        "description": "Não apaga: marca como inativo. Quem já apareceu em contrato ou cobrança precisa continuar existindo no histórico.",
+        "description": "Não apaga: marca como inativo. Quem já apareceu em contrato ou cobrança precisa continuar existindo no histórico. Recusa enquanto houver contrato não encerrado ou cobrança em aberto.",
         "operationId": "InativarPessoa",
         "parameters": [
           {
@@ -715,6 +715,16 @@
         "responses": {
           "204": {
             "description": "No Content"
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RespostaComProblemas"
+                }
+              }
+            }
           },
           "404": {
             "description": "Not Found"

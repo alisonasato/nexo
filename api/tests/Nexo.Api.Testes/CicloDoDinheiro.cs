@@ -96,7 +96,7 @@ public class CicloDoDinheiro(BancoDeTestes banco) : IDisposable
             contexto.Pessoas.Add(new Pessoa
             {
                 Id = pessoaId, TenantId = conta.TenantId, Tipo = TipoPessoa.Juridica,
-                Nome = "Cliente do índice", Documento = CnpjValido(), Codigo = "9001",
+                Nome = "Cliente do índice", Documento = Documentos.CnpjValido(), Codigo = "9001",
             });
             contexto.PessoaPapeis.Add(new PessoaPapel
             {
@@ -729,32 +729,12 @@ public class CicloDoDinheiro(BancoDeTestes banco) : IDisposable
         var resposta = await cliente.PostAsJsonAsync("/pessoas", new DadosDePessoa(
             TipoPessoa.Juridica, RegimeTributario.SimplesNacional, string.Empty, [Papel.Cliente],
             "Cliente " + Guid.NewGuid().ToString("N")[..8], string.Empty,
-            CnpjValido(), string.Empty, string.Empty, string.Empty, string.Empty, string.Empty,
+            Documentos.CnpjValido(), string.Empty, string.Empty, string.Empty, string.Empty, string.Empty,
             null, string.Empty, true), Json);
 
         resposta.EnsureSuccessStatusCode();
 
         var criada = await resposta.Content.ReadFromJsonAsync<PessoaDetalhada>(Json);
         return criada!.Id;
-    }
-
-    /// <summary>Um CNPJ novo com dígitos verificadores certos.</summary>
-    private static string CnpjValido()
-    {
-        var base12 = Random.Shared.NextInt64(100_000_000_000, 999_999_999_999).ToString();
-
-        int[] primeiroPeso = [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
-        int[] segundoPeso = [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
-
-        var primeiro = Digito(base12, primeiroPeso);
-        var segundo = Digito(base12 + primeiro, segundoPeso);
-        return base12 + primeiro + segundo;
-
-        static int Digito(string numero, int[] pesos)
-        {
-            var soma = numero.Select((caractere, indice) => (caractere - '0') * pesos[indice]).Sum();
-            var resto = soma % 11;
-            return resto < 2 ? 0 : 11 - resto;
-        }
     }
 }

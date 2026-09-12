@@ -112,6 +112,33 @@ isso cancelar exige motivo por escrito, e por isso não se cancela o que já
 foi baixado — isso apagaria uma entrada de dinheiro sem devolver nada a
 ninguém.
 
+### Por que inativar recusa, e por que não é o papel que impede
+
+Inativar é sair do cadastro, e o cadastro não confere nada era um buraco de
+dinheiro: o cliente sumia da listagem e o contrato continuava gerando
+mensalidade todo mês, para alguém que ninguém mais via. Quem ficou devendo
+sumia levando a dívida da tela junto.
+
+O que impede é o **vínculo vivo**, não o rótulo. Recusar por papel seria o
+desenho errado e tentador: quase toda pessoa carrega papel — é para isso que
+eles existem —, então inativar viraria impossível na prática, e um papel que
+prende é pior do que nenhuma conferência. O que impede são duas coisas
+concretas:
+
+1. Contrato que não está encerrado, ativo ou suspenso. Suspenso é pausa e
+   ainda espera voltar; deixar inativar deixaria o acordo num limbo.
+2. Cobrança em aberto. É dinheiro a receber, e sumir da tela não é decisão
+   que se toma sem querer.
+
+**Recusa, e não avisa.** Aviso vira segundo clique, e segundo clique vira
+hábito — o mesmo motivo pelo qual confirmar dos dois lados ensinaria a clicar
+sem ler. Aqui o custo do hábito é cobrança recorrente invisível.
+
+Não é armadilha como o índice cego seria, e a diferença é a saída: encerrar o
+contrato e dar baixa ou cancelar a cobrança é o que de fato aconteceu quando
+um cliente foi embora. A recusa diz qual contrato e quanto se deve, então o
+caminho até ela é a própria escrituração certa.
+
 ## A disciplina
 
 | | |
