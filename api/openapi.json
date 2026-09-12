@@ -493,6 +493,66 @@
         }
       }
     },
+    "/empresas/{id}": {
+      "put": {
+        "tags": [
+          "Empresas"
+        ],
+        "summary": "Corrige os dados do estabelecimento",
+        "description": "O provisionamento grava razão social e CNPJ uma vez, a partir de variável de ambiente. Sem isto, um dígito errado ali não teria conserto pela aplicação.",
+        "operationId": "AlterarEmpresa",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/DadosDeEmpresa"
+                  }
+                ]
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmpresaNaLista"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RespostaComProblemas"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
     "/pessoas": {
       "get": {
         "tags": [
@@ -1242,6 +1302,24 @@
             ]
           },
           "observacoes": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "DadosDeEmpresa": {
+        "type": "object",
+        "properties": {
+          "razaoSocial": {
+            "type": "string",
+            "nullable": true
+          },
+          "nomeFantasia": {
+            "type": "string",
+            "nullable": true
+          },
+          "cnpj": {
             "type": "string",
             "nullable": true
           }
