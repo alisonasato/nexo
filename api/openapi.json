@@ -717,6 +717,73 @@
         }
       }
     },
+    "/fluxo-de-caixa": {
+      "get": {
+        "tags": [
+          "Fluxo de caixa"
+        ],
+        "summary": "O realizado e o projetado de um período, com o saldo acumulado",
+        "description": "O realizado vem dos movimentos das contas; o projetado, dos lançamentos em aberto que vencem de hoje em diante. O que está em atraso vem à parte, fora do saldo projetado. Sem datas, o período vai de hoje a trinta dias adiante.",
+        "operationId": "CalcularFluxoDeCaixa",
+        "parameters": [
+          {
+            "name": "de",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "ate",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "agrupamento",
+            "in": "query",
+            "schema": {
+              "enum": [
+                "Dia",
+                "Mes"
+              ],
+              "type": "string",
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/AgrupamentoDoFluxo"
+                }
+              ],
+              "default": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FluxoNoPeriodo"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RespostaComProblemas"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/lancamentos/{id}/cobrar": {
       "post": {
         "tags": [
@@ -1611,6 +1678,13 @@
   },
   "components": {
     "schemas": {
+      "AgrupamentoDoFluxo": {
+        "enum": [
+          "Dia",
+          "Mes"
+        ],
+        "type": "string"
+      },
       "ContaNaLista": {
         "required": [
           "agencia",
@@ -2439,6 +2513,89 @@
         },
         "additionalProperties": false
       },
+      "FluxoNoPeriodo": {
+        "required": [
+          "agrupamento",
+          "ate",
+          "de",
+          "emAtrasoAPagar",
+          "emAtrasoAReceber",
+          "hoje",
+          "periodos",
+          "saldoNoFim",
+          "saldoNoInicio",
+          "totalAPagar",
+          "totalAReceber",
+          "totalDeEntradas",
+          "totalDeSaidas"
+        ],
+        "type": "object",
+        "properties": {
+          "de": {
+            "type": "string",
+            "format": "date"
+          },
+          "ate": {
+            "type": "string",
+            "format": "date"
+          },
+          "agrupamento": {
+            "enum": [
+              "Dia",
+              "Mes"
+            ],
+            "type": "string",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AgrupamentoDoFluxo"
+              }
+            ]
+          },
+          "hoje": {
+            "type": "string",
+            "format": "date"
+          },
+          "saldoNoInicio": {
+            "type": "number",
+            "format": "double"
+          },
+          "totalDeEntradas": {
+            "type": "number",
+            "format": "double"
+          },
+          "totalDeSaidas": {
+            "type": "number",
+            "format": "double"
+          },
+          "totalAReceber": {
+            "type": "number",
+            "format": "double"
+          },
+          "totalAPagar": {
+            "type": "number",
+            "format": "double"
+          },
+          "emAtrasoAReceber": {
+            "type": "number",
+            "format": "double"
+          },
+          "emAtrasoAPagar": {
+            "type": "number",
+            "format": "double"
+          },
+          "periodos": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PeriodoDoFluxo"
+            }
+          },
+          "saldoNoFim": {
+            "type": "number",
+            "format": "double"
+          }
+        },
+        "additionalProperties": false
+      },
       "LancamentoCobrado": {
         "required": [
           "cobrancaId",
@@ -2799,6 +2956,54 @@
           },
           "senhaNova": {
             "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "PeriodoDoFluxo": {
+        "required": [
+          "aPagar",
+          "aReceber",
+          "comeco",
+          "contasAbertas",
+          "entradas",
+          "saidas",
+          "saldo",
+          "termino"
+        ],
+        "type": "object",
+        "properties": {
+          "comeco": {
+            "type": "string",
+            "format": "date"
+          },
+          "termino": {
+            "type": "string",
+            "format": "date"
+          },
+          "contasAbertas": {
+            "type": "number",
+            "format": "double"
+          },
+          "entradas": {
+            "type": "number",
+            "format": "double"
+          },
+          "saidas": {
+            "type": "number",
+            "format": "double"
+          },
+          "aReceber": {
+            "type": "number",
+            "format": "double"
+          },
+          "aPagar": {
+            "type": "number",
+            "format": "double"
+          },
+          "saldo": {
+            "type": "number",
+            "format": "double"
           }
         },
         "additionalProperties": false

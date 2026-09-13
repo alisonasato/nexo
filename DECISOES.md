@@ -528,6 +528,19 @@ numa transação só, e cobrar sem conta marcada é recusado. Se a marca sumir c
 cobranças já emitidas, o pagamento que chegar vira divergência em vez de baixa:
 sem conta, não há onde o movimento caber.
 
+## O fluxo de caixa não projeta o atraso
+
+O fluxo de caixa põe lado a lado o realizado, que vem dos movimentos das
+contas, e o projetado, que vem dos lançamentos em aberto que vencem de hoje em
+diante. O que venceu antes de hoje e segue em aberto não entra no saldo
+projetado de dia nenhum: aparece à parte, com o valor.
+
+Projetar o atraso exigiria inventar uma data para ele, e a data inventada
+seria sempre otimista. Um título vencido há dois meses somado ao saldo de
+amanhã faz o caixa parecer maior justo quando a pergunta é se dá para pagar as
+contas da semana. Deixado à parte, o valor continua à vista de quem decide
+cobrar, e o saldo projetado continua sendo só o que tem data para acontecer.
+
 ## Ordem de execução
 
 1. ~~Repositório e contrato~~ — feito.

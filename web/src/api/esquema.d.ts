@@ -246,6 +246,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/fluxo-de-caixa": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * O realizado e o projetado de um período, com o saldo acumulado
+         * @description O realizado vem dos movimentos das contas; o projetado, dos lançamentos em aberto que vencem de hoje em diante. O que está em atraso vem à parte, fora do saldo projetado. Sem datas, o período vai de hoje a trinta dias adiante.
+         */
+        get: operations["CalcularFluxoDeCaixa"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/lancamentos/{id}/cobrar": {
         parameters: {
             query?: never;
@@ -511,6 +531,8 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** @enum {string} */
+        AgrupamentoDoFluxo: "Dia" | "Mes";
         ContaNaLista: {
             /** Format: uuid */
             id: string;
@@ -737,6 +759,33 @@ export interface components {
         FalhaDeEntrada: {
             mensagem: string;
         };
+        FluxoNoPeriodo: {
+            /** Format: date */
+            de: string;
+            /** Format: date */
+            ate: string;
+            /** @enum {string} */
+            agrupamento: "Dia" | "Mes";
+            /** Format: date */
+            hoje: string;
+            /** Format: double */
+            saldoNoInicio: number;
+            /** Format: double */
+            totalDeEntradas: number;
+            /** Format: double */
+            totalDeSaidas: number;
+            /** Format: double */
+            totalAReceber: number;
+            /** Format: double */
+            totalAPagar: number;
+            /** Format: double */
+            emAtrasoAReceber: number;
+            /** Format: double */
+            emAtrasoAPagar: number;
+            periodos: components["schemas"]["PeriodoDoFluxo"][];
+            /** Format: double */
+            saldoNoFim: number;
+        };
         LancamentoCobrado: {
             /** Format: uuid */
             id: string;
@@ -840,6 +889,24 @@ export interface components {
         PedidoDeTrocaDeSenha: {
             senhaAtual: string;
             senhaNova: string;
+        };
+        PeriodoDoFluxo: {
+            /** Format: date */
+            comeco: string;
+            /** Format: date */
+            termino: string;
+            /** Format: double */
+            contasAbertas: number;
+            /** Format: double */
+            entradas: number;
+            /** Format: double */
+            saidas: number;
+            /** Format: double */
+            aReceber: number;
+            /** Format: double */
+            aPagar: number;
+            /** Format: double */
+            saldo: number;
         };
         PessoaDetalhada: {
             /** Format: uuid */
@@ -1480,6 +1547,39 @@ export interface operations {
                 content?: never;
             };
             /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespostaComProblemas"];
+                };
+            };
+        };
+    };
+    CalcularFluxoDeCaixa: {
+        parameters: {
+            query?: {
+                de?: string;
+                ate?: string;
+                agrupamento?: "Dia" | "Mes";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FluxoNoPeriodo"];
+                };
+            };
+            /** @description Unprocessable Content */
             422: {
                 headers: {
                     [name: string]: unknown;
