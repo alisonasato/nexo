@@ -937,6 +937,31 @@
         }
       }
     },
+    "/cobrancas/divergencias": {
+      "get": {
+        "tags": [
+          "Recebíveis"
+        ],
+        "summary": "Pagamentos do PSP que não puderam ser aplicados",
+        "description": "Os avisos de pagamento que chegaram para recebíveis que já não estavam em aberto. Decidir entre devolver o valor e reabrir o título é trabalho de gente.",
+        "operationId": "ListarDivergenciasDeCobranca",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DivergenciaDeCobranca"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/recebiveis": {
       "get": {
         "tags": [
@@ -970,6 +995,29 @@
             "schema": {
               "type": "integer",
               "format": "int32"
+            }
+          },
+          {
+            "name": "busca",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "vencimentoDe",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "vencimentoAte",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
             }
           },
           {
@@ -1240,6 +1288,158 @@
         }
       }
     },
+    "/recebiveis/parcelamentos": {
+      "post": {
+        "tags": [
+          "Recebíveis"
+        ],
+        "summary": "Lança um valor dividido em parcelas mensais",
+        "description": "Os centavos que sobram da divisão vão para a primeira parcela, e cada vencimento parte da primeira data. Com uma parcela só, é um lançamento avulso comum.",
+        "operationId": "ParcelarRecebivel",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/DadosDoParcelamento"
+                  }
+                ]
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ParcelamentoCriado"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RespostaComProblemas"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/recebiveis/{id}/renegociar": {
+      "post": {
+        "tags": [
+          "Recebíveis"
+        ],
+        "summary": "Troca um título em aberto por parcelas novas",
+        "description": "O título original vira renegociado e continua ocupando a competência; as parcelas novas apontam para ele. Juros e multa acrescentam, desconto abate.",
+        "operationId": "RenegociarRecebivel",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/DadosDaRenegociacao"
+                  }
+                ]
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RenegociacaoCriada"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RespostaComProblemas"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/recebiveis/baixar-em-lote": {
+      "post": {
+        "tags": [
+          "Recebíveis"
+        ],
+        "summary": "Registra o recebimento de vários recebíveis de uma vez",
+        "description": "Cada recebível é baixado ou recusado por conta própria: um já pago não impede os outros. O valor recebido é o valor cobrado.",
+        "operationId": "BaixarRecebiveisEmLote",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/DadosDaBaixaEmLote"
+                  }
+                ]
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultadoDaBaixaEmLote"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RespostaComProblemas"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/saude": {
       "get": {
         "tags": [
@@ -1400,6 +1600,62 @@
           "pagoEm": {
             "type": "string",
             "format": "date",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "DadosDaBaixaEmLote": {
+        "type": "object",
+        "properties": {
+          "ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "nullable": true
+          },
+          "pagoEm": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "DadosDaRenegociacao": {
+        "required": [
+          "desconto",
+          "juros",
+          "multa",
+          "parcelas",
+          "primeiroVencimento"
+        ],
+        "type": "object",
+        "properties": {
+          "parcelas": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "primeiroVencimento": {
+            "type": "string",
+            "format": "date"
+          },
+          "juros": {
+            "type": "number",
+            "format": "double"
+          },
+          "multa": {
+            "type": "number",
+            "format": "double"
+          },
+          "desconto": {
+            "type": "number",
+            "format": "double"
+          },
+          "motivo": {
+            "type": "string",
             "nullable": true
           }
         },
@@ -1658,12 +1914,97 @@
         },
         "additionalProperties": false
       },
+      "DadosDoParcelamento": {
+        "required": [
+          "competenciaAno",
+          "competenciaMes",
+          "descricao",
+          "parcelas",
+          "pessoaId",
+          "primeiroVencimento",
+          "valorTotal"
+        ],
+        "type": "object",
+        "properties": {
+          "pessoaId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "descricao": {
+            "type": "string"
+          },
+          "valorTotal": {
+            "type": "number",
+            "format": "double"
+          },
+          "parcelas": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "primeiroVencimento": {
+            "type": "string",
+            "format": "date"
+          },
+          "competenciaAno": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "competenciaMes": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
       "Direcao": {
         "enum": [
           "Crescente",
           "Decrescente"
         ],
         "type": "string"
+      },
+      "DivergenciaDeCobranca": {
+        "required": [
+          "divergencia",
+          "eventoId",
+          "recebidoEm",
+          "tipo"
+        ],
+        "type": "object",
+        "properties": {
+          "eventoId": {
+            "type": "string"
+          },
+          "recebivelId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "tipo": {
+            "type": "string"
+          },
+          "divergencia": {
+            "type": "string"
+          },
+          "recebidoEm": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "nomeDaPessoa": {
+            "type": "string",
+            "nullable": true
+          },
+          "descricao": {
+            "type": "string",
+            "nullable": true
+          },
+          "valor": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
       },
       "EmpresaDoCnpj": {
         "required": [
@@ -1929,6 +2270,26 @@
           "Colaborador"
         ],
         "type": "string"
+      },
+      "ParcelamentoCriado": {
+        "required": [
+          "parcelas"
+        ],
+        "type": "object",
+        "properties": {
+          "parcelamentoId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "parcelas": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecebivelNaLista"
+            }
+          }
+        },
+        "additionalProperties": false
       },
       "PedidoDeEntrada": {
         "required": [
@@ -2219,6 +2580,7 @@
       },
       "RecebivelNaLista": {
         "required": [
+          "cobrancaUrl",
           "codigoDaPessoa",
           "competenciaAno",
           "competenciaMes",
@@ -2266,7 +2628,8 @@
             "enum": [
               "Aberto",
               "Pago",
-              "Cancelado"
+              "Cancelado",
+              "Renegociado"
             ],
             "type": "string",
             "allOf": [
@@ -2290,6 +2653,41 @@
           },
           "motivoDoCancelamento": {
             "type": "string"
+          },
+          "parcelaNumero": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "parcelasTotal": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "renegociadoDeId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "cobrancaUrl": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "RecusaNaBaixaEmLote": {
+        "required": [
+          "id",
+          "motivo"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "motivo": {
+            "type": "string"
           }
         },
         "additionalProperties": false
@@ -2304,6 +2702,31 @@
           "PessoaFisica"
         ],
         "type": "string"
+      },
+      "RenegociacaoCriada": {
+        "required": [
+          "origemId",
+          "parcelas",
+          "renegociacaoId"
+        ],
+        "type": "object",
+        "properties": {
+          "renegociacaoId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "origemId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "parcelas": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecebivelNaLista"
+            }
+          }
+        },
+        "additionalProperties": false
       },
       "RespostaComProblemas": {
         "required": [
@@ -2341,6 +2764,26 @@
           "momento": {
             "type": "string",
             "format": "date-time"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ResultadoDaBaixaEmLote": {
+        "required": [
+          "baixados",
+          "recusados"
+        ],
+        "type": "object",
+        "properties": {
+          "baixados": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "recusados": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecusaNaBaixaEmLote"
+            }
           }
         },
         "additionalProperties": false
@@ -2431,7 +2874,8 @@
         "enum": [
           "Aberto",
           "Pago",
-          "Cancelado"
+          "Cancelado",
+          "Renegociado"
         ],
         "type": "string"
       },

@@ -285,6 +285,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/cobrancas/divergencias": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Pagamentos do PSP que não puderam ser aplicados
+         * @description Os avisos de pagamento que chegaram para recebíveis que já não estavam em aberto. Decidir entre devolver o valor e reabrir o título é trabalho de gente.
+         */
+        get: operations["ListarDivergenciasDeCobranca"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/recebiveis": {
         parameters: {
             query?: never;
@@ -363,6 +383,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/recebiveis/parcelamentos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Lança um valor dividido em parcelas mensais
+         * @description Os centavos que sobram da divisão vão para a primeira parcela, e cada vencimento parte da primeira data. Com uma parcela só, é um lançamento avulso comum.
+         */
+        post: operations["ParcelarRecebivel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/recebiveis/{id}/renegociar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Troca um título em aberto por parcelas novas
+         * @description O título original vira renegociado e continua ocupando a competência; as parcelas novas apontam para ele. Juros e multa acrescentam, desconto abate.
+         */
+        post: operations["RenegociarRecebivel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/recebiveis/baixar-em-lote": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Registra o recebimento de vários recebíveis de uma vez
+         * @description Cada recebível é baixado ou recusado por conta própria: um já pago não impede os outros. O valor recebido é o valor cobrado.
+         */
+        post: operations["BaixarRecebiveisEmLote"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/saude": {
         parameters: {
             query?: never;
@@ -427,6 +507,24 @@ export interface components {
             valorPago: number;
             /** Format: date */
             pagoEm?: string | null;
+        };
+        DadosDaBaixaEmLote: {
+            ids?: string[] | null;
+            /** Format: date */
+            pagoEm?: string | null;
+        };
+        DadosDaRenegociacao: {
+            /** Format: int32 */
+            parcelas: number;
+            /** Format: date */
+            primeiroVencimento: string;
+            /** Format: double */
+            juros: number;
+            /** Format: double */
+            multa: number;
+            /** Format: double */
+            desconto: number;
+            motivo?: string | null;
         };
         DadosDeContrato: {
             /** Format: uuid */
@@ -493,8 +591,36 @@ export interface components {
         DadosDoCancelamento: {
             motivo?: string | null;
         };
+        DadosDoParcelamento: {
+            /** Format: uuid */
+            pessoaId: string;
+            descricao: string;
+            /** Format: double */
+            valorTotal: number;
+            /** Format: int32 */
+            parcelas: number;
+            /** Format: date */
+            primeiroVencimento: string;
+            /** Format: int32 */
+            competenciaAno: number;
+            /** Format: int32 */
+            competenciaMes: number;
+        };
         /** @enum {string} */
         Direcao: "Crescente" | "Decrescente";
+        DivergenciaDeCobranca: {
+            eventoId: string;
+            /** Format: uuid */
+            recebivelId?: string | null;
+            tipo: string;
+            divergencia: string;
+            /** Format: date-time */
+            recebidoEm: string;
+            nomeDaPessoa?: string | null;
+            descricao?: string | null;
+            /** Format: double */
+            valor?: number | null;
+        };
         EmpresaDoCnpj: {
             cnpj: string;
             razaoSocial: string;
@@ -569,6 +695,11 @@ export interface components {
         };
         /** @enum {string} */
         Papel: "Cliente" | "Fornecedor" | "Vendedor" | "Colaborador";
+        ParcelamentoCriado: {
+            /** Format: uuid */
+            parcelamentoId?: string | null;
+            parcelas: components["schemas"]["RecebivelNaLista"][];
+        };
         PedidoDeEntrada: {
             email: string;
             senha: string;
@@ -651,16 +782,35 @@ export interface components {
             /** Format: date */
             vencimento: string;
             /** @enum {string} */
-            situacao: "Aberto" | "Pago" | "Cancelado";
+            situacao: "Aberto" | "Pago" | "Cancelado" | "Renegociado";
             /** Format: double */
             valorPago?: number | null;
             /** Format: date */
             pagoEm?: string | null;
             origemDaBaixa: string;
             motivoDoCancelamento: string;
+            /** Format: int32 */
+            parcelaNumero?: number | null;
+            /** Format: int32 */
+            parcelasTotal?: number | null;
+            /** Format: uuid */
+            renegociadoDeId?: string | null;
+            cobrancaUrl: string;
+        };
+        RecusaNaBaixaEmLote: {
+            /** Format: uuid */
+            id: string;
+            motivo: string;
         };
         /** @enum {string} */
         RegimeTributario: "Mei" | "SimplesNacional" | "LucroPresumido" | "LucroReal" | "TerceiroSetor" | "PessoaFisica";
+        RenegociacaoCriada: {
+            /** Format: uuid */
+            renegociacaoId: string;
+            /** Format: uuid */
+            origemId: string;
+            parcelas: components["schemas"]["RecebivelNaLista"][];
+        };
         RespostaComProblemas: {
             problemas: components["schemas"]["Problema"][];
         };
@@ -670,6 +820,11 @@ export interface components {
             versao: string;
             /** Format: date-time */
             momento: string;
+        };
+        ResultadoDaBaixaEmLote: {
+            /** Format: int32 */
+            baixados: number;
+            recusados: components["schemas"]["RecusaNaBaixaEmLote"][];
         };
         ResultadoDaGeracao: {
             /** Format: int32 */
@@ -697,7 +852,7 @@ export interface components {
         /** @enum {string} */
         SituacaoContrato: "Ativo" | "Suspenso" | "Encerrado";
         /** @enum {string} */
-        SituacaoRecebivel: "Aberto" | "Pago" | "Cancelado";
+        SituacaoRecebivel: "Aberto" | "Pago" | "Cancelado" | "Renegociado";
         /** @enum {string} */
         TipoPessoa: "Fisica" | "Juridica";
     };
@@ -1381,12 +1536,35 @@ export interface operations {
             };
         };
     };
+    ListarDivergenciasDeCobranca: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DivergenciaDeCobranca"][];
+                };
+            };
+        };
+    };
     ListarRecebiveis: {
         parameters: {
             query?: {
                 situacao?: components["schemas"]["SituacaoRecebivel"];
                 ano?: number;
                 mes?: number;
+                busca?: string;
+                vencimentoDe?: string;
+                vencimentoAte?: string;
                 pagina?: number;
                 tamanho?: number;
                 ordenarPor?: "Vencimento" | "Cliente" | "Competencia" | "Valor";
@@ -1552,6 +1730,114 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    ParcelarRecebivel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DadosDoParcelamento"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ParcelamentoCriado"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespostaComProblemas"];
+                };
+            };
+        };
+    };
+    RenegociarRecebivel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DadosDaRenegociacao"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RenegociacaoCriada"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespostaComProblemas"];
+                };
+            };
+        };
+    };
+    BaixarRecebiveisEmLote: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DadosDaBaixaEmLote"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResultadoDaBaixaEmLote"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespostaComProblemas"];
+                };
             };
         };
     };

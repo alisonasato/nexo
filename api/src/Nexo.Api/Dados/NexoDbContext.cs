@@ -15,6 +15,7 @@ public class NexoDbContext(DbContextOptions<NexoDbContext> opcoes)
     public DbSet<Contrato> Contratos => Set<Contrato>();
     public DbSet<Recebivel> Recebiveis => Set<Recebivel>();
     public DbSet<EventoDeCobranca> EventosDeCobranca => Set<EventoDeCobranca>();
+    public DbSet<Renegociacao> Renegociacoes => Set<Renegociacao>();
 
     protected override void OnModelCreating(ModelBuilder modelo)
     {
@@ -187,10 +188,27 @@ public class NexoDbContext(DbContextOptions<NexoDbContext> opcoes)
                  * corrigir uma geração errada — cancela e gera de novo — sem
                  * apagar o histórico do que foi cancelado e por quê.
                  * 3 é SituacaoRecebivel.Cancelado.
+                 *
+                 * Renegociado, que é 4, fica dentro de propósito: o título
+                 * renegociado continua ocupando a competência, e é o que impede
+                 * gerar a mesma mensalidade de novo depois do acordo.
                  */
                 .HasFilter("situacao <> 3");
 
             recebivel.HasIndex(r => new { r.TenantId, r.Situacao, r.Vencimento });
+
+            /* As parcelas de um mesmo lançamento são lidas juntas. */
+            recebivel.HasIndex(r => new { r.TenantId, r.ParcelamentoId });
+
+            /*
+             * A parcela nova aponta para o título que ela substitui. Restrict,
+             * porque o renegociado é o histórico do acordo: apagá-lo deixaria
+             * parcelas sem origem.
+             */
+            recebivel.HasOne<Recebivel>()
+                .WithMany()
+                .HasForeignKey(r => r.RenegociadoDeId)
+                .OnDelete(DeleteBehavior.Restrict);
 
             recebivel.HasOne(r => r.Pessoa)
                 .WithMany()
@@ -200,6 +218,30 @@ public class NexoDbContext(DbContextOptions<NexoDbContext> opcoes)
             recebivel.HasOne(r => r.Contrato)
                 .WithMany()
                 .HasForeignKey(r => r.ContratoId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelo.Entity<Renegociacao>(renegociacao =>
+        {
+            renegociacao.HasKey(r => r.Id);
+            renegociacao.Property(r => r.Motivo).HasMaxLength(200);
+            renegociacao.Property(r => r.Juros).HasPrecision(14, 2);
+            renegociacao.Property(r => r.Multa).HasPrecision(14, 2);
+            renegociacao.Property(r => r.Desconto).HasPrecision(14, 2);
+            renegociacao.Property(r => r.CriadoEm).HasDefaultValueSql("now()");
+
+            /*
+             * Um título se renegocia uma vez: depois disso ele não está mais em
+             * aberto. O índice é a segunda defesa, atrás da trava de
+             * concorrência da situação, para o caso de dois cliques chegarem
+             * juntos.
+             */
+            renegociacao.HasIndex(r => r.OrigemId).IsUnique();
+            renegociacao.HasIndex(r => r.TenantId);
+
+            renegociacao.HasOne(r => r.Origem)
+                .WithMany()
+                .HasForeignKey(r => r.OrigemId)
                 .OnDelete(DeleteBehavior.Restrict);
         });
 

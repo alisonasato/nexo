@@ -75,6 +75,9 @@ public static class Recebiveis
         [FromQuery] SituacaoRecebivel? situacao = null,
         [FromQuery] int? ano = null,
         [FromQuery] int? mes = null,
+        [FromQuery] string? busca = null,
+        [FromQuery] DateOnly? vencimentoDe = null,
+        [FromQuery] DateOnly? vencimentoAte = null,
         [FromQuery] int pagina = 1,
         [FromQuery] int tamanho = 25,
         [FromQuery] OrdemDeRecebiveis ordenarPor = OrdemDeRecebiveis.Vencimento,
@@ -90,6 +93,26 @@ public static class Recebiveis
 
         /* A fatia: o que a lista mostra. */
         var daLista = situacao is { } filtro ? doPeriodo.Where(r => r.Situacao == filtro) : doPeriodo;
+
+        /*
+         * Busca e período de vencimento recortam a lista, e não os totais. É a
+         * mesma regra da situação: os totais respondem quanto o mês tem em
+         * aberto, e essa pergunta não muda porque alguém procurou um cliente.
+         *
+         * O código do cliente é comparado inteiro, e não por pedaço: procurar
+         * pelo cliente 1 não pode trazer o 10, o 11 e o 12 junto.
+         */
+        if (!string.IsNullOrWhiteSpace(busca))
+        {
+            var termo = busca.Trim();
+            daLista = daLista.Where(r =>
+                EF.Functions.ILike(r.Descricao, $"%{termo}%")
+                || EF.Functions.ILike(r.Pessoa!.Nome, $"%{termo}%")
+                || r.Pessoa!.Codigo == termo);
+        }
+
+        if (vencimentoDe is { } de) daLista = daLista.Where(r => r.Vencimento >= de);
+        if (vencimentoAte is { } ate) daLista = daLista.Where(r => r.Vencimento <= ate);
 
         var total = await daLista.CountAsync(cancelamento);
 
@@ -127,7 +150,11 @@ public static class Recebiveis
                 recebivel.ValorPago,
                 recebivel.PagoEm,
                 recebivel.OrigemDaBaixa,
-                recebivel.MotivoDoCancelamento))
+                recebivel.MotivoDoCancelamento,
+                recebivel.ParcelaNumero,
+                recebivel.ParcelasTotal,
+                recebivel.RenegociadoDeId,
+                recebivel.CobrancaUrl))
             .ToListAsync(cancelamento);
 
         return Results.Ok(new PaginaDeRecebiveis(
@@ -243,7 +270,7 @@ public static class Recebiveis
         return Results.Created($"/recebiveis/{recebivel.Id}", Detalhar(recebivel));
     }
 
-    private static async Task<List<Problema>> Conferir(
+    internal static async Task<List<Problema>> Conferir(
         DadosDoAvulso dados,
         NexoDbContext banco,
         CancellationToken cancelamento)
@@ -498,7 +525,7 @@ public static class Recebiveis
         }
     }
 
-    private static RecebivelNaLista Detalhar(Recebivel recebivel) => new(
+    internal static RecebivelNaLista Detalhar(Recebivel recebivel) => new(
         recebivel.Id,
         recebivel.Pessoa!.Codigo,
         recebivel.Pessoa!.Nome,
@@ -511,7 +538,11 @@ public static class Recebiveis
         recebivel.ValorPago,
         recebivel.PagoEm,
         recebivel.OrigemDaBaixa,
-        recebivel.MotivoDoCancelamento);
+        recebivel.MotivoDoCancelamento,
+        recebivel.ParcelaNumero,
+        recebivel.ParcelasTotal,
+        recebivel.RenegociadoDeId,
+        recebivel.CobrancaUrl);
 
     private static IResult Problema(string campo, string titulo, string descricao, string sugestao) =>
         Results.Json(
@@ -545,7 +576,11 @@ public record RecebivelNaLista(
     decimal? ValorPago,
     DateOnly? PagoEm,
     string OrigemDaBaixa,
-    string MotivoDoCancelamento);
+    string MotivoDoCancelamento,
+    int? ParcelaNumero,
+    int? ParcelasTotal,
+    Guid? RenegociadoDeId,
+    string CobrancaUrl);
 
 /// <summary>Por qual coluna a listagem de recebíveis é ordenada.</summary>
 public enum OrdemDeRecebiveis
