@@ -34,6 +34,16 @@
   --color-borda-forte: #cbd5e1;
 
   /*
+   * A tela de entrada tem paleta própria, tirada da fotografia de montanha que
+   * ocupa metade dela: carvão para a ação principal e areia para o fundo e os
+   * campos. Ficam aqui, e não como hex solto no componente, pelo mesmo motivo
+   * das outras cores.
+   */
+  --color-carvao: #212625;
+  --color-areia: #f3f3f1;
+  --shadow-cartao-de-entrada: 0 12px 80px rgb(33 38 37 / 0.12);
+
+  /*
    * Sombra em duas camadas: um contato curto que assenta a borda e uma
    * difusa que dá a altura. Uma camada só ou marca demais a linha do objeto,
    * ou vira mancha sem pé.
