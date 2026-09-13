@@ -59,7 +59,7 @@ export function AvisoDeDivergencias() {
           {itens.map((item) => (
             <li key={item.eventoId} className="rounded-[--radius-controle] bg-white/70 px-3 py-2">
               <p className="font-medium">
-                {item.nomeDaPessoa ?? "Recebível que não existe mais"}
+                {item.nomeDaPessoa ?? "Lançamento que não existe mais"}
                 {item.valor != null && (
                   <span className="numeros-tabulares font-normal"> · {formatarValor(item.valor)}</span>
                 )}

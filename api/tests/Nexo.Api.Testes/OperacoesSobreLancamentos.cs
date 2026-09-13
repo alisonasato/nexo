@@ -21,7 +21,7 @@ namespace Nexo.Api.Testes;
 /// </para>
 /// </summary>
 [Collection(nameof(ColecaoDoBanco))]
-public class OperacoesSobreRecebiveis : IDisposable
+public class OperacoesSobreLancamentos : IDisposable
 {
     private const string TokenDoWebhook = "token-combinado-com-o-psp";
 
@@ -32,7 +32,7 @@ public class OperacoesSobreRecebiveis : IDisposable
     private static readonly JsonSerializerOptions Json =
         new(JsonSerializerDefaults.Web) { Converters = { new JsonStringEnumConverter() } };
 
-    public OperacoesSobreRecebiveis(BancoDeTestes banco)
+    public OperacoesSobreLancamentos(BancoDeTestes banco)
     {
         _banco = banco;
 
@@ -94,7 +94,7 @@ public class OperacoesSobreRecebiveis : IDisposable
 
         foreach (var quantidade in new[] { 0, Parcelas.Maximo + 1 })
         {
-            var resposta = await http.PostAsJsonAsync("/recebiveis/parcelamentos",
+            var resposta = await http.PostAsJsonAsync("/lancamentos/parcelamentos",
                 new DadosDoParcelamento(pessoa, "Abertura de empresa", 600m, quantidade,
                     new DateOnly(2026, 3, 10), 2026, 3), Json);
 
@@ -109,24 +109,24 @@ public class OperacoesSobreRecebiveis : IDisposable
     {
         var (http, conta) = await Entrar();
         var pessoa = await CriarPessoa(http);
-        var recebivel = await CriarAvulso(http, pessoa, 450m, new DateOnly(2026, 3, 10));
+        var lancamento = await CriarAvulso(http, pessoa, 450m, new DateOnly(2026, 3, 10));
 
-        var acordo = await Renegociar(http, recebivel,
+        var acordo = await Renegociar(http, lancamento,
             new DadosDaRenegociacao(2, new DateOnly(2026, 4, 10), 30m, 9m, 9m, "Cliente pediu mais prazo"));
 
         /* 450 mais 30 de juros e 9 de multa, menos 9 de desconto: 480 em duas. */
-        Assert.Equal(recebivel, acordo.OrigemId);
+        Assert.Equal(lancamento, acordo.OrigemId);
         Assert.Equal([240m, 240m], acordo.Parcelas.Select(p => p.Valor).ToList());
 
         Assert.All(acordo.Parcelas, parcela =>
         {
-            Assert.Equal(recebivel, parcela.RenegociadoDeId);
-            Assert.Equal(SituacaoRecebivel.Aberto, parcela.Situacao);
+            Assert.Equal(lancamento, parcela.RenegociadoDeId);
+            Assert.Equal(SituacaoLancamento.Aberto, parcela.Situacao);
         });
 
         /* O título original não é editado nem apagado: vira o histórico do acordo. */
-        var original = await Buscar(conta.TenantId, recebivel);
-        Assert.Equal(SituacaoRecebivel.Renegociado, original.Situacao);
+        var original = await Buscar(conta.TenantId, lancamento);
+        Assert.Equal(SituacaoLancamento.Renegociado, original.Situacao);
         Assert.Equal(450m, original.Valor);
     }
 
@@ -156,11 +156,11 @@ public class OperacoesSobreRecebiveis : IDisposable
         Assert.Equal(0, segunda.Geradas);
 
         await using var contexto = _banco.Criar(conta.TenantId);
-        var doContrato = await contexto.Recebiveis.AsNoTracking()
+        var doContrato = await contexto.Lancamentos.AsNoTracking()
             .Where(r => r.ContratoId != null && r.CompetenciaAno == 2026 && r.CompetenciaMes == 3)
             .ToListAsync();
 
-        Assert.Equal(SituacaoRecebivel.Renegociado, Assert.Single(doContrato).Situacao);
+        Assert.Equal(SituacaoLancamento.Renegociado, Assert.Single(doContrato).Situacao);
     }
 
     [Fact]
@@ -168,10 +168,10 @@ public class OperacoesSobreRecebiveis : IDisposable
     {
         var (http, _) = await Entrar();
         var pessoa = await CriarPessoa(http);
-        var recebivel = await CriarAvulso(http, pessoa, 450m, new DateOnly(2026, 3, 10));
-        await http.PostAsync($"/recebiveis/{recebivel}/cobrar", null);
+        var lancamento = await CriarAvulso(http, pessoa, 450m, new DateOnly(2026, 3, 10));
+        await http.PostAsync($"/lancamentos/{lancamento}/cobrar", null);
 
-        await Renegociar(http, recebivel,
+        await Renegociar(http, lancamento,
             new DadosDaRenegociacao(1, new DateOnly(2026, 4, 10), 0m, 0m, 0m, "Acordo"));
 
         /* O boleto do título antigo, pagável, seria cobrar duas vezes o mesmo acordo. */
@@ -183,12 +183,12 @@ public class OperacoesSobreRecebiveis : IDisposable
     {
         var (http, _) = await Entrar();
         var pessoa = await CriarPessoa(http);
-        var recebivel = await CriarAvulso(http, pessoa, 450m, new DateOnly(2026, 3, 10));
+        var lancamento = await CriarAvulso(http, pessoa, 450m, new DateOnly(2026, 3, 10));
 
         var pedido = new DadosDaRenegociacao(2, new DateOnly(2026, 4, 10), 0m, 0m, 0m, "Acordo");
-        await Renegociar(http, recebivel, pedido);
+        await Renegociar(http, lancamento, pedido);
 
-        var segunda = await http.PostAsJsonAsync($"/recebiveis/{recebivel}/renegociar", pedido, Json);
+        var segunda = await http.PostAsJsonAsync($"/lancamentos/{lancamento}/renegociar", pedido, Json);
         Assert.Equal(HttpStatusCode.UnprocessableEntity, segunda.StatusCode);
     }
 
@@ -197,7 +197,7 @@ public class OperacoesSobreRecebiveis : IDisposable
     {
         var (http, conta) = await Entrar();
         var pessoa = await CriarPessoa(http);
-        var recebivel = await CriarAvulso(http, pessoa, 450m, new DateOnly(2026, 3, 10));
+        var lancamento = await CriarAvulso(http, pessoa, 450m, new DateOnly(2026, 3, 10));
 
         /*
          * Direto no banco, sem passar pela situação: é a segunda defesa, para o
@@ -208,11 +208,11 @@ public class OperacoesSobreRecebiveis : IDisposable
 
         contexto.Renegociacoes.Add(new Renegociacao
         {
-            Id = Guid.NewGuid(), TenantId = conta.TenantId, OrigemId = recebivel, Motivo = "Primeira",
+            Id = Guid.NewGuid(), TenantId = conta.TenantId, OrigemId = lancamento, Motivo = "Primeira",
         });
         contexto.Renegociacoes.Add(new Renegociacao
         {
-            Id = Guid.NewGuid(), TenantId = conta.TenantId, OrigemId = recebivel, Motivo = "Segunda",
+            Id = Guid.NewGuid(), TenantId = conta.TenantId, OrigemId = lancamento, Motivo = "Segunda",
         });
 
         await Assert.ThrowsAsync<DbUpdateException>(() => contexto.SaveChangesAsync());
@@ -223,14 +223,14 @@ public class OperacoesSobreRecebiveis : IDisposable
     {
         var (http, conta) = await Entrar();
         var pessoa = await CriarPessoa(http);
-        var recebivel = await CriarAvulso(http, pessoa, 450m, new DateOnly(2026, 3, 10));
+        var lancamento = await CriarAvulso(http, pessoa, 450m, new DateOnly(2026, 3, 10));
 
-        var resposta = await http.PostAsJsonAsync($"/recebiveis/{recebivel}/renegociar",
+        var resposta = await http.PostAsJsonAsync($"/lancamentos/{lancamento}/renegociar",
             new DadosDaRenegociacao(1, new DateOnly(2026, 4, 10), 0m, 0m, 500m, "Perdão"), Json);
 
         /* Perdoar a dívida inteira é cancelar com motivo, e não renegociar para zero. */
         Assert.Equal(HttpStatusCode.UnprocessableEntity, resposta.StatusCode);
-        Assert.Equal(SituacaoRecebivel.Aberto, (await Buscar(conta.TenantId, recebivel)).Situacao);
+        Assert.Equal(SituacaoLancamento.Aberto, (await Buscar(conta.TenantId, lancamento)).Situacao);
     }
 
     /* ---------------------------------------------------- baixa em lote */
@@ -245,11 +245,11 @@ public class OperacoesSobreRecebiveis : IDisposable
         var segundo = await CriarAvulso(http, pessoa, 200m, new DateOnly(2026, 3, 10));
         var jaPago = await CriarAvulso(http, pessoa, 300m, new DateOnly(2026, 3, 10));
 
-        var manual = await http.PostAsJsonAsync($"/recebiveis/{jaPago}/baixar",
+        var manual = await http.PostAsJsonAsync($"/lancamentos/{jaPago}/baixar",
             new DadosDaBaixa(300m, new DateOnly(2026, 3, 5)), Json);
         manual.EnsureSuccessStatusCode();
 
-        var resposta = await http.PostAsJsonAsync("/recebiveis/baixar-em-lote",
+        var resposta = await http.PostAsJsonAsync("/lancamentos/baixar-em-lote",
             new DadosDaBaixaEmLote([primeiro, segundo, jaPago], new DateOnly(2026, 3, 12)), Json);
         resposta.EnsureSuccessStatusCode();
 
@@ -276,9 +276,9 @@ public class OperacoesSobreRecebiveis : IDisposable
         var (http, _) = await Entrar();
         var pessoa = await CriarPessoa(http);
         var cobrado = await CriarAvulso(http, pessoa, 450m, new DateOnly(2026, 3, 10));
-        await http.PostAsync($"/recebiveis/{cobrado}/cobrar", null);
+        await http.PostAsync($"/lancamentos/{cobrado}/cobrar", null);
 
-        var resposta = await http.PostAsJsonAsync("/recebiveis/baixar-em-lote",
+        var resposta = await http.PostAsJsonAsync("/lancamentos/baixar-em-lote",
             new DadosDaBaixaEmLote([cobrado], null), Json);
         resposta.EnsureSuccessStatusCode();
 
@@ -292,21 +292,21 @@ public class OperacoesSobreRecebiveis : IDisposable
     {
         var (http, conta) = await Entrar();
         var pessoa = await CriarPessoa(http, "Cliente divergente");
-        var recebivel = await CriarAvulso(http, pessoa, 450m, new DateOnly(2026, 3, 10));
-        await http.PostAsync($"/recebiveis/{recebivel}/cobrar", null);
+        var lancamento = await CriarAvulso(http, pessoa, 450m, new DateOnly(2026, 3, 10));
+        await http.PostAsync($"/lancamentos/{lancamento}/cobrar", null);
 
-        var cancelamento = await http.PostAsJsonAsync($"/recebiveis/{recebivel}/cancelar",
+        var cancelamento = await http.PostAsJsonAsync($"/lancamentos/{lancamento}/cancelar",
             new DadosDoCancelamento("Cliente desistiu"), Json);
         cancelamento.EnsureSuccessStatusCode();
 
-        var aviso = await Avisar(Aviso("evt_tardio", "PAYMENT_RECEIVED", conta.TenantId, recebivel, 450m));
+        var aviso = await Avisar(Aviso("evt_tardio", "PAYMENT_RECEIVED", conta.TenantId, lancamento, 450m));
         aviso.EnsureSuccessStatusCode();
 
         var divergencias = await http.GetFromJsonAsync<List<DivergenciaDeCobranca>>(
             "/cobrancas/divergencias", Json);
 
         var unica = Assert.Single(divergencias!);
-        Assert.Equal(recebivel, unica.RecebivelId);
+        Assert.Equal(lancamento, unica.LancamentoId);
         Assert.Equal("Cliente divergente", unica.NomeDaPessoa);
 
         var (outro, _) = await Entrar();
@@ -354,17 +354,17 @@ public class OperacoesSobreRecebiveis : IDisposable
 
     private static async Task<Guid> CriarAvulso(HttpClient http, Guid pessoa, decimal valor, DateOnly vencimento)
     {
-        var resposta = await http.PostAsJsonAsync("/recebiveis",
+        var resposta = await http.PostAsJsonAsync("/lancamentos",
             new DadosDoAvulso(pessoa, "Honorários", valor, vencimento, 2026, 3), Json);
 
         resposta.EnsureSuccessStatusCode();
-        return (await resposta.Content.ReadFromJsonAsync<RecebivelNaLista>(Json))!.Id;
+        return (await resposta.Content.ReadFromJsonAsync<LancamentoNaLista>(Json))!.Id;
     }
 
     private static async Task<ParcelamentoCriado> Parcelar(
         HttpClient http, Guid pessoa, decimal total, int parcelas, DateOnly primeiroVencimento)
     {
-        var resposta = await http.PostAsJsonAsync("/recebiveis/parcelamentos",
+        var resposta = await http.PostAsJsonAsync("/lancamentos/parcelamentos",
             new DadosDoParcelamento(pessoa, "Abertura de empresa", total, parcelas, primeiroVencimento, 2026, 3),
             Json);
 
@@ -374,7 +374,7 @@ public class OperacoesSobreRecebiveis : IDisposable
 
     private static async Task<RenegociacaoCriada> Renegociar(HttpClient http, Guid id, DadosDaRenegociacao dados)
     {
-        var resposta = await http.PostAsJsonAsync($"/recebiveis/{id}/renegociar", dados, Json);
+        var resposta = await http.PostAsJsonAsync($"/lancamentos/{id}/renegociar", dados, Json);
         resposta.EnsureSuccessStatusCode();
         return (await resposta.Content.ReadFromJsonAsync<RenegociacaoCriada>(Json))!;
     }
@@ -388,13 +388,13 @@ public class OperacoesSobreRecebiveis : IDisposable
         return (await resposta.Content.ReadFromJsonAsync<ResultadoDaGeracao>(Json))!;
     }
 
-    private static async Task<PaginaDeRecebiveis> Listar(HttpClient http, string consulta) =>
-        (await http.GetFromJsonAsync<PaginaDeRecebiveis>("/recebiveis" + consulta, Json))!;
+    private static async Task<PaginaDeLancamentos> Listar(HttpClient http, string consulta) =>
+        (await http.GetFromJsonAsync<PaginaDeLancamentos>("/lancamentos" + consulta, Json))!;
 
-    private async Task<Recebivel> Buscar(Guid tenant, Guid id)
+    private async Task<Lancamento> Buscar(Guid tenant, Guid id)
     {
         await using var contexto = _banco.Criar(tenant);
-        return await contexto.Recebiveis.AsNoTracking().SingleAsync(r => r.Id == id);
+        return await contexto.Lancamentos.AsNoTracking().SingleAsync(r => r.Id == id);
     }
 
     private async Task<HttpResponseMessage> Avisar(object aviso)
@@ -404,14 +404,14 @@ public class OperacoesSobreRecebiveis : IDisposable
         return await cliente.PostAsJsonAsync("/integracoes/asaas/webhook", aviso);
     }
 
-    private static object Aviso(string id, string evento, Guid tenant, Guid recebivel, decimal valor) => new
+    private static object Aviso(string id, string evento, Guid tenant, Guid lancamento, decimal valor) => new
     {
         id,
         @event = evento,
         payment = new
         {
             id = "pay_000001",
-            externalReference = $"{tenant}/{recebivel}",
+            externalReference = $"{tenant}/{lancamento}",
             value = valor,
             status = "RECEIVED",
             clientPaymentDate = "2026-03-08",

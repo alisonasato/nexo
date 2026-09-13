@@ -13,7 +13,7 @@ public class NexoDbContext(DbContextOptions<NexoDbContext> opcoes)
     public DbSet<Pessoa> Pessoas => Set<Pessoa>();
     public DbSet<PessoaPapel> PessoaPapeis => Set<PessoaPapel>();
     public DbSet<Contrato> Contratos => Set<Contrato>();
-    public DbSet<Recebivel> Recebiveis => Set<Recebivel>();
+    public DbSet<Lancamento> Lancamentos => Set<Lancamento>();
     public DbSet<EventoDeCobranca> EventosDeCobranca => Set<EventoDeCobranca>();
     public DbSet<Renegociacao> Renegociacoes => Set<Renegociacao>();
 
@@ -114,7 +114,7 @@ public class NexoDbContext(DbContextOptions<NexoDbContext> opcoes)
              * Cascata aqui, e não Restrict: o rótulo não tem vida própria. Se a
              * pessoa fosse apagada, guardar o papel dela seria guardar a sombra
              * de um cadastro que não existe. Quem impede a pessoa de sumir é o
-             * Restrict de contrato e recebível, que apontam para ela.
+             * Restrict de contrato e lançamento, que apontam para ela.
              */
             papel.HasOne(p => p.Pessoa)
                 .WithMany(p => p.Papeis)
@@ -147,16 +147,16 @@ public class NexoDbContext(DbContextOptions<NexoDbContext> opcoes)
                 .OnDelete(DeleteBehavior.Restrict);
         });
 
-        modelo.Entity<Recebivel>(recebivel =>
+        modelo.Entity<Lancamento>(lancamento =>
         {
-            recebivel.HasKey(r => r.Id);
-            recebivel.Property(r => r.Descricao).HasMaxLength(200);
-            recebivel.Property(r => r.OrigemDaBaixa).HasMaxLength(30);
-            recebivel.Property(r => r.CobrancaId).HasMaxLength(60);
-            recebivel.Property(r => r.CobrancaUrl).HasMaxLength(300);
+            lancamento.HasKey(r => r.Id);
+            lancamento.Property(r => r.Descricao).HasMaxLength(200);
+            lancamento.Property(r => r.OrigemDaBaixa).HasMaxLength(30);
+            lancamento.Property(r => r.CobrancaId).HasMaxLength(60);
+            lancamento.Property(r => r.CobrancaUrl).HasMaxLength(300);
 
             /*
-             * A situação é a trava de concorrência do recebível.
+             * A situação é a trava de concorrência do lançamento.
              *
              * Toda gravação passa a exigir que a situação ainda seja a lida.
              * Sem isto, a baixa manual e o aviso do PSP podiam ler "em aberto"
@@ -165,12 +165,12 @@ public class NexoDbContext(DbContextOptions<NexoDbContext> opcoes)
              * com o que chegou por último. Com a baixa em lote, esse encontro
              * deixa de ser raro.
              */
-            recebivel.Property(r => r.Situacao).IsConcurrencyToken();
-            recebivel.Property(r => r.MotivoDoCancelamento).HasMaxLength(200);
-            recebivel.Property(r => r.Valor).HasPrecision(14, 2);
-            recebivel.Property(r => r.ValorPago).HasPrecision(14, 2);
-            recebivel.Property(r => r.CriadoEm).HasDefaultValueSql("now()");
-            recebivel.Property(r => r.AtualizadoEm).HasDefaultValueSql("now()");
+            lancamento.Property(r => r.Situacao).IsConcurrencyToken();
+            lancamento.Property(r => r.MotivoDoCancelamento).HasMaxLength(200);
+            lancamento.Property(r => r.Valor).HasPrecision(14, 2);
+            lancamento.Property(r => r.ValorPago).HasPrecision(14, 2);
+            lancamento.Property(r => r.CriadoEm).HasDefaultValueSql("now()");
+            lancamento.Property(r => r.AtualizadoEm).HasDefaultValueSql("now()");
 
             /*
              * A trava que impede cobrar duas vezes a mesma competência.
@@ -181,13 +181,13 @@ public class NexoDbContext(DbContextOptions<NexoDbContext> opcoes)
              * e no Postgres nulos não colidem entre si — então eles não são
              * afetados por esta regra.
              */
-            recebivel.HasIndex(r => new { r.TenantId, r.ContratoId, r.CompetenciaAno, r.CompetenciaMes })
+            lancamento.HasIndex(r => new { r.TenantId, r.ContratoId, r.CompetenciaAno, r.CompetenciaMes })
                 .IsUnique()
                 /*
                  * Índice parcial: cancelados ficam de fora. É o que permite
                  * corrigir uma geração errada — cancela e gera de novo — sem
                  * apagar o histórico do que foi cancelado e por quê.
-                 * 3 é SituacaoRecebivel.Cancelado.
+                 * 3 é SituacaoLancamento.Cancelado.
                  *
                  * Renegociado, que é 4, fica dentro de propósito: o título
                  * renegociado continua ocupando a competência, e é o que impede
@@ -195,27 +195,27 @@ public class NexoDbContext(DbContextOptions<NexoDbContext> opcoes)
                  */
                 .HasFilter("situacao <> 3");
 
-            recebivel.HasIndex(r => new { r.TenantId, r.Situacao, r.Vencimento });
+            lancamento.HasIndex(r => new { r.TenantId, r.Situacao, r.Vencimento });
 
             /* As parcelas de um mesmo lançamento são lidas juntas. */
-            recebivel.HasIndex(r => new { r.TenantId, r.ParcelamentoId });
+            lancamento.HasIndex(r => new { r.TenantId, r.ParcelamentoId });
 
             /*
              * A parcela nova aponta para o título que ela substitui. Restrict,
              * porque o renegociado é o histórico do acordo: apagá-lo deixaria
              * parcelas sem origem.
              */
-            recebivel.HasOne<Recebivel>()
+            lancamento.HasOne<Lancamento>()
                 .WithMany()
                 .HasForeignKey(r => r.RenegociadoDeId)
                 .OnDelete(DeleteBehavior.Restrict);
 
-            recebivel.HasOne(r => r.Pessoa)
+            lancamento.HasOne(r => r.Pessoa)
                 .WithMany()
                 .HasForeignKey(r => r.PessoaId)
                 .OnDelete(DeleteBehavior.Restrict);
 
-            recebivel.HasOne(r => r.Contrato)
+            lancamento.HasOne(r => r.Contrato)
                 .WithMany()
                 .HasForeignKey(r => r.ContratoId)
                 .OnDelete(DeleteBehavior.Restrict);
@@ -266,7 +266,7 @@ public class NexoDbContext(DbContextOptions<NexoDbContext> opcoes)
             evento.Property(e => e.Divergencia).HasMaxLength(300);
             evento.Property(e => e.RecebidoEm).HasDefaultValueSql("now()");
 
-            evento.HasIndex(e => new { e.TenantId, e.RecebivelId });
+            evento.HasIndex(e => new { e.TenantId, e.LancamentoId });
         });
 
         modelo.Entity<Usuario>(usuario =>

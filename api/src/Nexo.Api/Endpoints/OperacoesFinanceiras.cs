@@ -15,7 +15,7 @@ namespace Nexo.Api.Endpoints;
 ///
 /// <para>
 /// Segundo PR da fase 1 do módulo financeiro, descrito no FINANCEIRO.md. Tudo
-/// aqui se apoia no primeiro: a situação do recebível como trava de
+/// aqui se apoia no primeiro: a situação do lançamento como trava de
 /// concorrência, e a retirada da cobrança do PSP antes de o título deixar de
 /// estar em aberto.
 /// </para>
@@ -33,17 +33,17 @@ public static class OperacoesFinanceiras
 
     public static IEndpointRouteBuilder MapOperacoesFinanceiras(this IEndpointRouteBuilder rotas)
     {
-        var grupo = rotas.MapGroup("/recebiveis").WithTags("Recebíveis");
+        var grupo = rotas.MapGroup("/lancamentos").WithTags("Lançamentos");
 
         grupo.MapPost("/parcelamentos", Parcelar)
-            .WithName("ParcelarRecebivel")
+            .WithName("ParcelarLancamento")
             .WithSummary("Lança um valor dividido em parcelas mensais")
             .WithDescription("Os centavos que sobram da divisão vão para a primeira parcela, e cada vencimento parte da primeira data. Com uma parcela só, é um lançamento avulso comum.")
             .Produces<ParcelamentoCriado>(StatusCodes.Status201Created)
             .Produces<RespostaComProblemas>(StatusCodes.Status422UnprocessableEntity);
 
         grupo.MapPost("/{id:guid}/renegociar", Renegociar)
-            .WithName("RenegociarRecebivel")
+            .WithName("RenegociarLancamento")
             .WithSummary("Troca um título em aberto por parcelas novas")
             .WithDescription("O título original vira renegociado e continua ocupando a competência; as parcelas novas apontam para ele. Juros e multa acrescentam, desconto abate.")
             .Produces<RenegociacaoCriada>(StatusCodes.Status201Created)
@@ -51,9 +51,9 @@ public static class OperacoesFinanceiras
             .Produces(StatusCodes.Status404NotFound);
 
         grupo.MapPost("/baixar-em-lote", BaixarEmLote)
-            .WithName("BaixarRecebiveisEmLote")
-            .WithSummary("Registra o recebimento de vários recebíveis de uma vez")
-            .WithDescription("Cada recebível é baixado ou recusado por conta própria: um já pago não impede os outros. O valor recebido é o valor cobrado.")
+            .WithName("BaixarLancamentosEmLote")
+            .WithSummary("Registra o recebimento de vários lançamentos de uma vez")
+            .WithDescription("Cada lançamento é baixado ou recusado por conta própria: um já pago não impede os outros. O valor recebido é o valor cobrado.")
             .Produces<ResultadoDaBaixaEmLote>()
             .Produces<RespostaComProblemas>(StatusCodes.Status422UnprocessableEntity);
 
@@ -74,7 +74,7 @@ public static class OperacoesFinanceiras
 
         /* A mesma conferência do lançamento avulso: cliente com papel de
            cliente, descrição, valor e competência. Parcelar não afrouxa nada. */
-        var problemas = await Recebiveis.Conferir(
+        var problemas = await Lancamentos.Conferir(
             new DadosDoAvulso(dados.PessoaId, dados.Descricao, total, dados.PrimeiroVencimento,
                 dados.CompetenciaAno, dados.CompetenciaMes),
             banco, cancelamento);
@@ -92,7 +92,7 @@ public static class OperacoesFinanceiras
         var grupo = Guid.NewGuid();
 
         var novos = Parcelas.Dividir(total, dados.Parcelas, dados.PrimeiroVencimento)
-            .Select(parcela => new Recebivel
+            .Select(parcela => new Lancamento
             {
                 Id = Guid.NewGuid(),
                 TenantId = tenant,
@@ -104,7 +104,7 @@ public static class OperacoesFinanceiras
                 Descricao = dados.Descricao.Trim(),
                 Valor = parcela.Valor,
                 Vencimento = parcela.Vencimento,
-                Situacao = SituacaoRecebivel.Aberto,
+                Situacao = SituacaoLancamento.Aberto,
                 ParcelamentoId = emGrupo ? grupo : null,
                 ParcelaNumero = emGrupo ? parcela.Numero : null,
                 ParcelasTotal = emGrupo ? dados.Parcelas : null,
@@ -113,11 +113,11 @@ public static class OperacoesFinanceiras
             })
             .ToList();
 
-        banco.Recebiveis.AddRange(novos);
+        banco.Lancamentos.AddRange(novos);
         await banco.SaveChangesAsync(cancelamento);
 
         return Results.Json(
-            new ParcelamentoCriado(emGrupo ? grupo : null, novos.Select(Recebiveis.Detalhar).ToList()),
+            new ParcelamentoCriado(emGrupo ? grupo : null, novos.Select(Lancamentos.Detalhar).ToList()),
             statusCode: StatusCodes.Status201Created);
     }
 
@@ -144,7 +144,7 @@ public static class OperacoesFinanceiras
         ILoggerFactory registros,
         CancellationToken cancelamento)
     {
-        var original = await banco.Recebiveis
+        var original = await banco.Lancamentos
             .Include(r => r.Pessoa)
             .FirstOrDefaultAsync(r => r.Id == id, cancelamento);
 
@@ -152,18 +152,18 @@ public static class OperacoesFinanceiras
 
         switch (original.Situacao)
         {
-            case SituacaoRecebivel.Pago:
-                return Problema("id", "Recebível já baixado",
-                    $"Este recebível foi baixado em {original.PagoEm:dd/MM/yyyy}.",
+            case SituacaoLancamento.Pago:
+                return Problema("id", "Lançamento já baixado",
+                    $"Este lançamento foi baixado em {original.PagoEm:dd/MM/yyyy}.",
                     "Título pago não se renegocia. Se a baixa estava errada, estorne antes.");
 
-            case SituacaoRecebivel.Cancelado:
-                return Problema("id", "Recebível cancelado",
-                    "Um recebível cancelado não pode ser renegociado.",
+            case SituacaoLancamento.Cancelado:
+                return Problema("id", "Lançamento cancelado",
+                    "Um lançamento cancelado não pode ser renegociado.",
                     "Se o valor voltou a ser devido, lance uma cobrança nova.");
 
-            case SituacaoRecebivel.Renegociado:
-                return Problema("id", "Recebível já renegociado",
+            case SituacaoLancamento.Renegociado:
+                return Problema("id", "Lançamento já renegociado",
                     "Este título já foi substituído por parcelas novas.",
                     "Se for o caso, renegocie as parcelas novas.");
         }
@@ -212,7 +212,7 @@ public static class OperacoesFinanceiras
 
         var agora = DateTimeOffset.UtcNow;
 
-        original.Situacao = SituacaoRecebivel.Renegociado;
+        original.Situacao = SituacaoLancamento.Renegociado;
         original.AtualizadoEm = agora;
 
         var renegociacao = new Renegociacao
@@ -237,7 +237,7 @@ public static class OperacoesFinanceiras
          * cada parcela aponta.
          */
         var parcelas = Parcelas.Dividir(novoTotal, dados.Parcelas, dados.PrimeiroVencimento)
-            .Select(parcela => new Recebivel
+            .Select(parcela => new Lancamento
             {
                 Id = Guid.NewGuid(),
                 TenantId = original.TenantId,
@@ -249,7 +249,7 @@ public static class OperacoesFinanceiras
                 Descricao = original.Descricao,
                 Valor = parcela.Valor,
                 Vencimento = parcela.Vencimento,
-                Situacao = SituacaoRecebivel.Aberto,
+                Situacao = SituacaoLancamento.Aberto,
                 ParcelamentoId = emGrupo ? grupo : null,
                 ParcelaNumero = emGrupo ? parcela.Numero : null,
                 ParcelasTotal = emGrupo ? dados.Parcelas : null,
@@ -260,7 +260,7 @@ public static class OperacoesFinanceiras
             .ToList();
 
         banco.Renegociacoes.Add(renegociacao);
-        banco.Recebiveis.AddRange(parcelas);
+        banco.Lancamentos.AddRange(parcelas);
 
         try
         {
@@ -268,8 +268,8 @@ public static class OperacoesFinanceiras
         }
         catch (DbUpdateConcurrencyException)
         {
-            return Problema("situacao", "O recebível mudou enquanto isto era feito",
-                "Outra operação alterou este recebível no mesmo instante, e nada foi renegociado.",
+            return Problema("situacao", "O lançamento mudou enquanto isto era feito",
+                "Outra operação alterou este lançamento no mesmo instante, e nada foi renegociado.",
                 "Recarregue a lista e confira a situação antes de tentar de novo.");
         }
         catch (DbUpdateException erro) when (erro.InnerException is PostgresException
@@ -277,20 +277,20 @@ public static class OperacoesFinanceiras
             SqlState: PostgresErrorCodes.UniqueViolation
         })
         {
-            return Problema("id", "Recebível já renegociado",
+            return Problema("id", "Lançamento já renegociado",
                 "Este título foi renegociado por outra operação no mesmo instante.",
                 "Recarregue a lista: as parcelas novas já estão lá.");
         }
 
         return Results.Json(
-            new RenegociacaoCriada(renegociacao.Id, original.Id, parcelas.Select(Recebiveis.Detalhar).ToList()),
+            new RenegociacaoCriada(renegociacao.Id, original.Id, parcelas.Select(Lancamentos.Detalhar).ToList()),
             statusCode: StatusCodes.Status201Created);
     }
 
     /* -------------------------------------------------- baixar em lote */
 
     /// <summary>
-    /// Baixa vários recebíveis de uma vez, pelo valor cobrado.
+    /// Baixa vários lançamentos de uma vez, pelo valor cobrado.
     ///
     /// <para>
     /// <b>Cada item por conta própria, e não tudo numa transação.</b> Numa
@@ -313,14 +313,14 @@ public static class OperacoesFinanceiras
         if (ids.Count == 0)
         {
             return Problema("ids", "Nada selecionado",
-                "Nenhum recebível foi informado.",
-                "Marque na lista os recebíveis a baixar.");
+                "Nenhum lançamento foi informado.",
+                "Marque na lista os lançamentos a baixar.");
         }
 
         if (ids.Count > MaximoPorLote)
         {
             return Problema("ids", "Seleção grande demais",
-                $"Foram informados {ids.Count} recebíveis.",
+                $"Foram informados {ids.Count} lançamentos.",
                 $"Baixe no máximo {MaximoPorLote} de cada vez.");
         }
 
@@ -335,38 +335,38 @@ public static class OperacoesFinanceiras
                próximo gravar junto. */
             banco.ChangeTracker.Clear();
 
-            var recebivel = await banco.Recebiveis.FirstOrDefaultAsync(r => r.Id == id, cancelamento);
+            var lancamento = await banco.Lancamentos.FirstOrDefaultAsync(r => r.Id == id, cancelamento);
 
-            if (recebivel is null)
+            if (lancamento is null)
             {
                 recusados.Add(new RecusaNaBaixaEmLote(id, "Não encontrado."));
                 continue;
             }
 
-            if (recebivel.Situacao != SituacaoRecebivel.Aberto)
+            if (lancamento.Situacao != SituacaoLancamento.Aberto)
             {
-                recusados.Add(new RecusaNaBaixaEmLote(id, recebivel.Situacao switch
+                recusados.Add(new RecusaNaBaixaEmLote(id, lancamento.Situacao switch
                 {
-                    SituacaoRecebivel.Pago => $"Já baixado em {recebivel.PagoEm:dd/MM/yyyy}.",
-                    SituacaoRecebivel.Cancelado => "Cancelado.",
-                    SituacaoRecebivel.Renegociado => "Renegociado: baixe as parcelas novas.",
+                    SituacaoLancamento.Pago => $"Já baixado em {lancamento.PagoEm:dd/MM/yyyy}.",
+                    SituacaoLancamento.Cancelado => "Cancelado.",
+                    SituacaoLancamento.Renegociado => "Renegociado: baixe as parcelas novas.",
                     _ => "Não está em aberto.",
                 }));
                 continue;
             }
 
-            if (await Cobrancas.TentarRetirarDoPsp(recebivel, asaas, configuracao.Value, registro, cancelamento)
+            if (await Cobrancas.TentarRetirarDoPsp(lancamento, asaas, configuracao.Value, registro, cancelamento)
                 is { } falha)
             {
                 recusados.Add(new RecusaNaBaixaEmLote(id, $"{falha.Titulo}: {falha.Descricao}"));
                 continue;
             }
 
-            recebivel.Situacao = SituacaoRecebivel.Pago;
-            recebivel.ValorPago = recebivel.Valor;
-            recebivel.PagoEm = pagoEm;
-            recebivel.OrigemDaBaixa = OrigensDeBaixa.Lote;
-            recebivel.AtualizadoEm = DateTimeOffset.UtcNow;
+            lancamento.Situacao = SituacaoLancamento.Pago;
+            lancamento.ValorPago = lancamento.Valor;
+            lancamento.PagoEm = pagoEm;
+            lancamento.OrigemDaBaixa = OrigensDeBaixa.Lote;
+            lancamento.AtualizadoEm = DateTimeOffset.UtcNow;
 
             try
             {
@@ -425,7 +425,7 @@ public record DadosDoParcelamento(
     int CompetenciaMes);
 
 /// <param name="ParcelamentoId">Nulo quando foi lançada uma parcela só.</param>
-public record ParcelamentoCriado(Guid? ParcelamentoId, List<RecebivelNaLista> Parcelas);
+public record ParcelamentoCriado(Guid? ParcelamentoId, List<LancamentoNaLista> Parcelas);
 
 /// <param name="Juros">Valor em reais acrescentado, e não taxa.</param>
 /// <param name="Multa">Valor em reais acrescentado, e não taxa.</param>
@@ -438,7 +438,7 @@ public record DadosDaRenegociacao(
     decimal Desconto,
     string? Motivo);
 
-public record RenegociacaoCriada(Guid RenegociacaoId, Guid OrigemId, List<RecebivelNaLista> Parcelas);
+public record RenegociacaoCriada(Guid RenegociacaoId, Guid OrigemId, List<LancamentoNaLista> Parcelas);
 
 /// <param name="PagoEm">Quando o dinheiro entrou. Vazio é hoje.</param>
 public record DadosDaBaixaEmLote(List<Guid>? Ids, DateOnly? PagoEm);

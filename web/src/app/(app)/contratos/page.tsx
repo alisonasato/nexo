@@ -130,7 +130,7 @@ export default function ListagemDeContratos() {
     },
     onSuccess: () => {
       definirEscolhidos(new Set());
-      clienteDeConsultas.invalidateQueries({ queryKey: ["recebiveis"] });
+      clienteDeConsultas.invalidateQueries({ queryKey: ["lancamentos"] });
     },
   });
 
@@ -190,7 +190,7 @@ export default function ListagemDeContratos() {
           <div>
             <h2 className="font-semibold text-marca-950">Gerar mensalidades</h2>
             <p className="text-slate-600">
-              Cria um recebível para cada contrato ativo na competência escolhida. Marque linhas
+              Cria um lançamento para cada contrato ativo na competência escolhida. Marque linhas
               na lista abaixo para gerar só as escolhidas. Pode ser executado quantas vezes for
               preciso: o que já existe é ignorado, nunca duplicado.
             </p>
@@ -224,8 +224,8 @@ export default function ListagemDeContratos() {
             {/*
               O rótulo diz o alcance, e não só a ação. "Gerar" sozinho esconde a
               diferença entre atingir três contratos e atingir a carteira
-              inteira — e é uma diferença que só se desfaz cancelando recebível
-              por recebível.
+              inteira — e é uma diferença que só se desfaz cancelando lançamento
+              por lançamento.
             */}
             <Botao type="button" disabled={gerar.isPending} onClick={() => gerar.mutate()}>
               {gerar.isPending

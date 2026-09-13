@@ -7,7 +7,7 @@ using Nexo.Api.Endpoints;
 namespace Nexo.Api.Testes;
 
 /// <summary>
-/// A ordem das listagens de contratos e de recebíveis.
+/// A ordem das listagens de contratos e de lançamentos.
 ///
 /// <para>
 /// <b>Ordenar é do banco, não da tela</b> — o mesmo motivo da listagem de
@@ -23,7 +23,7 @@ namespace Nexo.Api.Testes;
 /// </para>
 /// </summary>
 [Collection(nameof(ColecaoDoBanco))]
-public class OrdemDeContratosERecebiveis(BancoDeTestes banco) : IDisposable
+public class OrdemDeContratosELancamentos(BancoDeTestes banco) : IDisposable
 {
     private readonly AplicacaoDeTestes _aplicacao = new(banco.Conexao);
 
@@ -94,10 +94,10 @@ public class OrdemDeContratosERecebiveis(BancoDeTestes banco) : IDisposable
         Assert.Equal(ids.OrderBy(id => id).ToList(), ids);
     }
 
-    /* ---------------------------------------------------- recebíveis */
+    /* ---------------------------------------------------- lançamentos */
 
     [Fact]
-    public async Task Recebiveis_vem_por_vencimento()
+    public async Task Lancamentos_vem_por_vencimento()
     {
         var http = await Entrar();
 
@@ -115,7 +115,7 @@ public class OrdemDeContratosERecebiveis(BancoDeTestes banco) : IDisposable
     }
 
     [Fact]
-    public async Task Recebiveis_ordenam_por_cliente_e_por_valor()
+    public async Task Lancamentos_ordenam_por_cliente_e_por_valor()
     {
         var http = await Entrar();
 
@@ -123,8 +123,8 @@ public class OrdemDeContratosERecebiveis(BancoDeTestes banco) : IDisposable
         await CriarAvulso(http, "Alfa", 300m, new DateOnly(2026, 3, 20), 2026, 3);
         await CriarAvulso(http, "Mike", 200m, new DateOnly(2026, 3, 12), 2026, 3);
 
-        Assert.Equal(["Alfa", "Mike", "Zulu"], await NomesDosRecebiveis(http, "?ordenarPor=Cliente"));
-        Assert.Equal([300m, 200m, 100m], await ValoresDosRecebiveis(http, "?ordenarPor=Valor&direcao=Decrescente"));
+        Assert.Equal(["Alfa", "Mike", "Zulu"], await NomesDosLancamentos(http, "?ordenarPor=Cliente"));
+        Assert.Equal([300m, 200m, 100m], await ValoresDosLancamentos(http, "?ordenarPor=Valor&direcao=Decrescente"));
     }
 
     [Fact]
@@ -140,7 +140,7 @@ public class OrdemDeContratosERecebiveis(BancoDeTestes banco) : IDisposable
         await CriarAvulso(http, "Alfa", 100m, new DateOnly(2026, 4, 10), 2026, 3);
         await CriarAvulso(http, "Beta", 200m, new DateOnly(2026, 1, 10), 2025, 12);
 
-        var pagina = await Recebiveis(http, "?ordenarPor=Competencia");
+        var pagina = await Lancamentos(http, "?ordenarPor=Competencia");
         var competencias = pagina.Itens
             .Select(r => (r.CompetenciaAno, r.CompetenciaMes))
             .ToList();
@@ -149,7 +149,7 @@ public class OrdemDeContratosERecebiveis(BancoDeTestes banco) : IDisposable
     }
 
     [Fact]
-    public async Task Recebiveis_de_mesmo_valor_tem_ordem_definida_entre_si()
+    public async Task Lancamentos_de_mesmo_valor_tem_ordem_definida_entre_si()
     {
         var http = await Entrar();
 
@@ -171,8 +171,8 @@ public class OrdemDeContratosERecebiveis(BancoDeTestes banco) : IDisposable
     private static async Task<PaginaDeContratos> Contratos(HttpClient http, string consulta) =>
         (await http.GetFromJsonAsync<PaginaDeContratos>("/contratos" + consulta, Json))!;
 
-    private static async Task<PaginaDeRecebiveis> Recebiveis(HttpClient http, string consulta) =>
-        (await http.GetFromJsonAsync<PaginaDeRecebiveis>("/recebiveis" + consulta, Json))!;
+    private static async Task<PaginaDeLancamentos> Lancamentos(HttpClient http, string consulta) =>
+        (await http.GetFromJsonAsync<PaginaDeLancamentos>("/lancamentos" + consulta, Json))!;
 
     private static async Task<List<string>> Codigos(HttpClient http, string consulta) =>
         (await Contratos(http, consulta)).Itens.Select(c => c.Codigo).ToList();
@@ -187,16 +187,16 @@ public class OrdemDeContratosERecebiveis(BancoDeTestes banco) : IDisposable
         (await Contratos(http, consulta)).Itens.Select(c => c.DiaDeVencimento).ToList();
 
     private static async Task<List<DateOnly>> Vencidos(HttpClient http, string consulta) =>
-        (await Recebiveis(http, consulta)).Itens.Select(r => r.Vencimento).ToList();
+        (await Lancamentos(http, consulta)).Itens.Select(r => r.Vencimento).ToList();
 
-    private static async Task<List<string>> NomesDosRecebiveis(HttpClient http, string consulta) =>
-        (await Recebiveis(http, consulta)).Itens.Select(r => r.NomeDaPessoa).ToList();
+    private static async Task<List<string>> NomesDosLancamentos(HttpClient http, string consulta) =>
+        (await Lancamentos(http, consulta)).Itens.Select(r => r.NomeDaPessoa).ToList();
 
-    private static async Task<List<decimal>> ValoresDosRecebiveis(HttpClient http, string consulta) =>
-        (await Recebiveis(http, consulta)).Itens.Select(r => r.Valor).ToList();
+    private static async Task<List<decimal>> ValoresDosLancamentos(HttpClient http, string consulta) =>
+        (await Lancamentos(http, consulta)).Itens.Select(r => r.Valor).ToList();
 
     private static async Task<List<Guid>> Ids(HttpClient http, string consulta) =>
-        (await Recebiveis(http, consulta)).Itens.Select(r => r.Id).ToList();
+        (await Lancamentos(http, consulta)).Itens.Select(r => r.Id).ToList();
 
     private static async Task<Guid> CriarPessoa(HttpClient http, string nome)
     {
@@ -221,7 +221,7 @@ public class OrdemDeContratosERecebiveis(BancoDeTestes banco) : IDisposable
     private static async Task CriarAvulso(
         HttpClient http, string cliente, decimal valor, DateOnly vencimento, int ano, int mes)
     {
-        var resposta = await http.PostAsJsonAsync("/recebiveis", new DadosDoAvulso(
+        var resposta = await http.PostAsJsonAsync("/lancamentos", new DadosDoAvulso(
             await CriarPessoa(http, cliente), "Certidão", valor, vencimento, ano, mes), Json);
 
         resposta.EnsureSuccessStatusCode();

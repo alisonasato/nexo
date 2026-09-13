@@ -50,10 +50,18 @@ sobre o que já existe. Sai em três PRs:
 
 ### Fase 2 — Contas a pagar
 
-A segunda natureza de lançamento, com fornecedor no lugar de cliente. É aqui, e
-não antes, que se decide entre uma tabela única de lançamentos com natureza e
-duas tabelas irmãs. A decisão Q20 vale de novo: generalizar com um caso só é
-adivinhar a forma.
+A segunda natureza de lançamento, com fornecedor no lugar de cliente. A escolha
+entre tabela única e tabelas irmãs foi feita aqui, como previsto: tabela única,
+com natureza. O porquê está em "Uma tabela de lançamentos, com natureza", no
+`DECISOES.md`. Sai em três PRs:
+
+1. **A renomeação.** `recebiveis` vira `lancamentos` na tabela, na API e no
+   contrato, sem mudar comportamento, por uma migração que renomeia em vez de
+   recriar.
+2. **A natureza a pagar na API.** A coluna de natureza, fornecedor no lugar de
+   cliente, as operações valendo para as duas naturezas, e contrato,
+   mensalidade e cobrança recusando lançamento a pagar.
+3. **A tela.** Abas A receber e A pagar, com os textos e as ações de cada uma.
 
 ### Fase 3 — Contas bancárias e caixa
 

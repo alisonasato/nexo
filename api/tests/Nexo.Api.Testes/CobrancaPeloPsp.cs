@@ -58,22 +58,22 @@ public class CobrancaPeloPsp : IDisposable
     public async Task Cobrar_emite_no_psp_e_guarda_o_link()
     {
         var (http, conta) = await Entrar();
-        var recebivel = await CriarRecebivel(http);
+        var lancamento = await CriarLancamento(http);
 
-        var resposta = await http.PostAsync($"/recebiveis/{recebivel}/cobrar", null);
+        var resposta = await http.PostAsync($"/lancamentos/{lancamento}/cobrar", null);
         resposta.EnsureSuccessStatusCode();
 
-        var cobrado = await resposta.Content.ReadFromJsonAsync<RecebivelCobrado>(Json);
+        var cobrado = await resposta.Content.ReadFromJsonAsync<LancamentoCobrado>(Json);
         Assert.Equal("pay_000001", cobrado!.CobrancaId);
         Assert.Equal("https://sandbox.asaas.com/i/pay_000001", cobrado.CobrancaUrl);
 
         /*
-         * A referência leva o tenant junto do recebível. É por ela que o
+         * A referência leva o tenant junto do lançamento. É por ela que o
          * webhook — que chega sem sessão — descobre de quem é a linha, sem
          * precisar de um caminho que ignore o isolamento.
          */
         var referencia = _psp.UltimaCobranca.GetProperty("externalReference").GetString();
-        Assert.Equal($"{conta.TenantId}/{recebivel}", referencia);
+        Assert.Equal($"{conta.TenantId}/{lancamento}", referencia);
 
         /* E a forma de pagamento fica em aberto: quem escolhe é quem paga. */
         Assert.Equal("UNDEFINED", _psp.UltimaCobranca.GetProperty("billingType").GetString());
@@ -83,10 +83,10 @@ public class CobrancaPeloPsp : IDisposable
     public async Task Cobrar_duas_vezes_nao_emite_duas_cobrancas()
     {
         var (http, _) = await Entrar();
-        var recebivel = await CriarRecebivel(http);
+        var lancamento = await CriarLancamento(http);
 
-        var primeira = await http.PostAsync($"/recebiveis/{recebivel}/cobrar", null);
-        var segunda = await http.PostAsync($"/recebiveis/{recebivel}/cobrar", null);
+        var primeira = await http.PostAsync($"/lancamentos/{lancamento}/cobrar", null);
+        var segunda = await http.PostAsync($"/lancamentos/{lancamento}/cobrar", null);
 
         primeira.EnsureSuccessStatusCode();
         segunda.EnsureSuccessStatusCode();
@@ -98,8 +98,8 @@ public class CobrancaPeloPsp : IDisposable
          */
         Assert.Equal(1, _psp.CobrancasCriadas);
 
-        var a = await primeira.Content.ReadFromJsonAsync<RecebivelCobrado>(Json);
-        var b = await segunda.Content.ReadFromJsonAsync<RecebivelCobrado>(Json);
+        var a = await primeira.Content.ReadFromJsonAsync<LancamentoCobrado>(Json);
+        var b = await segunda.Content.ReadFromJsonAsync<LancamentoCobrado>(Json);
         Assert.Equal(a!.CobrancaId, b!.CobrancaId);
     }
 
@@ -107,7 +107,7 @@ public class CobrancaPeloPsp : IDisposable
     public async Task Cliente_sem_documento_e_recusado_antes_de_falar_com_o_psp()
     {
         var (http, conta) = await Entrar();
-        var recebivel = await CriarRecebivel(http);
+        var lancamento = await CriarLancamento(http);
 
         /*
          * O documento é apagado direto no banco porque o cadastro não deixa
@@ -123,13 +123,13 @@ public class CobrancaPeloPsp : IDisposable
                 ajuste => ajuste.SetProperty(p => p.Documento, string.Empty));
         }
 
-        var resposta = await http.PostAsync($"/recebiveis/{recebivel}/cobrar", null);
+        var resposta = await http.PostAsync($"/lancamentos/{lancamento}/cobrar", null);
 
         Assert.Equal(HttpStatusCode.UnprocessableEntity, resposta.StatusCode);
 
         /*
          * Nada saiu. O PSP recusaria também, com "cpfCnpj inválido" — verdade
-         * que não ajuda quem está olhando a lista de recebíveis e precisa saber
+         * que não ajuda quem está olhando a lista de lançamentos e precisa saber
          * que o conserto é no cadastro daqui.
          */
         Assert.Equal(0, _psp.ClientesCriados);
@@ -145,8 +145,8 @@ public class CobrancaPeloPsp : IDisposable
         var janeiro = await CriarAvulso(http, pessoa, 2026, 1);
         var fevereiro = await CriarAvulso(http, pessoa, 2026, 2);
 
-        await http.PostAsync($"/recebiveis/{janeiro}/cobrar", null);
-        await http.PostAsync($"/recebiveis/{fevereiro}/cobrar", null);
+        await http.PostAsync($"/lancamentos/{janeiro}/cobrar", null);
+        await http.PostAsync($"/lancamentos/{fevereiro}/cobrar", null);
 
         /*
          * Sem guardar o identificador do pagador, cada mensalidade criaria um
@@ -161,11 +161,11 @@ public class CobrancaPeloPsp : IDisposable
     public async Task Recusa_do_psp_vira_mensagem_e_nao_erro_generico()
     {
         var (http, _) = await Entrar();
-        var recebivel = await CriarRecebivel(http);
+        var lancamento = await CriarLancamento(http);
 
         _psp.Recusa = "O valor da cobrança deve ser maior que zero.";
 
-        var resposta = await http.PostAsync($"/recebiveis/{recebivel}/cobrar", null);
+        var resposta = await http.PostAsync($"/lancamentos/{lancamento}/cobrar", null);
 
         Assert.Equal(HttpStatusCode.UnprocessableEntity, resposta.StatusCode);
 
@@ -179,29 +179,29 @@ public class CobrancaPeloPsp : IDisposable
     public async Task Sem_o_token_combinado_o_aviso_nao_e_processado()
     {
         var (http, conta) = await Entrar();
-        var recebivel = await CriarRecebivel(http);
-        await http.PostAsync($"/recebiveis/{recebivel}/cobrar", null);
+        var lancamento = await CriarLancamento(http);
+        await http.PostAsync($"/lancamentos/{lancamento}/cobrar", null);
 
         var anonimo = _aplicacao.CreateClient();
         var resposta = await anonimo.PostAsJsonAsync("/integracoes/asaas/webhook",
-            Aviso("evt_1", "PAYMENT_RECEIVED", conta.TenantId, recebivel, 450m));
+            Aviso("evt_1", "PAYMENT_RECEIVED", conta.TenantId, lancamento, 450m));
 
         Assert.Equal(HttpStatusCode.Unauthorized, resposta.StatusCode);
-        Assert.Equal(SituacaoRecebivel.Aberto, await SituacaoDe(conta.TenantId, recebivel));
+        Assert.Equal(SituacaoLancamento.Aberto, await SituacaoDe(conta.TenantId, lancamento));
     }
 
     [Fact]
     public async Task Pagamento_confirmado_da_baixa_com_origem_de_cobranca()
     {
         var (http, conta) = await Entrar();
-        var recebivel = await CriarRecebivel(http);
-        await http.PostAsync($"/recebiveis/{recebivel}/cobrar", null);
+        var lancamento = await CriarLancamento(http);
+        await http.PostAsync($"/lancamentos/{lancamento}/cobrar", null);
 
-        var resposta = await Avisar(Aviso("evt_1", "PAYMENT_CONFIRMED", conta.TenantId, recebivel, 450m));
+        var resposta = await Avisar(Aviso("evt_1", "PAYMENT_CONFIRMED", conta.TenantId, lancamento, 450m));
         resposta.EnsureSuccessStatusCode();
 
-        var baixado = await Buscar(conta.TenantId, recebivel);
-        Assert.Equal(SituacaoRecebivel.Pago, baixado.Situacao);
+        var baixado = await Buscar(conta.TenantId, lancamento);
+        Assert.Equal(SituacaoLancamento.Pago, baixado.Situacao);
         Assert.Equal(450m, baixado.ValorPago);
         Assert.Equal(new DateOnly(2026, 3, 8), baixado.PagoEm);
 
@@ -217,78 +217,78 @@ public class CobrancaPeloPsp : IDisposable
     public async Task O_reenvio_de_um_aviso_antigo_nao_desfaz_o_que_veio_depois()
     {
         var (http, conta) = await Entrar();
-        var recebivel = await CriarRecebivel(http);
-        await http.PostAsync($"/recebiveis/{recebivel}/cobrar", null);
+        var lancamento = await CriarLancamento(http);
+        await http.PostAsync($"/lancamentos/{lancamento}/cobrar", null);
 
         /* O cliente paga. */
-        await Avisar(Aviso("evt_pago", "PAYMENT_RECEIVED", conta.TenantId, recebivel, 450m));
-        Assert.Equal(SituacaoRecebivel.Pago, await SituacaoDe(conta.TenantId, recebivel));
+        await Avisar(Aviso("evt_pago", "PAYMENT_RECEIVED", conta.TenantId, lancamento, 450m));
+        Assert.Equal(SituacaoLancamento.Pago, await SituacaoDe(conta.TenantId, lancamento));
 
         /* Depois o pagamento é estornado, e o valor volta a ser devido. */
-        await Avisar(Aviso("evt_estorno", "PAYMENT_REFUNDED", conta.TenantId, recebivel, 450m));
-        Assert.Equal(SituacaoRecebivel.Aberto, await SituacaoDe(conta.TenantId, recebivel));
+        await Avisar(Aviso("evt_estorno", "PAYMENT_REFUNDED", conta.TenantId, lancamento, 450m));
+        Assert.Equal(SituacaoLancamento.Aberto, await SituacaoDe(conta.TenantId, lancamento));
 
         /*
          * E então o aviso do pagamento chega de novo.
          *
          * Não é caso inventado: a entrega do Asaas é at least once, ele
          * reenvia, e guarda evento por 14 dias. Sem a tabela de eventos, este
-         * reenvio daria baixa num recebível que foi legitimamente reaberto — e
+         * reenvio daria baixa num lançamento que foi legitimamente reaberto — e
          * o escritório pararia de cobrar alguém que deve.
          */
-        await Avisar(Aviso("evt_pago", "PAYMENT_RECEIVED", conta.TenantId, recebivel, 450m));
-        Assert.Equal(SituacaoRecebivel.Aberto, await SituacaoDe(conta.TenantId, recebivel));
+        await Avisar(Aviso("evt_pago", "PAYMENT_RECEIVED", conta.TenantId, lancamento, 450m));
+        Assert.Equal(SituacaoLancamento.Aberto, await SituacaoDe(conta.TenantId, lancamento));
     }
 
     [Fact]
     public async Task Estorno_reabre_em_vez_de_cancelar()
     {
         var (http, conta) = await Entrar();
-        var recebivel = await CriarRecebivel(http);
-        await http.PostAsync($"/recebiveis/{recebivel}/cobrar", null);
+        var lancamento = await CriarLancamento(http);
+        await http.PostAsync($"/lancamentos/{lancamento}/cobrar", null);
 
-        await Avisar(Aviso("evt_1", "PAYMENT_RECEIVED", conta.TenantId, recebivel, 450m));
-        await Avisar(Aviso("evt_2", "PAYMENT_REFUNDED", conta.TenantId, recebivel, 450m));
+        await Avisar(Aviso("evt_1", "PAYMENT_RECEIVED", conta.TenantId, lancamento, 450m));
+        await Avisar(Aviso("evt_2", "PAYMENT_REFUNDED", conta.TenantId, lancamento, 450m));
 
-        var reaberto = await Buscar(conta.TenantId, recebivel);
+        var reaberto = await Buscar(conta.TenantId, lancamento);
 
         /*
          * Cancelar apagaria a cobrança da conta do escritório, que é o
          * contrário do que estorno significa: o dinheiro voltou, e o valor
          * continua devido.
          */
-        Assert.Equal(SituacaoRecebivel.Aberto, reaberto.Situacao);
+        Assert.Equal(SituacaoLancamento.Aberto, reaberto.Situacao);
         Assert.Null(reaberto.ValorPago);
         Assert.Null(reaberto.PagoEm);
     }
 
     [Fact]
-    public async Task Um_tenant_nao_baixa_o_recebivel_do_outro()
+    public async Task Um_tenant_nao_baixa_o_lancamento_do_outro()
     {
         var (http, dono) = await Entrar();
-        var recebivel = await CriarRecebivel(http);
-        await http.PostAsync($"/recebiveis/{recebivel}/cobrar", null);
+        var lancamento = await CriarLancamento(http);
+        await http.PostAsync($"/lancamentos/{lancamento}/cobrar", null);
 
         var intruso = await Contas.Criar(_banco, _aplicacao);
 
         /*
-         * Um aviso que nomeia o tenant errado para o recebível certo. O token
+         * Um aviso que nomeia o tenant errado para o lançamento certo. O token
          * confere — é o mesmo — mas a política de linha não devolve a linha, e
          * não há nada a baixar. Quem protege aqui é o Postgres, e não um
          * `where` que alguém possa esquecer.
          */
-        var resposta = await Avisar(Aviso("evt_1", "PAYMENT_RECEIVED", intruso.TenantId, recebivel, 450m));
+        var resposta = await Avisar(Aviso("evt_1", "PAYMENT_RECEIVED", intruso.TenantId, lancamento, 450m));
         resposta.EnsureSuccessStatusCode();
 
-        Assert.Equal(SituacaoRecebivel.Aberto, await SituacaoDe(dono.TenantId, recebivel));
+        Assert.Equal(SituacaoLancamento.Aberto, await SituacaoDe(dono.TenantId, lancamento));
     }
 
     [Fact]
     public async Task Aviso_que_nao_interessa_responde_200()
     {
         var (http, conta) = await Entrar();
-        var recebivel = await CriarRecebivel(http);
-        await http.PostAsync($"/recebiveis/{recebivel}/cobrar", null);
+        var lancamento = await CriarLancamento(http);
+        await http.PostAsync($"/lancamentos/{lancamento}/cobrar", null);
 
         /*
          * Responder erro aqui pararia a fila do webhook depois de 15 avisos
@@ -296,10 +296,10 @@ public class CobrancaPeloPsp : IDisposable
          * são os que importam. Eventos parados somem em 14 dias.
          */
         var resposta = await Avisar(
-            Aviso("evt_1", "PAYMENT_BANK_SLIP_VIEWED", conta.TenantId, recebivel, 450m));
+            Aviso("evt_1", "PAYMENT_BANK_SLIP_VIEWED", conta.TenantId, lancamento, 450m));
 
         Assert.Equal(HttpStatusCode.OK, resposta.StatusCode);
-        Assert.Equal(SituacaoRecebivel.Aberto, await SituacaoDe(conta.TenantId, recebivel));
+        Assert.Equal(SituacaoLancamento.Aberto, await SituacaoDe(conta.TenantId, lancamento));
     }
 
     /* ------------------------------------------- tirar a cobrança do ar */
@@ -308,22 +308,22 @@ public class CobrancaPeloPsp : IDisposable
     public async Task Cancelar_tira_a_cobranca_do_psp()
     {
         var (http, conta) = await Entrar();
-        var recebivel = await CriarRecebivel(http);
-        await http.PostAsync($"/recebiveis/{recebivel}/cobrar", null);
+        var lancamento = await CriarLancamento(http);
+        await http.PostAsync($"/lancamentos/{lancamento}/cobrar", null);
 
-        var resposta = await http.PostAsJsonAsync($"/recebiveis/{recebivel}/cancelar",
+        var resposta = await http.PostAsJsonAsync($"/lancamentos/{lancamento}/cancelar",
             new DadosDoCancelamento("Cliente desistiu do serviço"), Json);
         resposta.EnsureSuccessStatusCode();
 
         /*
          * Antes disto, o boleto e o Pix continuavam pagáveis depois do
-         * cancelamento. O cliente pagava, e o aviso chegava para um recebível
+         * cancelamento. O cliente pagava, e o aviso chegava para um lançamento
          * que não esperava mais por ele.
          */
         Assert.Equal(["pay_000001"], _psp.CobrancasExcluidas);
 
-        var cancelado = await Buscar(conta.TenantId, recebivel);
-        Assert.Equal(SituacaoRecebivel.Cancelado, cancelado.Situacao);
+        var cancelado = await Buscar(conta.TenantId, lancamento);
+        Assert.Equal(SituacaoLancamento.Cancelado, cancelado.Situacao);
         Assert.Equal(string.Empty, cancelado.CobrancaId);
     }
 
@@ -331,10 +331,10 @@ public class CobrancaPeloPsp : IDisposable
     public async Task Baixa_manual_tira_a_cobranca_do_psp()
     {
         var (http, conta) = await Entrar();
-        var recebivel = await CriarRecebivel(http);
-        await http.PostAsync($"/recebiveis/{recebivel}/cobrar", null);
+        var lancamento = await CriarLancamento(http);
+        await http.PostAsync($"/lancamentos/{lancamento}/cobrar", null);
 
-        var resposta = await http.PostAsJsonAsync($"/recebiveis/{recebivel}/baixar",
+        var resposta = await http.PostAsJsonAsync($"/lancamentos/{lancamento}/baixar",
             new DadosDaBaixa(450m, new DateOnly(2026, 3, 8)), Json);
         resposta.EnsureSuccessStatusCode();
 
@@ -342,8 +342,8 @@ public class CobrancaPeloPsp : IDisposable
            ficasse no ar seria um segundo pagamento esperando acontecer. */
         Assert.Equal(["pay_000001"], _psp.CobrancasExcluidas);
 
-        var baixado = await Buscar(conta.TenantId, recebivel);
-        Assert.Equal(SituacaoRecebivel.Pago, baixado.Situacao);
+        var baixado = await Buscar(conta.TenantId, lancamento);
+        Assert.Equal(SituacaoLancamento.Pago, baixado.Situacao);
         Assert.Equal(OrigensDeBaixa.Manual, baixado.OrigemDaBaixa);
     }
 
@@ -351,34 +351,34 @@ public class CobrancaPeloPsp : IDisposable
     public async Task Se_o_psp_nao_retira_a_cobranca_o_cancelamento_nao_acontece()
     {
         var (http, conta) = await Entrar();
-        var recebivel = await CriarRecebivel(http);
-        await http.PostAsync($"/recebiveis/{recebivel}/cobrar", null);
+        var lancamento = await CriarLancamento(http);
+        await http.PostAsync($"/lancamentos/{lancamento}/cobrar", null);
 
         /* O cliente acabou de pagar, e o aviso ainda não chegou. */
         _psp.RecusaAoExcluir = "A cobrança já foi recebida.";
 
-        var resposta = await http.PostAsJsonAsync($"/recebiveis/{recebivel}/cancelar",
+        var resposta = await http.PostAsJsonAsync($"/lancamentos/{lancamento}/cancelar",
             new DadosDoCancelamento("Cliente desistiu do serviço"), Json);
 
         Assert.Equal(HttpStatusCode.UnprocessableEntity, resposta.StatusCode);
 
         /*
          * Nada mudou aqui. Cancelar mesmo assim faria a baixa, que está a
-         * caminho, chegar para um recebível cancelado.
+         * caminho, chegar para um lançamento cancelado.
          */
-        var intacto = await Buscar(conta.TenantId, recebivel);
-        Assert.Equal(SituacaoRecebivel.Aberto, intacto.Situacao);
+        var intacto = await Buscar(conta.TenantId, lancamento);
+        Assert.Equal(SituacaoLancamento.Aberto, intacto.Situacao);
         Assert.Equal("pay_000001", intacto.CobrancaId);
     }
 
     [Fact]
-    public async Task Pagamento_que_chega_para_recebivel_cancelado_fica_marcado_para_conferir()
+    public async Task Pagamento_que_chega_para_lancamento_cancelado_fica_marcado_para_conferir()
     {
         var (http, conta) = await Entrar();
-        var recebivel = await CriarRecebivel(http);
-        await http.PostAsync($"/recebiveis/{recebivel}/cobrar", null);
+        var lancamento = await CriarLancamento(http);
+        await http.PostAsync($"/lancamentos/{lancamento}/cobrar", null);
 
-        var cancelamento = await http.PostAsJsonAsync($"/recebiveis/{recebivel}/cancelar",
+        var cancelamento = await http.PostAsJsonAsync($"/lancamentos/{lancamento}/cancelar",
             new DadosDoCancelamento("Cliente desistiu do serviço"), Json);
         cancelamento.EnsureSuccessStatusCode();
 
@@ -386,10 +386,10 @@ public class CobrancaPeloPsp : IDisposable
          * Excluir no PSP não desfaz um pagamento que já estava em curso, e o
          * aviso dele pode chegar depois do cancelamento.
          */
-        var resposta = await Avisar(Aviso("evt_tardio", "PAYMENT_RECEIVED", conta.TenantId, recebivel, 450m));
+        var resposta = await Avisar(Aviso("evt_tardio", "PAYMENT_RECEIVED", conta.TenantId, lancamento, 450m));
         resposta.EnsureSuccessStatusCode();
 
-        Assert.Equal(SituacaoRecebivel.Cancelado, await SituacaoDe(conta.TenantId, recebivel));
+        Assert.Equal(SituacaoLancamento.Cancelado, await SituacaoDe(conta.TenantId, lancamento));
 
         /*
          * O dinheiro entrou, e isso não pode passar calado. Antes, este aviso
@@ -406,12 +406,12 @@ public class CobrancaPeloPsp : IDisposable
     public async Task Sem_integracao_configurada_cancelar_segue_e_guarda_a_referencia()
     {
         var (http, conta) = await Entrar();
-        var recebivel = await CriarRecebivel(http);
+        var lancamento = await CriarLancamento(http);
 
         /* Uma cobrança emitida antes de a integração ser desligada. */
         await using (var contexto = _banco.Criar(conta.TenantId))
         {
-            await contexto.Recebiveis.Where(r => r.Id == recebivel).ExecuteUpdateAsync(ajuste => ajuste
+            await contexto.Lancamentos.Where(r => r.Id == lancamento).ExecuteUpdateAsync(ajuste => ajuste
                 .SetProperty(r => r.CobrancaId, "pay_antiga")
                 .SetProperty(r => r.CobrancaUrl, "https://sandbox.asaas.com/i/pay_antiga"));
         }
@@ -419,12 +419,12 @@ public class CobrancaPeloPsp : IDisposable
         using var semIntegracao = new AplicacaoDeTestes(_banco.Conexao);
         var outroHttp = await Contas.Entrar(semIntegracao, conta);
 
-        var resposta = await outroHttp.PostAsJsonAsync($"/recebiveis/{recebivel}/cancelar",
+        var resposta = await outroHttp.PostAsJsonAsync($"/lancamentos/{lancamento}/cancelar",
             new DadosDoCancelamento("Serviço não prestado"), Json);
         resposta.EnsureSuccessStatusCode();
 
-        var cancelado = await Buscar(conta.TenantId, recebivel);
-        Assert.Equal(SituacaoRecebivel.Cancelado, cancelado.Situacao);
+        var cancelado = await Buscar(conta.TenantId, lancamento);
+        Assert.Equal(SituacaoLancamento.Cancelado, cancelado.Situacao);
 
         /*
          * Travar o cancelamento de tudo o que foi cobrado antes seria punir
@@ -436,10 +436,10 @@ public class CobrancaPeloPsp : IDisposable
     }
 
     [Fact]
-    public async Task Duas_gravacoes_sobre_o_mesmo_recebivel_nao_passam_uma_por_cima_da_outra()
+    public async Task Duas_gravacoes_sobre_o_mesmo_lancamento_nao_passam_uma_por_cima_da_outra()
     {
         var (http, conta) = await Entrar();
-        var recebivel = await CriarRecebivel(http);
+        var lancamento = await CriarLancamento(http);
 
         /*
          * Dois leitores veem "em aberto" ao mesmo tempo: o aviso do PSP e
@@ -450,20 +450,20 @@ public class CobrancaPeloPsp : IDisposable
         await using var primeiro = _banco.Criar(conta.TenantId);
         await using var segundo = _banco.Criar(conta.TenantId);
 
-        var peloPsp = await primeiro.Recebiveis.SingleAsync(r => r.Id == recebivel);
-        var naOutraAba = await segundo.Recebiveis.SingleAsync(r => r.Id == recebivel);
+        var peloPsp = await primeiro.Lancamentos.SingleAsync(r => r.Id == lancamento);
+        var naOutraAba = await segundo.Lancamentos.SingleAsync(r => r.Id == lancamento);
 
-        peloPsp.Situacao = SituacaoRecebivel.Pago;
+        peloPsp.Situacao = SituacaoLancamento.Pago;
         peloPsp.ValorPago = 450m;
         peloPsp.PagoEm = new DateOnly(2026, 3, 8);
         peloPsp.OrigemDaBaixa = OrigensDeBaixa.Cobranca;
         await primeiro.SaveChangesAsync();
 
-        naOutraAba.Situacao = SituacaoRecebivel.Cancelado;
+        naOutraAba.Situacao = SituacaoLancamento.Cancelado;
         naOutraAba.MotivoDoCancelamento = "Engano";
 
         await Assert.ThrowsAsync<DbUpdateConcurrencyException>(() => segundo.SaveChangesAsync());
-        Assert.Equal(SituacaoRecebivel.Pago, await SituacaoDe(conta.TenantId, recebivel));
+        Assert.Equal(SituacaoLancamento.Pago, await SituacaoDe(conta.TenantId, lancamento));
     }
 
     /* --------------------------------------------------------- apoio */
@@ -482,27 +482,27 @@ public class CobrancaPeloPsp : IDisposable
     }
 
     private static object Aviso(
-        string id, string evento, Guid tenant, Guid recebivel, decimal valor) => new
+        string id, string evento, Guid tenant, Guid lancamento, decimal valor) => new
         {
             id,
             @event = evento,
             payment = new
             {
                 id = "pay_000001",
-                externalReference = $"{tenant}/{recebivel}",
+                externalReference = $"{tenant}/{lancamento}",
                 value = valor,
                 status = evento == "PAYMENT_REFUNDED" ? "REFUNDED" : "RECEIVED",
                 clientPaymentDate = "2026-03-08",
             },
         };
 
-    private async Task<Recebivel> Buscar(Guid tenant, Guid id)
+    private async Task<Lancamento> Buscar(Guid tenant, Guid id)
     {
         await using var contexto = _banco.Criar(tenant);
-        return await contexto.Recebiveis.AsNoTracking().SingleAsync(r => r.Id == id);
+        return await contexto.Lancamentos.AsNoTracking().SingleAsync(r => r.Id == id);
     }
 
-    private async Task<SituacaoRecebivel> SituacaoDe(Guid tenant, Guid id) =>
+    private async Task<SituacaoLancamento> SituacaoDe(Guid tenant, Guid id) =>
         (await Buscar(tenant, id)).Situacao;
 
     private static async Task<Guid> CriarPessoa(HttpClient http, string documento)
@@ -518,14 +518,14 @@ public class CobrancaPeloPsp : IDisposable
 
     private static async Task<Guid> CriarAvulso(HttpClient http, Guid pessoa, int ano, int mes)
     {
-        var resposta = await http.PostAsJsonAsync("/recebiveis", new DadosDoAvulso(
+        var resposta = await http.PostAsJsonAsync("/lancamentos", new DadosDoAvulso(
             pessoa, "Honorários", 450m, new DateOnly(ano, mes, 10), ano, mes), Json);
 
         resposta.EnsureSuccessStatusCode();
-        return (await resposta.Content.ReadFromJsonAsync<RecebivelNaLista>(Json))!.Id;
+        return (await resposta.Content.ReadFromJsonAsync<LancamentoNaLista>(Json))!.Id;
     }
 
-    private static async Task<Guid> CriarRecebivel(HttpClient http)
+    private static async Task<Guid> CriarLancamento(HttpClient http)
     {
         var pessoa = await CriarPessoa(http, Documentos.CnpjValido());
         return await CriarAvulso(http, pessoa, 2026, 3);

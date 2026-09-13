@@ -34,7 +34,7 @@ public enum Papel
 /// </para>
 /// <para>
 /// Quem some é o rótulo, nunca a pessoa. O histórico não se perde porque
-/// contrato e recebível apontam para a pessoa, e ela continua lá.
+/// contrato e lançamento apontam para a pessoa, e ela continua lá.
 /// </para>
 /// </summary>
 public class PessoaPapel

@@ -16,7 +16,7 @@ namespace Nexo.Api.Testes;
 /// Ele <b>conta</b> as chamadas, e é isso que torna verificável o que mais
 /// importa aqui: que cobrar duas vezes não cria duas cobranças, que um cadastro
 /// sem documento é recusado <b>antes</b> de a requisição sair, e que cancelar
-/// um recebível cobrado tira a cobrança do ar.
+/// um lançamento cobrado tira a cobrança do ar.
 /// </para>
 /// </summary>
 public sealed class AsaasDeMentira : HttpMessageHandler

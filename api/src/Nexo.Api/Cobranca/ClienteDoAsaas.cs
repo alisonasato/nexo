@@ -79,7 +79,7 @@ public sealed class ClienteDoAsaas
     }
 
     /// <param name="referencia">
-    /// O que amarra a cobrança de volta ao recebível daqui. Volta intacto em
+    /// O que amarra a cobrança de volta ao lançamento daqui. Volta intacto em
     /// toda notificação, e é por ele que o webhook descobre o que baixar.
     /// </param>
     public async Task<CobrancaCriada> CriarCobranca(
@@ -109,9 +109,9 @@ public sealed class ClienteDoAsaas
     /// Tira do ar uma cobrança que ainda não foi paga.
     ///
     /// <para>
-    /// Existe porque cancelar ou baixar à mão um recebível cobrado, sem tirar a
+    /// Existe porque cancelar ou baixar à mão um lançamento cobrado, sem tirar a
     /// cobrança do PSP, deixava o boleto e o Pix pagáveis. O cliente pagava, o
-    /// aviso chegava para um recebível que não estava mais em aberto, e o
+    /// aviso chegava para um lançamento que não estava mais em aberto, e o
     /// dinheiro entrava sem baixa nenhuma.
     /// </para>
     /// <para>

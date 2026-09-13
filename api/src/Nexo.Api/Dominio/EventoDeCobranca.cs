@@ -35,19 +35,19 @@ public class EventoDeCobranca
     public string Tipo { get; set; } = string.Empty;
 
     /// <summary>
-    /// O recebível que o evento atingiu, se atingiu algum.
+    /// O lançamento que o evento atingiu, se atingiu algum.
     ///
     /// Nulo quando o evento foi reconhecido e ignorado — cobrança visualizada,
     /// boleto impresso. Guardar mesmo assim é o que impede reprocessar, e o
     /// que deixa o histórico dizer que o aviso chegou.
     /// </summary>
-    public Guid? RecebivelId { get; set; }
+    public Guid? LancamentoId { get; set; }
 
     /// <summary>
     /// O que o aviso trazia e não pôde ser aplicado. Vazio quando nada divergiu.
     ///
     /// <para>
-    /// O caso que importa é o pagamento que chega para um recebível que já não
+    /// O caso que importa é o pagamento que chega para um lançamento que já não
     /// estava em aberto: cancelado, ou baixado à mão. O dinheiro entrou do mesmo
     /// jeito. Sem esta marca, esse aviso ficaria indistinguível de um boleto
     /// visualizado, e ninguém saberia que há um valor a devolver ou um título a

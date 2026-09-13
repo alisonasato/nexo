@@ -85,7 +85,7 @@ export function GavetaDeLancamento({ aberta, aoFechar }: Props) {
 
   const lancar = useMutation({
     mutationFn: async () => {
-      const { data, error } = await api.POST("/recebiveis/parcelamentos", {
+      const { data, error } = await api.POST("/lancamentos/parcelamentos", {
         body: {
           pessoaId: cliente,
           descricao,
@@ -100,7 +100,7 @@ export function GavetaDeLancamento({ aberta, aoFechar }: Props) {
       return data!;
     },
     onSuccess: (criado) => {
-      clienteDeConsultas.invalidateQueries({ queryKey: ["recebiveis"] });
+      clienteDeConsultas.invalidateQueries({ queryKey: ["lancamentos"] });
       avisar({
         tom: "sucesso",
         titulo:

@@ -10,7 +10,7 @@ using Npgsql;
 namespace Nexo.Api.Testes;
 
 /// <summary>
-/// Contrato, mensalidade, recebível e baixa, pela borda HTTP.
+/// Contrato, mensalidade, lançamento e baixa, pela borda HTTP.
 ///
 /// É a parte do sistema onde o erro custa dinheiro de verdade — cobrar duas
 /// vezes, baixar duas vezes, perder uma baixa —, então é onde os testes valem
@@ -45,9 +45,9 @@ public class CicloDoDinheiro(BancoDeTestes banco) : IDisposable
         Assert.Equal(0, segunda.Geradas);
         Assert.Equal(1, segunda.Ignoradas);
 
-        var recebiveis = await Listar(cliente);
-        Assert.Single(recebiveis.Itens);
-        Assert.Equal(850m, recebiveis.TotalEmAberto);
+        var lancamentos = await Listar(cliente);
+        Assert.Single(lancamentos.Itens);
+        Assert.Equal(850m, lancamentos.TotalEmAberto);
     }
 
     [Fact]
@@ -78,9 +78,9 @@ public class CicloDoDinheiro(BancoDeTestes banco) : IDisposable
         /* Nenhuma das duas pode estourar na cara de quem clicou. */
         Assert.All(respostas, resposta => Assert.Equal(HttpStatusCode.OK, resposta.StatusCode));
 
-        var recebiveis = await Listar(cliente);
-        Assert.Single(recebiveis.Itens);
-        Assert.Equal(640m, recebiveis.TotalEmAberto);
+        var lancamentos = await Listar(cliente);
+        Assert.Single(lancamentos.Itens);
+        Assert.Equal(640m, lancamentos.TotalEmAberto);
     }
 
     [Fact]
@@ -111,7 +111,7 @@ public class CicloDoDinheiro(BancoDeTestes banco) : IDisposable
             await contexto.SaveChangesAsync();
         }
 
-        Recebivel Mensalidade() => new()
+        Lancamento Mensalidade() => new()
         {
             Id = Guid.NewGuid(), TenantId = conta.TenantId, PessoaId = pessoaId,
             ContratoId = contratoId, CompetenciaAno = 2026, CompetenciaMes = 9,
@@ -120,7 +120,7 @@ public class CicloDoDinheiro(BancoDeTestes banco) : IDisposable
 
         await using (var contexto = banco.Criar(conta.TenantId))
         {
-            contexto.Recebiveis.Add(Mensalidade());
+            contexto.Lancamentos.Add(Mensalidade());
             await contexto.SaveChangesAsync();
         }
 
@@ -131,7 +131,7 @@ public class CicloDoDinheiro(BancoDeTestes banco) : IDisposable
          */
         await using (var contexto = banco.Criar(conta.TenantId))
         {
-            contexto.Recebiveis.Add(Mensalidade());
+            contexto.Lancamentos.Add(Mensalidade());
 
             var erro = await Assert.ThrowsAsync<DbUpdateException>(() => contexto.SaveChangesAsync());
             var causa = Assert.IsType<PostgresException>(erro.InnerException);
@@ -178,8 +178,8 @@ public class CicloDoDinheiro(BancoDeTestes banco) : IDisposable
          * inteira fosse cadastrada, alguém teria que cadastrar "dia 31, exceto
          * em fevereiro" — e não cadastraria.
          */
-        var recebivel = Assert.Single((await Listar(cliente)).Itens);
-        Assert.Equal(new DateOnly(2026, 2, 28), recebivel.Vencimento);
+        var lancamento = Assert.Single((await Listar(cliente)).Itens);
+        Assert.Equal(new DateOnly(2026, 2, 28), lancamento.Vencimento);
     }
 
     [Fact]
@@ -189,11 +189,11 @@ public class CicloDoDinheiro(BancoDeTestes banco) : IDisposable
         await CriarContrato(cliente, valor: 1000m, dia: 10);
         await Gerar(cliente, 2026, 4);
 
-        var recebivel = Assert.Single((await Listar(cliente)).Itens);
+        var lancamento = Assert.Single((await Listar(cliente)).Itens);
 
         // Desconto combinado: entrou menos do que a cobrança dizia.
         var resposta = await cliente.PostAsJsonAsync(
-            $"/recebiveis/{recebivel.Id}/baixar",
+            $"/lancamentos/{lancamento.Id}/baixar",
             new DadosDaBaixa(950m, new DateOnly(2026, 4, 12)), Json);
 
         Assert.Equal(HttpStatusCode.OK, resposta.StatusCode);
@@ -201,7 +201,7 @@ public class CicloDoDinheiro(BancoDeTestes banco) : IDisposable
         var resumo = await Listar(cliente);
         var baixado = Assert.Single(resumo.Itens);
 
-        Assert.Equal(SituacaoRecebivel.Pago, baixado.Situacao);
+        Assert.Equal(SituacaoLancamento.Pago, baixado.Situacao);
         Assert.Equal(1000m, baixado.Valor);
         Assert.Equal(950m, baixado.ValorPago);
         Assert.Equal(new DateOnly(2026, 4, 12), baixado.PagoEm);
@@ -219,12 +219,12 @@ public class CicloDoDinheiro(BancoDeTestes banco) : IDisposable
         await CriarContrato(cliente, valor: 400m, dia: 10);
         await Gerar(cliente, 2026, 5);
 
-        var recebivel = Assert.Single((await Listar(cliente)).Itens);
+        var lancamento = Assert.Single((await Listar(cliente)).Itens);
 
-        await cliente.PostAsJsonAsync($"/recebiveis/{recebivel.Id}/baixar",
+        await cliente.PostAsJsonAsync($"/lancamentos/{lancamento.Id}/baixar",
             new DadosDaBaixa(400m, new DateOnly(2026, 5, 10)), Json);
 
-        var repetida = await cliente.PostAsJsonAsync($"/recebiveis/{recebivel.Id}/baixar",
+        var repetida = await cliente.PostAsJsonAsync($"/lancamentos/{lancamento.Id}/baixar",
             new DadosDaBaixa(999m, new DateOnly(2026, 5, 20)), Json);
 
         Assert.Equal(HttpStatusCode.UnprocessableEntity, repetida.StatusCode);
@@ -240,31 +240,31 @@ public class CicloDoDinheiro(BancoDeTestes banco) : IDisposable
     }
 
     [Fact]
-    public async Task Estornar_devolve_o_recebivel_para_aberto()
+    public async Task Estornar_devolve_o_lancamento_para_aberto()
     {
         var cliente = await Contas.Entrar(_aplicacao, await Contas.Criar(banco, _aplicacao));
         await CriarContrato(cliente, valor: 700m, dia: 15);
         await Gerar(cliente, 2026, 6);
 
-        var recebivel = Assert.Single((await Listar(cliente)).Itens);
+        var lancamento = Assert.Single((await Listar(cliente)).Itens);
 
-        await cliente.PostAsJsonAsync($"/recebiveis/{recebivel.Id}/baixar",
+        await cliente.PostAsJsonAsync($"/lancamentos/{lancamento.Id}/baixar",
             new DadosDaBaixa(700m, null), Json);
 
-        var estorno = await cliente.PostAsync($"/recebiveis/{recebivel.Id}/estornar", null);
+        var estorno = await cliente.PostAsync($"/lancamentos/{lancamento.Id}/estornar", null);
         Assert.Equal(HttpStatusCode.OK, estorno.StatusCode);
 
         var resumo = await Listar(cliente);
         var voltou = Assert.Single(resumo.Itens);
 
-        Assert.Equal(SituacaoRecebivel.Aberto, voltou.Situacao);
+        Assert.Equal(SituacaoLancamento.Aberto, voltou.Situacao);
         Assert.Null(voltou.ValorPago);
         Assert.Null(voltou.PagoEm);
         Assert.Equal(700m, resumo.TotalEmAberto);
     }
 
     [Fact]
-    public async Task Um_escritorio_nao_ve_os_recebiveis_do_outro()
+    public async Task Um_escritorio_nao_ve_os_lancamentos_do_outro()
     {
         var clienteA = await Contas.Entrar(_aplicacao, await Contas.Criar(banco, _aplicacao));
         var clienteB = await Contas.Entrar(_aplicacao, await Contas.Criar(banco, _aplicacao));
@@ -306,7 +306,7 @@ public class CicloDoDinheiro(BancoDeTestes banco) : IDisposable
          * O erro comum: o valor do contrato estava errado. Corrige-se o
          * contrato, mas a mensalidade ja gerada continua com o valor velho.
          * Antes do cancelamento isso nao tinha conserto — a competencia ficava
-         * ocupada para sempre por um recebivel errado.
+         * ocupada para sempre por um lancamento errado.
          */
         await cliente.PutAsJsonAsync($"/contratos/{contratoId}", new DadosDeContrato(
             await PessoaDoContrato(cliente, contratoId),
@@ -314,7 +314,7 @@ public class CicloDoDinheiro(BancoDeTestes banco) : IDisposable
             new DateOnly(2025, 1, 1), null, SituacaoContrato.Ativo, string.Empty), Json);
 
         var cancelamento = await cliente.PostAsJsonAsync(
-            $"/recebiveis/{errada.Id}/cancelar",
+            $"/lancamentos/{errada.Id}/cancelar",
             new DadosDoCancelamento("Valor do contrato estava errado"), Json);
         Assert.Equal(HttpStatusCode.OK, cancelamento.StatusCode);
 
@@ -322,7 +322,7 @@ public class CicloDoDinheiro(BancoDeTestes banco) : IDisposable
         Assert.Equal(1, denovo.Geradas);
 
         var abertos = (await Listar(cliente)).Itens
-            .Where(item => item.Situacao == SituacaoRecebivel.Aberto)
+            .Where(item => item.Situacao == SituacaoLancamento.Aberto)
             .ToList();
 
         var certa = Assert.Single(abertos);
@@ -336,9 +336,9 @@ public class CicloDoDinheiro(BancoDeTestes banco) : IDisposable
         await CriarContrato(cliente, valor: 300m, dia: 10);
         await Gerar(cliente, 2026, 11);
 
-        var recebivel = Assert.Single((await Listar(cliente)).Itens);
+        var lancamento = Assert.Single((await Listar(cliente)).Itens);
 
-        await cliente.PostAsJsonAsync($"/recebiveis/{recebivel.Id}/cancelar",
+        await cliente.PostAsJsonAsync($"/lancamentos/{lancamento.Id}/cancelar",
             new DadosDoCancelamento("Cliente encerrou o contrato antes"), Json);
 
         var resumo = await Listar(cliente);
@@ -348,7 +348,7 @@ public class CicloDoDinheiro(BancoDeTestes banco) : IDisposable
 
         // ...e continua visível, com o motivo por escrito.
         var cancelado = Assert.Single(resumo.Itens);
-        Assert.Equal(SituacaoRecebivel.Cancelado, cancelado.Situacao);
+        Assert.Equal(SituacaoLancamento.Cancelado, cancelado.Situacao);
         Assert.Equal("Cliente encerrou o contrato antes", cancelado.MotivoDoCancelamento);
     }
 
@@ -359,9 +359,9 @@ public class CicloDoDinheiro(BancoDeTestes banco) : IDisposable
         await CriarContrato(cliente, valor: 300m, dia: 10);
         await Gerar(cliente, 2026, 12);
 
-        var recebivel = Assert.Single((await Listar(cliente)).Itens);
+        var lancamento = Assert.Single((await Listar(cliente)).Itens);
 
-        var resposta = await cliente.PostAsJsonAsync($"/recebiveis/{recebivel.Id}/cancelar",
+        var resposta = await cliente.PostAsJsonAsync($"/lancamentos/{lancamento.Id}/cancelar",
             new DadosDoCancelamento("   "), Json);
 
         // Cancelar tira dinheiro da conta; quem olhar depois vai perguntar por quê.
@@ -375,11 +375,11 @@ public class CicloDoDinheiro(BancoDeTestes banco) : IDisposable
         await CriarContrato(cliente, valor: 300m, dia: 10);
         await Gerar(cliente, 2027, 1);
 
-        var recebivel = Assert.Single((await Listar(cliente)).Itens);
-        await cliente.PostAsJsonAsync($"/recebiveis/{recebivel.Id}/baixar",
+        var lancamento = Assert.Single((await Listar(cliente)).Itens);
+        await cliente.PostAsJsonAsync($"/lancamentos/{lancamento.Id}/baixar",
             new DadosDaBaixa(300m, null), Json);
 
-        var resposta = await cliente.PostAsJsonAsync($"/recebiveis/{recebivel.Id}/cancelar",
+        var resposta = await cliente.PostAsJsonAsync($"/lancamentos/{lancamento.Id}/cancelar",
             new DadosDoCancelamento("Mudei de ideia"), Json);
 
         /*
@@ -396,11 +396,11 @@ public class CicloDoDinheiro(BancoDeTestes banco) : IDisposable
         await CriarContrato(cliente, valor: 300m, dia: 10);
         await Gerar(cliente, 2027, 2);
 
-        var recebivel = Assert.Single((await Listar(cliente)).Itens);
-        await cliente.PostAsJsonAsync($"/recebiveis/{recebivel.Id}/cancelar",
+        var lancamento = Assert.Single((await Listar(cliente)).Itens);
+        await cliente.PostAsJsonAsync($"/lancamentos/{lancamento.Id}/cancelar",
             new DadosDoCancelamento("Gerado por engano"), Json);
 
-        var estorno = await cliente.PostAsync($"/recebiveis/{recebivel.Id}/estornar", null);
+        var estorno = await cliente.PostAsync($"/lancamentos/{lancamento.Id}/estornar", null);
 
         /*
          * Estorno desfaz baixa. Sobre um cancelado, ressuscitaria a cobranca —
@@ -420,8 +420,8 @@ public class CicloDoDinheiro(BancoDeTestes banco) : IDisposable
 
         await Gerar(cliente, 2027, 3);
 
-        var primeiraPagina = await cliente.GetFromJsonAsync<PaginaDeRecebiveis>(
-            "/recebiveis?ano=2027&mes=3&pagina=1&tamanho=2", Json);
+        var primeiraPagina = await cliente.GetFromJsonAsync<PaginaDeLancamentos>(
+            "/lancamentos?ano=2027&mes=3&pagina=1&tamanho=2", Json);
 
         /*
          * Duas linhas na página, três no período. Se o total viesse da página,
@@ -444,8 +444,8 @@ public class CicloDoDinheiro(BancoDeTestes banco) : IDisposable
 
         await Gerar(cliente, 2027, 4);
 
-        var segunda = await cliente.GetFromJsonAsync<PaginaDeRecebiveis>(
-            "/recebiveis?ano=2027&mes=4&pagina=2&tamanho=2", Json);
+        var segunda = await cliente.GetFromJsonAsync<PaginaDeLancamentos>(
+            "/lancamentos?ano=2027&mes=4&pagina=2&tamanho=2", Json);
 
         Assert.Single(segunda!.Itens);
         Assert.Equal(3, segunda.Total);
@@ -461,15 +461,15 @@ public class CicloDoDinheiro(BancoDeTestes banco) : IDisposable
         await CriarContrato(cliente, valor: 600m, dia: 10);
         await Gerar(cliente, 2027, 5);
 
-        var doMes = await cliente.GetFromJsonAsync<PaginaDeRecebiveis>(
-            "/recebiveis?ano=2027&mes=5", Json);
+        var doMes = await cliente.GetFromJsonAsync<PaginaDeLancamentos>(
+            "/lancamentos?ano=2027&mes=5", Json);
         var umDeles = doMes!.Itens.First();
 
-        await cliente.PostAsJsonAsync($"/recebiveis/{umDeles.Id}/baixar",
+        await cliente.PostAsJsonAsync($"/lancamentos/{umDeles.Id}/baixar",
             new DadosDaBaixa(umDeles.Valor, null), Json);
 
-        var soPagos = await cliente.GetFromJsonAsync<PaginaDeRecebiveis>(
-            "/recebiveis?ano=2027&mes=5&situacao=Pago", Json);
+        var soPagos = await cliente.GetFromJsonAsync<PaginaDeLancamentos>(
+            "/lancamentos?ano=2027&mes=5&situacao=Pago", Json);
 
         /*
          * A lista mostra a fatia escolhida — um pago. Os totais mostram o mês
@@ -553,8 +553,8 @@ public class CicloDoDinheiro(BancoDeTestes banco) : IDisposable
         var resultado = await resposta.Content.ReadFromJsonAsync<ResultadoDaGeracao>(Json);
         Assert.Equal(1, resultado!.Geradas);
 
-        var recebiveis = await Listar(http);
-        Assert.Equal(500m, Assert.Single(recebiveis.Itens).Valor);
+        var lancamentos = await Listar(http);
+        Assert.Equal(500m, Assert.Single(lancamentos.Itens).Valor);
     }
 
     [Fact]
@@ -569,7 +569,7 @@ public class CicloDoDinheiro(BancoDeTestes banco) : IDisposable
          * A distinção entre lista vazia e lista ausente é o que a tela usa para
          * dizer "só estes" e "todos" com o mesmo botão. Trocar uma pela outra
          * geraria a competência inteira quando alguém quis gerar nada, e isso
-         * não se desfaz sem cancelar recebível por recebível.
+         * não se desfaz sem cancelar lançamento por lançamento.
          */
         var vazia = await http.PostAsJsonAsync("/contratos/gerar-mensalidades",
             new PedidoDeGeracao(2026, 4, []), Json);
@@ -614,16 +614,16 @@ public class CicloDoDinheiro(BancoDeTestes banco) : IDisposable
         var http = await Contas.Entrar(_aplicacao, await Contas.Criar(banco, _aplicacao));
         var clienteId = await CriarCliente(http);
 
-        var resposta = await http.PostAsJsonAsync("/recebiveis",
+        var resposta = await http.PostAsJsonAsync("/lancamentos",
             Avulso(clienteId, "Declaração de IRPF 2026", 850m), Json);
 
         Assert.Equal(HttpStatusCode.Created, resposta.StatusCode);
 
         var resumo = await Listar(http);
-        var recebivel = Assert.Single(resumo.Itens);
+        var lancamento = Assert.Single(resumo.Itens);
 
-        Assert.Equal("Declaração de IRPF 2026", recebivel.Descricao);
-        Assert.Equal(SituacaoRecebivel.Aberto, recebivel.Situacao);
+        Assert.Equal("Declaração de IRPF 2026", lancamento.Descricao);
+        Assert.Equal(SituacaoLancamento.Aberto, lancamento.Situacao);
 
         /* O avulso conta no total do mês como qualquer mensalidade contaria. */
         Assert.Equal(850m, resumo.TotalEmAberto);
@@ -635,9 +635,9 @@ public class CicloDoDinheiro(BancoDeTestes banco) : IDisposable
         var http = await Contas.Entrar(_aplicacao, await Contas.Criar(banco, _aplicacao));
         var clienteId = await CriarCliente(http);
 
-        var primeira = await http.PostAsJsonAsync("/recebiveis",
+        var primeira = await http.PostAsJsonAsync("/lancamentos",
             Avulso(clienteId, "Certidão negativa", 120m), Json);
-        var segunda = await http.PostAsJsonAsync("/recebiveis",
+        var segunda = await http.PostAsJsonAsync("/lancamentos",
             Avulso(clienteId, "Alteração contratual", 400m), Json);
 
         /*
@@ -661,7 +661,7 @@ public class CicloDoDinheiro(BancoDeTestes banco) : IDisposable
         var http = await Contas.Entrar(_aplicacao, await Contas.Criar(banco, _aplicacao));
         var clienteId = await CriarCliente(http);
 
-        var resposta = await http.PostAsJsonAsync("/recebiveis",
+        var resposta = await http.PostAsJsonAsync("/lancamentos",
             Avulso(clienteId, "Serviço de graça", 0m), Json);
 
         Assert.Equal(HttpStatusCode.UnprocessableEntity, resposta.StatusCode);
@@ -678,7 +678,7 @@ public class CicloDoDinheiro(BancoDeTestes banco) : IDisposable
 
         var doA = await CriarCliente(httpA);
 
-        var resposta = await httpB.PostAsJsonAsync("/recebiveis",
+        var resposta = await httpB.PostAsJsonAsync("/lancamentos",
             Avulso(doA, "Cobrança no cliente alheio", 999m), Json);
 
         /*
@@ -694,23 +694,23 @@ public class CicloDoDinheiro(BancoDeTestes banco) : IDisposable
     }
 
     [Fact]
-    public async Task Avulso_se_baixa_como_qualquer_recebivel()
+    public async Task Avulso_se_baixa_como_qualquer_lancamento()
     {
         var http = await Contas.Entrar(_aplicacao, await Contas.Criar(banco, _aplicacao));
         var clienteId = await CriarCliente(http);
 
-        var criado = await http.PostAsJsonAsync("/recebiveis",
+        var criado = await http.PostAsJsonAsync("/lancamentos",
             Avulso(clienteId, "Abertura de empresa", 1_200m), Json);
-        var avulso = await criado.Content.ReadFromJsonAsync<RecebivelNaLista>(Json);
+        var avulso = await criado.Content.ReadFromJsonAsync<LancamentoNaLista>(Json);
 
         /* Sem caminho próprio de baixa: entra na mesma máquina do resto. */
-        var baixa = await http.PostAsJsonAsync($"/recebiveis/{avulso!.Id}/baixar",
+        var baixa = await http.PostAsJsonAsync($"/lancamentos/{avulso!.Id}/baixar",
             new DadosDaBaixa(1_200m, new DateOnly(2026, 2, 5)), Json);
 
         Assert.Equal(HttpStatusCode.OK, baixa.StatusCode);
 
         var resumo = await Listar(http);
-        Assert.Equal(SituacaoRecebivel.Pago, Assert.Single(resumo.Itens).Situacao);
+        Assert.Equal(SituacaoLancamento.Pago, Assert.Single(resumo.Itens).Situacao);
         Assert.Equal(1_200m, resumo.TotalRecebido);
         Assert.Equal(0m, resumo.TotalEmAberto);
     }
@@ -720,8 +720,8 @@ public class CicloDoDinheiro(BancoDeTestes banco) : IDisposable
 
     /* --------------------------------------------------------- apoio */
 
-    private static async Task<PaginaDeRecebiveis> Listar(HttpClient cliente) =>
-        (await cliente.GetFromJsonAsync<PaginaDeRecebiveis>("/recebiveis", Json))!;
+    private static async Task<PaginaDeLancamentos> Listar(HttpClient cliente) =>
+        (await cliente.GetFromJsonAsync<PaginaDeLancamentos>("/lancamentos", Json))!;
 
     /// <summary>Uma pessoa nova já marcada como cliente, pela borda HTTP.</summary>
     private static async Task<Guid> CriarCliente(HttpClient cliente)
