@@ -11,12 +11,14 @@ import { Gaveta } from "@/componentes/gaveta";
 import { formatarData, formatarValor, hojeIso } from "@/lib/dinheiro";
 
 type LancamentoNaLista = components["schemas"]["LancamentoNaLista"];
+type NaturezaLancamento = components["schemas"]["NaturezaLancamento"];
 
 /** "1 baixado" e "3 baixados": o número manda no particípio. */
 const concordar = (quantos: number, participio: string) =>
   `${quantos} ${participio}${quantos === 1 ? "" : "s"}`;
 
 type Props = {
+  natureza: NaturezaLancamento;
   selecionados: LancamentoNaLista[];
   aberta: boolean;
   aoFechar: () => void;
@@ -27,22 +29,23 @@ type Props = {
  * Baixar de uma vez o que foi marcado na lista.
  *
  * <p>
- * Cada lançamento é baixado pelo <b>valor cobrado</b>. Quem recebeu valor
- * diferente de algum deles baixa aquele à mão, pela linha; o lote é para o caso
- * comum, o do extrato que bate.
+ * Cada lançamento é baixado pelo <b>valor dele</b>. Quem recebeu ou pagou valor
+ * diferente em algum baixa aquele à mão, pela linha; o lote é para o caso comum,
+ * o do extrato que bate.
  * </p>
  * <p>
  * <b>A soma que aparece aqui é do que foi marcado, e não um total da lista.</b>
  * A regra do projeto é que total nenhum vem da página, porque somar a página
  * dá um número errado com cara de certo. Esta soma não pretende responder
  * quanto o mês tem: ela confere, antes de confirmar, se a seleção bate com o
- * que entrou no extrato.
+ * que o extrato mostra.
  * </p>
  */
-export function BaixaEmLote({ selecionados, aberta, aoFechar, aoConcluir }: Props) {
+export function BaixaEmLote({ natureza, selecionados, aberta, aoFechar, aoConcluir }: Props) {
   const avisar = useAvisos();
   const clienteDeConsultas = useQueryClient();
   const [pagoEm, definirPagoEm] = useState(hojeIso());
+  const aPagar = natureza === "Pagar";
 
   const baixar = useMutation({
     mutationFn: async () => {
@@ -85,7 +88,7 @@ export function BaixaEmLote({ selecionados, aberta, aoFechar, aoConcluir }: Prop
   return (
     <Gaveta
       titulo="Baixar em lote"
-      descricao="Cada lançamento é baixado pelo valor cobrado. Os que não puderem ser baixados voltam com o motivo."
+      descricao="Cada lançamento é baixado pelo valor dele. Os que não puderem ser baixados voltam com o motivo."
       aberta={aberta}
       aoFechar={aoFechar}
       rodape={
@@ -109,12 +112,16 @@ export function BaixaEmLote({ selecionados, aberta, aoFechar, aoConcluir }: Prop
     >
       <div className="flex flex-col gap-4">
         <Entrada
-          rotulo="Data do recebimento"
+          rotulo={aPagar ? "Data do pagamento" : "Data do recebimento"}
           type="date"
           required
           value={pagoEm}
           onChange={(evento) => definirPagoEm(evento.target.value)}
-          ajuda="Quando o dinheiro entrou, e não quando a baixa é registrada."
+          ajuda={
+            aPagar
+              ? "Quando o dinheiro saiu, e não quando a baixa é registrada."
+              : "Quando o dinheiro entrou, e não quando a baixa é registrada."
+          }
         />
 
         <div className="rounded-[--radius-controle] bg-slate-50 px-4 py-3">
