@@ -123,7 +123,7 @@ public class ContasAPagar : IDisposable
         var conta = await Lido(await Lancar(http, NaturezaLancamento.Pagar, fornecedor, 300m));
 
         var lote = await http.PostAsJsonAsync("/lancamentos/baixar-em-lote",
-            new DadosDaBaixaEmLote([conta.Id], new DateOnly(2026, 3, 10)), Json);
+            new DadosDaBaixaEmLote(await ContasBancariasDeTeste.Criar(http), [conta.Id], new DateOnly(2026, 3, 10)), Json);
         Assert.Equal(1, (await lote.Content.ReadFromJsonAsync<ResultadoDaBaixaEmLote>(Json))!.Baixados);
 
         Assert.Equal(300m, (await Listar(http, "?natureza=Pagar&ano=2026&mes=3")).TotalPago);

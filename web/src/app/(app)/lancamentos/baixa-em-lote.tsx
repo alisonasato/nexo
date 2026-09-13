@@ -1,14 +1,17 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { api } from "@/api/cliente";
 import type { components } from "@/api/esquema";
 import { useAvisos } from "@/componentes/avisos";
-import { Botao, Entrada } from "@/componentes/controles";
+import { Botao, Entrada, Selecao } from "@/componentes/controles";
 import { Gaveta } from "@/componentes/gaveta";
 import { formatarData, formatarValor, hojeIso } from "@/lib/dinheiro";
+
+import { useContasParaBaixa } from "./contas";
 
 type LancamentoNaLista = components["schemas"]["LancamentoNaLista"];
 type NaturezaLancamento = components["schemas"]["NaturezaLancamento"];
@@ -45,12 +48,17 @@ export function BaixaEmLote({ natureza, selecionados, aberta, aoFechar, aoConclu
   const avisar = useAvisos();
   const clienteDeConsultas = useQueryClient();
   const [pagoEm, definirPagoEm] = useState(hojeIso());
+  const [contaDaBaixa, definirContaDaBaixa] = useState("");
+
+  /* A primeira conta ativa, até alguém escolher outra. */
+  const contas = useContasParaBaixa().data ?? [];
+  const contaEscolhida = contas.some((conta) => conta.id === contaDaBaixa) ? contaDaBaixa : (contas[0]?.id ?? "");
   const aPagar = natureza === "Pagar";
 
   const baixar = useMutation({
     mutationFn: async () => {
       const { data, error } = await api.POST("/lancamentos/baixar-em-lote", {
-        body: { ids: selecionados.map((item) => item.id), pagoEm },
+        body: { contaId: contaEscolhida, ids: selecionados.map((item) => item.id), pagoEm },
       });
       if (error || !data) throw new Error("Não foi possível baixar a seleção.");
       return data;
@@ -58,6 +66,7 @@ export function BaixaEmLote({ natureza, selecionados, aberta, aoFechar, aoConclu
     onSuccess: (resultado) => {
       clienteDeConsultas.invalidateQueries({ queryKey: ["lancamentos"] });
       clienteDeConsultas.invalidateQueries({ queryKey: ["divergencias"] });
+      clienteDeConsultas.invalidateQueries({ queryKey: ["contas-bancarias"] });
 
       const recusados = resultado.recusados.length;
 
@@ -98,7 +107,7 @@ export function BaixaEmLote({ natureza, selecionados, aberta, aoFechar, aoConclu
           </Botao>
           <Botao
             type="button"
-            disabled={baixar.isPending || selecionados.length === 0}
+            disabled={baixar.isPending || selecionados.length === 0 || !contaEscolhida}
             onClick={() => baixar.mutate()}
           >
             {baixar.isPending
@@ -123,6 +132,29 @@ export function BaixaEmLote({ natureza, selecionados, aberta, aoFechar, aoConclu
               : "Quando o dinheiro entrou, e não quando a baixa é registrada."
           }
         />
+
+        <Selecao
+          rotulo="Conta"
+          value={contaEscolhida}
+          onChange={(evento) => definirContaDaBaixa(evento.target.value)}
+          ajuda={aPagar ? "De onde o dinheiro saiu, para todos os selecionados." : "Onde o dinheiro entrou, para todos os selecionados."}
+        >
+          {contas.map((conta) => (
+            <option key={conta.id} value={conta.id}>
+              {conta.nome}
+            </option>
+          ))}
+        </Selecao>
+
+        {contas.length === 0 && (
+          <p role="alert" className="rounded-[--radius-controle] bg-amber-50 px-4 py-3 text-amber-900">
+            Nenhuma conta ativa para receber a baixa.{" "}
+            <Link href="/contas-bancarias" className="font-semibold underline underline-offset-2">
+              Cadastre uma conta
+            </Link>{" "}
+            antes de baixar.
+          </p>
+        )}
 
         <div className="rounded-[--radius-controle] bg-slate-50 px-4 py-3">
           <p className="text-xs font-semibold tracking-wide text-slate-500 uppercase">

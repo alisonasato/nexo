@@ -194,7 +194,7 @@ public class CicloDoDinheiro(BancoDeTestes banco) : IDisposable
         // Desconto combinado: entrou menos do que a cobrança dizia.
         var resposta = await cliente.PostAsJsonAsync(
             $"/lancamentos/{lancamento.Id}/baixar",
-            new DadosDaBaixa(950m, new DateOnly(2026, 4, 12)), Json);
+            new DadosDaBaixa(await ContasBancariasDeTeste.Criar(cliente), 950m, new DateOnly(2026, 4, 12)), Json);
 
         Assert.Equal(HttpStatusCode.OK, resposta.StatusCode);
 
@@ -222,10 +222,10 @@ public class CicloDoDinheiro(BancoDeTestes banco) : IDisposable
         var lancamento = Assert.Single((await Listar(cliente)).Itens);
 
         await cliente.PostAsJsonAsync($"/lancamentos/{lancamento.Id}/baixar",
-            new DadosDaBaixa(400m, new DateOnly(2026, 5, 10)), Json);
+            new DadosDaBaixa(await ContasBancariasDeTeste.Criar(cliente), 400m, new DateOnly(2026, 5, 10)), Json);
 
         var repetida = await cliente.PostAsJsonAsync($"/lancamentos/{lancamento.Id}/baixar",
-            new DadosDaBaixa(999m, new DateOnly(2026, 5, 20)), Json);
+            new DadosDaBaixa(await ContasBancariasDeTeste.Criar(cliente), 999m, new DateOnly(2026, 5, 20)), Json);
 
         Assert.Equal(HttpStatusCode.UnprocessableEntity, repetida.StatusCode);
 
@@ -249,7 +249,7 @@ public class CicloDoDinheiro(BancoDeTestes banco) : IDisposable
         var lancamento = Assert.Single((await Listar(cliente)).Itens);
 
         await cliente.PostAsJsonAsync($"/lancamentos/{lancamento.Id}/baixar",
-            new DadosDaBaixa(700m, null), Json);
+            new DadosDaBaixa(await ContasBancariasDeTeste.Criar(cliente), 700m, null), Json);
 
         var estorno = await cliente.PostAsync($"/lancamentos/{lancamento.Id}/estornar", null);
         Assert.Equal(HttpStatusCode.OK, estorno.StatusCode);
@@ -377,7 +377,7 @@ public class CicloDoDinheiro(BancoDeTestes banco) : IDisposable
 
         var lancamento = Assert.Single((await Listar(cliente)).Itens);
         await cliente.PostAsJsonAsync($"/lancamentos/{lancamento.Id}/baixar",
-            new DadosDaBaixa(300m, null), Json);
+            new DadosDaBaixa(await ContasBancariasDeTeste.Criar(cliente), 300m, null), Json);
 
         var resposta = await cliente.PostAsJsonAsync($"/lancamentos/{lancamento.Id}/cancelar",
             new DadosDoCancelamento("Mudei de ideia"), Json);
@@ -466,7 +466,7 @@ public class CicloDoDinheiro(BancoDeTestes banco) : IDisposable
         var umDeles = doMes!.Itens.First();
 
         await cliente.PostAsJsonAsync($"/lancamentos/{umDeles.Id}/baixar",
-            new DadosDaBaixa(umDeles.Valor, null), Json);
+            new DadosDaBaixa(await ContasBancariasDeTeste.Criar(cliente), umDeles.Valor, null), Json);
 
         var soPagos = await cliente.GetFromJsonAsync<PaginaDeLancamentos>(
             "/lancamentos?ano=2027&mes=5&situacao=Pago", Json);
@@ -705,7 +705,7 @@ public class CicloDoDinheiro(BancoDeTestes banco) : IDisposable
 
         /* Sem caminho próprio de baixa: entra na mesma máquina do resto. */
         var baixa = await http.PostAsJsonAsync($"/lancamentos/{avulso!.Id}/baixar",
-            new DadosDaBaixa(1_200m, new DateOnly(2026, 2, 5)), Json);
+            new DadosDaBaixa(await ContasBancariasDeTeste.Criar(http), 1_200m, new DateOnly(2026, 2, 5)), Json);
 
         Assert.Equal(HttpStatusCode.OK, baixa.StatusCode);
 

@@ -246,11 +246,11 @@ public class OperacoesSobreLancamentos : IDisposable
         var jaPago = await CriarAvulso(http, pessoa, 300m, new DateOnly(2026, 3, 10));
 
         var manual = await http.PostAsJsonAsync($"/lancamentos/{jaPago}/baixar",
-            new DadosDaBaixa(300m, new DateOnly(2026, 3, 5)), Json);
+            new DadosDaBaixa(await ContasBancariasDeTeste.Criar(http), 300m, new DateOnly(2026, 3, 5)), Json);
         manual.EnsureSuccessStatusCode();
 
         var resposta = await http.PostAsJsonAsync("/lancamentos/baixar-em-lote",
-            new DadosDaBaixaEmLote([primeiro, segundo, jaPago], new DateOnly(2026, 3, 12)), Json);
+            new DadosDaBaixaEmLote(await ContasBancariasDeTeste.Criar(http), [primeiro, segundo, jaPago], new DateOnly(2026, 3, 12)), Json);
         resposta.EnsureSuccessStatusCode();
 
         var resultado = await resposta.Content.ReadFromJsonAsync<ResultadoDaBaixaEmLote>(Json);
@@ -279,7 +279,7 @@ public class OperacoesSobreLancamentos : IDisposable
         await http.PostAsync($"/lancamentos/{cobrado}/cobrar", null);
 
         var resposta = await http.PostAsJsonAsync("/lancamentos/baixar-em-lote",
-            new DadosDaBaixaEmLote([cobrado], null), Json);
+            new DadosDaBaixaEmLote(await ContasBancariasDeTeste.Criar(http), [cobrado], null), Json);
         resposta.EnsureSuccessStatusCode();
 
         Assert.Equal(["pay_000001"], _psp.CobrancasExcluidas);
@@ -335,10 +335,13 @@ public class OperacoesSobreLancamentos : IDisposable
 
     /* --------------------------------------------------------- apoio */
 
+    /// <summary>Entra já com uma conta bancária marcada para receber as cobranças, sem a qual não se cobra.</summary>
     private async Task<(HttpClient, ContaDeTestes)> Entrar()
     {
         var conta = await Contas.Criar(_banco, _aplicacao);
-        return (await Contas.Entrar(_aplicacao, conta), conta);
+        var http = await Contas.Entrar(_aplicacao, conta);
+        await ContasBancariasDeTeste.Criar(http, recebeCobrancas: true);
+        return (http, conta);
     }
 
     private static async Task<Guid> CriarPessoa(HttpClient http, string nome = "Cliente do teste")

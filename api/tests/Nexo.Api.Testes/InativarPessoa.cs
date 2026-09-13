@@ -160,7 +160,7 @@ public class InativarPessoa(BancoDeTestes banco) : IDisposable
             (await http.DeleteAsync($"/pessoas/{pessoa}")).StatusCode);
 
         var baixa = await http.PostAsJsonAsync($"/lancamentos/{cobranca}/baixar",
-            new DadosDaBaixa(400m, new DateOnly(2026, 3, 5)), Json);
+            new DadosDaBaixa(await ContasBancariasDeTeste.Criar(http), 400m, new DateOnly(2026, 3, 5)), Json);
         baixa.EnsureSuccessStatusCode();
 
         Assert.Equal(

@@ -10,7 +10,8 @@ import { formatarValor } from "@/lib/dinheiro";
  *
  * <p>
  * O PSP avisa que o dinheiro entrou, mas o título já estava cancelado, baixado
- * à mão ou renegociado. O webhook marca, e não resolve: devolver ao cliente ou
+ * à mão ou renegociado, ou não havia conta marcada para receber as cobranças.
+ * O webhook marca, e não resolve: devolver ao cliente ou
  * reabrir o título é decisão de gente. Sem este aviso a marca ficaria só no
  * log, que é o mesmo que ninguém ver.
  * </p>
@@ -42,12 +43,13 @@ export function AvisoDeDivergencias() {
     >
       <h2 id="titulo-das-divergencias" className="font-semibold">
         {um
-          ? "Um pagamento chegou para um título que não esperava"
-          : `${itens.length} pagamentos chegaram para títulos que não esperavam`}
+          ? "Um pagamento do PSP precisa de conferência"
+          : `${itens.length} pagamentos do PSP precisam de conferência`}
       </h2>
       <p className="mt-1 text-amber-900">
-        O dinheiro entrou pelo PSP, mas o título já estava cancelado, baixado à mão ou renegociado.
-        Confira {um ? "o caso" : "cada caso"} e decida entre devolver o valor e reabrir o título.
+        O dinheiro entrou pelo PSP e não pôde ser baixado sozinho: o título já não estava em aberto, ou
+        não havia conta marcada para receber as cobranças. {um ? "O caso diz" : "Cada caso diz"} o motivo e
+        o que fazer.
       </p>
 
       <details className="mt-3">

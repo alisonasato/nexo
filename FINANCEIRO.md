@@ -75,12 +75,15 @@ Saldo é **derivado** de saldo inicial mais movimentos, nunca um número editáv
    que entra ou sai naquela data conta depois dele. Conta não se apaga, fica
    inativa.
 2. **A baixa com conta.** Toda baixa nova diz em que conta o dinheiro entrou ou
-   saiu e vira um movimento nela, que o estorno desfaz; o saldo de hoje passa a
-   existir. Baixa com data anterior ao saldo inicial da conta é recusada,
-   porque aquele dinheiro já está dentro do saldo inicial. As baixas de antes
-   desta fase ficam sem movimento, e o saldo inicial já as contém. A baixa que
-   chega pelo PSP vai para a conta marcada para receber dele; sem conta
-   marcada, o aviso vira divergência em vez de baixa.
+   saiu e vira um movimento nela; o saldo de hoje passa a existir. O estorno à
+   mão apaga o movimento, porque corrige um registro que não devia existir; o
+   estorno do PSP compensa, com a devolução ao lado da entrada, porque o
+   dinheiro entrou de fato. Baixa com data anterior ao saldo inicial da conta
+   é recusada, porque aquele dinheiro já está dentro do saldo inicial. As
+   baixas de antes desta fase ficam sem movimento, e o saldo inicial já as
+   contém. A baixa que chega pelo PSP vai para a conta marcada para receber as cobranças, e cobrar
+   exige que ela exista; se a marca sumir depois, o aviso vira divergência em
+   vez de baixa. O saldo inicial não muda depois do primeiro movimento.
 3. **O fluxo de caixa.** O projetado, dos lançamentos em aberto pelo
    vencimento, contra o realizado, dos movimentos, com o saldo acumulado.
 4. **Transferências e movimentos avulsos.** Dinheiro que muda de conta, tarifa,

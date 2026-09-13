@@ -509,6 +509,25 @@ meses depois, na subida de uma migração gerada.
 Sai em três PRs: a renomeação, sem mudar comportamento; a natureza a pagar na
 API; e as abas A receber e A pagar na tela.
 
+## O saldo vem dos movimentos
+
+O saldo de uma conta não é campo: é o saldo inicial, no começo do dia em que
+valia, mais a soma dos movimentos. Toda baixa exige a conta e grava o movimento
+na mesma transação. Baixa com data anterior ao saldo inicial é recusada, porque
+aquele dinheiro já está nele, e o saldo inicial não se altera depois do
+primeiro movimento.
+
+Os dois estornos tratam o movimento de jeitos diferentes, e de propósito. O
+estorno à mão apaga: corrige uma baixa que não devia existir, e o extrato do
+banco nunca teve aquele dinheiro. O estorno do PSP compensa, com a devolução ao
+lado da entrada: o dinheiro entrou de verdade e voltou, e o extrato do PSP
+mostra as duas linhas.
+
+Uma conta por escritório recebe as cobranças do PSP. Marcar outra move a marca,
+numa transação só, e cobrar sem conta marcada é recusado. Se a marca sumir com
+cobranças já emitidas, o pagamento que chegar vira divergência em vez de baixa:
+sem conta, não há onde o movimento caber.
+
 ## Ordem de execução
 
 1. ~~Repositório e contrato~~ — feito.

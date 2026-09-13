@@ -48,11 +48,17 @@ type Props = { conta: ContaNaLista | "nova" | null; aoFechar: () => void };
  * começa no cheque especial marca a caixa de saldo negativo. Um sinal de menos
  * no meio da máscara seria o caractere mais fácil de esquecer.
  * </p>
+ * <p>
+ * Depois do primeiro movimento, os campos do saldo inicial ficam travados, e a
+ * gaveta diz por quê: a API recusaria, e descobrir isso só ao salvar seria
+ * digitar à toa.
+ * </p>
  */
 export function GavetaDeConta({ conta, aoFechar }: Props) {
   const avisar = useAvisos();
   const clienteDeConsultas = useQueryClient();
   const existente = conta !== null && conta !== "nova" ? conta : null;
+  const saldoTravado = existente?.temMovimentos ?? false;
 
   const [nome, definirNome] = useState(existente?.nome ?? "");
   const [tipo, definirTipo] = useState<TipoConta>(existente?.tipo ?? "Corrente");
@@ -63,6 +69,7 @@ export function GavetaDeConta({ conta, aoFechar }: Props) {
   const [negativo, definirNegativo] = useState((existente?.saldoInicial ?? 0) < 0);
   const [saldoInicialEm, definirSaldoInicialEm] = useState(existente?.saldoInicialEm ?? hojeIso());
   const [ativa, definirAtiva] = useState(existente?.ativa ?? true);
+  const [recebeCobrancas, definirRecebeCobrancas] = useState(existente?.recebeCobrancas ?? false);
   const [problemas, definirProblemas] = useState<Problema[]>([]);
 
   const emDinheiro = tipo === "Dinheiro";
@@ -79,6 +86,7 @@ export function GavetaDeConta({ conta, aoFechar }: Props) {
         saldoInicial: negativo ? -valor : valor,
         saldoInicialEm,
         ativa,
+        recebeCobrancas,
       };
 
       const { error } = existente
@@ -102,6 +110,7 @@ export function GavetaDeConta({ conta, aoFechar }: Props) {
   };
 
   const falhaSemMotivo = salvar.isError && problemas.length === 0;
+  const erroDaMarca = erroDe("recebeCobrancas");
 
   return (
     <Gaveta
@@ -186,7 +195,7 @@ export function GavetaDeConta({ conta, aoFechar }: Props) {
           </>
         )}
 
-        <fieldset className="flex flex-col gap-3">
+        <fieldset className="flex flex-col gap-3" disabled={saldoTravado}>
           <legend className="mb-1 text-xs font-semibold tracking-wide text-slate-600 uppercase">
             Saldo inicial
           </legend>
@@ -221,10 +230,33 @@ export function GavetaDeConta({ conta, aoFechar }: Props) {
           </label>
 
           <p className="text-sm text-slate-600">
-            O saldo antes de qualquer entrada ou saída daquele dia. Escolha um dia que dê para conferir
-            no extrato.
+            {saldoTravado
+              ? "A conta já tem movimentos, e o saldo inicial está por baixo de todos eles. Para corrigi-lo, estorne as baixas desta conta antes."
+              : "O saldo antes de qualquer entrada ou saída daquele dia. Escolha um dia que dê para conferir no extrato."}
           </p>
         </fieldset>
+
+        <label className="flex items-start gap-2 text-slate-700">
+          <input
+            type="checkbox"
+            checked={recebeCobrancas}
+            onChange={(evento) => definirRecebeCobrancas(evento.target.checked)}
+            aria-describedby={erroDaMarca ? "erro-da-marca" : undefined}
+            className="mt-1 size-4 rounded border-borda-forte accent-marca-600"
+          />
+          <span>
+            Recebe as cobranças do PSP
+            <span className="block text-sm text-slate-500">
+              É onde entra o que o cliente paga pelo boleto ou pelo Pix. Uma conta só: marcar esta tira a
+              marca da outra.
+            </span>
+            {erroDaMarca && (
+              <span id="erro-da-marca" className="block text-sm text-red-700">
+                {erroDaMarca}
+              </span>
+            )}
+          </span>
+        </label>
 
         {existente && (
           <label className="flex items-start gap-2 text-slate-700">
