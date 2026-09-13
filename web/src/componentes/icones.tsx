@@ -144,3 +144,42 @@ export function DesenhoDeCadastroVazio({ className = "size-12" }: Props) {
     </svg>
   );
 }
+
+export function IconeDeFechar({ className }: Props) {
+  return (
+    <Traco className={className}>
+      <path d="M6 6l12 12M18 6 6 18" />
+    </Traco>
+  );
+}
+
+/** Um boleto: a moldura e as barras. */
+export function IconeDeCobranca({ className }: Props) {
+  return (
+    <Traco className={className}>
+      <rect x="3" y="5" width="18" height="14" rx="2" />
+      <path d="M7 9v6M10 9v6M13 9v6M16 9v6" />
+    </Traco>
+  );
+}
+
+/** Duas setas em volta: o título que dá a volta e vira outro. */
+export function IconeDeRenegociar({ className }: Props) {
+  return (
+    <Traco className={className}>
+      <path d="M4 12a8 8 0 0 1 13.7-5.6L20 8" />
+      <path d="M20 4v4h-4" />
+      <path d="M20 12a8 8 0 0 1-13.7 5.6L4 16" />
+      <path d="M4 20v-4h4" />
+    </Traco>
+  );
+}
+
+export function IconeDeCancelar({ className }: Props) {
+  return (
+    <Traco className={className}>
+      <circle cx="12" cy="12" r="8" />
+      <path d="m8.5 15.5 7-7" />
+    </Traco>
+  );
+}

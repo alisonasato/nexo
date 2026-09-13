@@ -9,7 +9,7 @@ import type { ValorDeParametro } from "@/lib/estado-na-url";
  * <b>Por que existe agora, e não antes.</b> A regra escrita no DEPOIS.md é
  * extrair o que se repete quando a segunda ou terceira tela mostrar a
  * repetição — não antes, para não inventar abstração a partir de um caso só.
- * Pessoas, contratos e recebíveis ordenam pelos mesmos gestos: clicar no
+ * Pessoas, contratos e lançamentos ordenam pelos mesmos gestos: clicar no
  * cabeçalho ordena por ele, clicar de novo inverte, e a escolha mora na URL.
  * Três é a conta.
  */

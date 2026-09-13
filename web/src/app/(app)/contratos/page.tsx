@@ -255,8 +255,8 @@ export default function ListagemDeContratos() {
               {gerar.data.ignoradas > 0 && ` ${gerar.data.ignoradas} já existia(m).`}
               {gerar.data.foraDeVigencia > 0 &&
                 ` ${gerar.data.foraDeVigencia} contrato(s) fora de vigência.`}{" "}
-              <Link href="/recebiveis" className="font-semibold underline underline-offset-2">
-                Ver recebíveis
+              <Link href="/lancamentos" className="font-semibold underline underline-offset-2">
+                Ver lançamentos
               </Link>
             </p>
           )}

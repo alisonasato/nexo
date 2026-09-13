@@ -9,8 +9,8 @@ import { TelaDeErro } from "@/componentes/tela-de-erro";
  *
  * Fica aqui, e não na raiz, porque o Next monta o limite de erro mais próximo:
  * assim a casca continua na tela — menu, botão de sair, tudo —, e a pessoa cai
- * numa página que ainda é o sistema. Um erro em Recebíveis não deveria tirar
- * ninguém de Recebíveis.
+ * numa página que ainda é o sistema. Um erro em Lançamentos não deveria tirar
+ * ninguém de Lançamentos.
  */
 export default function ErroNaAplicacao({
   error,

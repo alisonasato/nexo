@@ -1,12 +1,19 @@
 "use client";
 
-import { Botao } from "@/componentes/controles";
+import type { ReactNode } from "react";
 
 type Props = {
   quantidade: number;
-  /** Habilitado só com uma marcada: editar é unitário. */
-  aoEditar: () => void;
-  aoInativar: () => void;
+  /** O que está sendo selecionado, para a contagem ler direito: "1 cadastro", "3 lançamentos". */
+  substantivo: { singular: string; plural: string };
+  /**
+   * As ações desta tela sobre a seleção.
+   *
+   * A barra é a mesma em toda listagem; o que se faz com o que foi marcado
+   * muda. Pessoas edita e inativa, lançamentos baixa em lote. Por isso as
+   * ações entram como filhos, e não como propriedades com nome de uma tela só.
+   */
+  children: ReactNode;
   aoLimpar: () => void;
   ocupada?: boolean;
 };
@@ -23,10 +30,8 @@ type Props = {
  * está lá no celular, e no desktop ela não empurra a tabela para baixo a cada
  * marcação.
  */
-export function BarraDeSelecao({ quantidade, aoEditar, aoInativar, aoLimpar, ocupada }: Props) {
+export function BarraDeSelecao({ quantidade, substantivo, children, aoLimpar, ocupada }: Props) {
   if (quantidade === 0) return null;
-
-  const uma = quantidade === 1;
 
   return (
     <div
@@ -35,30 +40,12 @@ export function BarraDeSelecao({ quantidade, aoEditar, aoInativar, aoLimpar, ocu
       className="sticky bottom-4 z-30 mx-auto flex w-full max-w-2xl flex-wrap items-center gap-3 rounded-[--radius-cartao] border border-borda bg-marca-950 px-4 py-3 text-white shadow-nivel-2 motion-safe:animate-[subir_200ms_ease-out]"
     >
       <p aria-live="polite" className="flex-1 font-medium">
-        {uma ? "1 cadastro selecionado" : `${quantidade} cadastros selecionados`}
+        {quantidade === 1
+          ? `1 ${substantivo.singular} selecionado`
+          : `${quantidade} ${substantivo.plural} selecionados`}
       </p>
 
-      <Botao
-        aparencia="secundario"
-        type="button"
-        disabled={!uma || ocupada}
-        onClick={aoEditar}
-        /* Desabilitado quando há mais de uma: editar abre um cadastro, não vários. */
-        title={uma ? undefined : "Selecione um único cadastro para editar"}
-        className="px-3 py-1.5"
-      >
-        Editar
-      </Botao>
-
-      <Botao
-        aparencia="perigo"
-        type="button"
-        disabled={ocupada}
-        onClick={aoInativar}
-        className="px-3 py-1.5"
-      >
-        {ocupada ? "Inativando…" : uma ? "Inativar" : `Inativar ${quantidade}`}
-      </Botao>
+      {children}
 
       <button
         type="button"

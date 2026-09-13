@@ -41,10 +41,12 @@ sobre o que já existe. Sai em três PRs:
 2. **Operações.** Parcelamento ao lançar, renegociação, baixa em lote, busca
    e período de vencimento na lista, e a consulta dos pagamentos marcados como
    divergência. Os totais ficam como estão: seguem a competência, e não a busca.
-3. **A tela.** Cards de resumo, tabela com seleção e barra de ações em lote,
-   gavetas para lançar e renegociar, e cores de situação. E um aviso dos
-   pagamentos marcados como divergência: o primeiro PR os grava e registra em
-   log, mas nenhuma tela os mostra antes deste.
+3. **A tela.** Recebíveis vira Lançamentos, e o endereço antigo redireciona.
+   Cards de resumo, busca e período na URL, seleção do que está em aberto com
+   barra de baixa em lote, gavetas para lançar (inteiro ou parcelado, com a
+   prévia das parcelas) e renegociar, e cores de situação, com vence hoje em
+   âmbar. E um aviso dos pagamentos marcados como divergência: o primeiro PR os
+   grava e registra em log, mas nenhuma tela os mostrava antes deste.
 
 ### Fase 2 — Contas a pagar
 

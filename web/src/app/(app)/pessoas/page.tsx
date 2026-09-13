@@ -10,6 +10,7 @@ import { Paginacao } from "@/componentes/paginacao";
 import { GerenciadorDeColunas } from "@/componentes/gerenciador-de-colunas";
 import { MenuDeAcoes, type AcaoDeLinha } from "@/componentes/menu-de-acoes";
 import { BarraDeSelecao } from "@/componentes/barra-de-selecao";
+import { Botao } from "@/componentes/controles";
 import { VoltarAoTopo } from "@/componentes/voltar-ao-topo";
 import { useAvisos } from "@/componentes/avisos";
 import {
@@ -33,7 +34,7 @@ import {
   escolhasNoServidor,
   gravarEscolhas,
 } from "./colunas";
-import { useSelecaoPorConsulta } from "./selecao";
+import { useSelecaoPorConsulta } from "@/lib/selecao";
 
 type Papel = components["schemas"]["Papel"];
 type PessoaNaLista = components["schemas"]["PessoaNaLista"];
@@ -689,11 +690,36 @@ export default function ListagemDePessoas() {
 
             <BarraDeSelecao
               quantidade={selecao.quantidade}
+              substantivo={{ singular: "cadastro", plural: "cadastros" }}
               ocupada={inativando}
-              aoEditar={() => abrir(selecao.ids[0])}
-              aoInativar={inativarSelecionadas}
               aoLimpar={selecao.limpar}
-            />
+            >
+              <Botao
+                aparencia="secundario"
+                type="button"
+                disabled={selecao.quantidade !== 1 || inativando}
+                onClick={() => abrir(selecao.ids[0])}
+                /* Desabilitado quando há mais de uma: editar abre um cadastro, não vários. */
+                title={selecao.quantidade === 1 ? undefined : "Selecione um único cadastro para editar"}
+                className="px-3 py-1.5"
+              >
+                Editar
+              </Botao>
+
+              <Botao
+                aparencia="perigo"
+                type="button"
+                disabled={inativando}
+                onClick={inativarSelecionadas}
+                className="px-3 py-1.5"
+              >
+                {inativando
+                  ? "Inativando…"
+                  : selecao.quantidade === 1
+                    ? "Inativar"
+                    : `Inativar ${selecao.quantidade}`}
+              </Botao>
+            </BarraDeSelecao>
           </>
         )}
       </div>
