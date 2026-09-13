@@ -43,5 +43,22 @@ public class EventoDeCobranca
     /// </summary>
     public Guid? RecebivelId { get; set; }
 
+    /// <summary>
+    /// O que o aviso trazia e não pôde ser aplicado. Vazio quando nada divergiu.
+    ///
+    /// <para>
+    /// O caso que importa é o pagamento que chega para um recebível que já não
+    /// estava em aberto: cancelado, ou baixado à mão. O dinheiro entrou do mesmo
+    /// jeito. Sem esta marca, esse aviso ficaria indistinguível de um boleto
+    /// visualizado, e ninguém saberia que há um valor a devolver ou um título a
+    /// reabrir.
+    /// </para>
+    /// <para>
+    /// Decidir entre os dois é trabalho de gente, e não do webhook. Por isso o
+    /// aviso fica marcado, e não resolvido.
+    /// </para>
+    /// </summary>
+    public string Divergencia { get; set; } = string.Empty;
+
     public DateTimeOffset RecebidoEm { get; set; }
 }

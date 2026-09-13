@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
+using Nexo.Api.Cobranca;
 using Nexo.Api.Dados;
 using Nexo.Api.Dominio;
 
@@ -312,6 +314,9 @@ public static class Recebiveis
         Guid id,
         [FromBody] DadosDaBaixa dados,
         NexoDbContext banco,
+        ClienteDoAsaas asaas,
+        IOptions<OpcoesDoAsaas> configuracao,
+        ILoggerFactory registros,
         CancellationToken cancelamento)
     {
         var recebivel = await banco.Recebiveis
@@ -347,13 +352,22 @@ public static class Recebiveis
                 "Informe quanto entrou de fato — pode ser diferente do valor cobrado.");
         }
 
+        /*
+         * Baixar à mão diz que o dinheiro entrou por fora. A cobrança do PSP sai
+         * do ar antes, senão vira um segundo pagamento esperando acontecer. Se o
+         * PSP não retira, nada é gravado aqui.
+         */
+        var naoRetirou = await Cobrancas.RetirarDoPsp(
+            recebivel, asaas, configuracao.Value, registros.CreateLogger("Cobranca"), cancelamento);
+        if (naoRetirou is not null) return naoRetirou;
+
         recebivel.Situacao = SituacaoRecebivel.Pago;
         recebivel.ValorPago = dados.ValorPago;
         recebivel.PagoEm = dados.PagoEm ?? DateOnly.FromDateTime(DateTime.Today);
         recebivel.OrigemDaBaixa = OrigensDeBaixa.Manual;
         recebivel.AtualizadoEm = DateTimeOffset.UtcNow;
 
-        await banco.SaveChangesAsync(cancelamento);
+        if (await Gravar(banco, cancelamento) is { } conflito) return conflito;
 
         return Results.Ok(Detalhar(recebivel));
     }
@@ -370,6 +384,9 @@ public static class Recebiveis
         Guid id,
         [FromBody] DadosDoCancelamento dados,
         NexoDbContext banco,
+        ClienteDoAsaas asaas,
+        IOptions<OpcoesDoAsaas> configuracao,
+        ILoggerFactory registros,
         CancellationToken cancelamento)
     {
         var recebivel = await banco.Recebiveis
@@ -405,11 +422,21 @@ public static class Recebiveis
                 "Escreva o motivo: quem olhar isto daqui a seis meses vai perguntar.");
         }
 
+        /*
+         * A cobrança do PSP sai do ar antes do cancelamento. Cancelado com o
+         * boleto ainda pagável era dinheiro entrando sem baixa nenhuma. Se o PSP
+         * não retira, o mais provável é o cliente ter acabado de pagar, e aí
+         * nada é gravado aqui.
+         */
+        var naoRetirou = await Cobrancas.RetirarDoPsp(
+            recebivel, asaas, configuracao.Value, registros.CreateLogger("Cobranca"), cancelamento);
+        if (naoRetirou is not null) return naoRetirou;
+
         recebivel.Situacao = SituacaoRecebivel.Cancelado;
         recebivel.MotivoDoCancelamento = motivo;
         recebivel.AtualizadoEm = DateTimeOffset.UtcNow;
 
-        await banco.SaveChangesAsync(cancelamento);
+        if (await Gravar(banco, cancelamento) is { } conflito) return conflito;
 
         return Results.Ok(Detalhar(recebivel));
     }
@@ -440,9 +467,35 @@ public static class Recebiveis
         recebivel.OrigemDaBaixa = string.Empty;
         recebivel.AtualizadoEm = DateTimeOffset.UtcNow;
 
-        await banco.SaveChangesAsync(cancelamento);
+        if (await Gravar(banco, cancelamento) is { } conflito) return conflito;
 
         return Results.Ok(Detalhar(recebivel));
+    }
+
+    /// <summary>
+    /// Grava, e transforma conflito de concorrência em recusa legível.
+    ///
+    /// <para>
+    /// A situação do recebível é trava de concorrência: a gravação só passa se
+    /// ela ainda for a que foi lida. Quando outra operação muda o mesmo
+    /// recebível no meio do caminho, como o aviso do PSP dando baixa enquanto
+    /// alguém cancela noutra aba, a segunda é recusada em vez de passar por
+    /// cima da primeira. Sem este tratamento, a recusa sairia como erro 500.
+    /// </para>
+    /// </summary>
+    private static async Task<IResult?> Gravar(NexoDbContext banco, CancellationToken cancelamento)
+    {
+        try
+        {
+            await banco.SaveChangesAsync(cancelamento);
+            return null;
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return Problema("situacao", "O recebível mudou enquanto isto era feito",
+                "Outra operação alterou este recebível no mesmo instante, e nada foi gravado.",
+                "Recarregue a lista e confira a situação antes de tentar de novo.");
+        }
     }
 
     private static RecebivelNaLista Detalhar(Recebivel recebivel) => new(

@@ -449,9 +449,11 @@ engordaria a lista sem ganho nenhum.
 4. ~~A primeira tela~~ — feito. Entrada e cadastro de pessoas.
 5. **O ciclo do dinheiro** — quatro dos cinco elos feitos.
    - ~~Cliente, contrato, mensalidade, recebível e baixa manual~~ — feito.
-   - **Cobrança automática pelo PSP** — parada, e não por falta de tempo:
-     o PSP já foi escolhido, falta a conta nele. Ver abaixo.
+   - **Cobrança automática pelo PSP** — escrita e em main. Liga quando houver
+     conta no Asaas. Ver abaixo.
 6. **Cobrança e baixa automática.** Depende de uma conta no Asaas.
+7. **O módulo financeiro, em fases.** A regra do `DEPOIS.md` foi suspensa para
+   ele. O plano está em [FINANCEIRO.md](FINANCEIRO.md).
 
 **No ar desde 10 de setembro de 2026**, na Railway: três serviços — front com
 domínio público, API só na rede privada, e Postgres. O papel do banco não é

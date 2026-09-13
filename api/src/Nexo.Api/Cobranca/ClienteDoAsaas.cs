@@ -40,7 +40,14 @@ public sealed class ClienteDoAsaas
         _http.BaseAddress = new Uri(
             _opcoes.Endereco.EndsWith('/') ? _opcoes.Endereco : _opcoes.Endereco + "/");
 
-        _http.DefaultRequestHeaders.Add("access_token", _opcoes.Chave);
+        /*
+         * Sem chave, a integração está desligada e ninguém vai chamar o PSP. O
+         * cliente ainda é montado, porque cancelar e baixar o recebem em toda
+         * requisição, e um cabeçalho de autenticação vazio não tem por que
+         * existir.
+         */
+        if (!string.IsNullOrEmpty(_opcoes.Chave))
+            _http.DefaultRequestHeaders.Add("access_token", _opcoes.Chave);
         _http.DefaultRequestHeaders.UserAgent.Add(
             new ProductInfoHeaderValue(_opcoes.Aplicacao, "1.0"));
     }
@@ -96,6 +103,33 @@ public sealed class ClienteDoAsaas
             cancelamento);
 
         return await Ler<CobrancaCriada>(resposta, cancelamento);
+    }
+
+    /// <summary>
+    /// Tira do ar uma cobrança que ainda não foi paga.
+    ///
+    /// <para>
+    /// Existe porque cancelar ou baixar à mão um recebível cobrado, sem tirar a
+    /// cobrança do PSP, deixava o boleto e o Pix pagáveis. O cliente pagava, o
+    /// aviso chegava para um recebível que não estava mais em aberto, e o
+    /// dinheiro entrava sem baixa nenhuma.
+    /// </para>
+    /// <para>
+    /// <b>Não encontrada conta como sucesso:</b> quem apagou pelo painel do PSP
+    /// quis o mesmo desfecho. Qualquer outra recusa sobe como falha. A mais
+    /// provável é a cobrança já ter sido paga, e aí a operação daqui precisa
+    /// parar, porque a baixa está a caminho.
+    /// </para>
+    /// </summary>
+    public async Task ExcluirCobranca(string cobranca, CancellationToken cancelamento)
+    {
+        var resposta = await _http.DeleteAsync(
+            "payments/" + Uri.EscapeDataString(cobranca), cancelamento);
+
+        if (resposta.IsSuccessStatusCode) return;
+        if (resposta.StatusCode == System.Net.HttpStatusCode.NotFound) return;
+
+        throw new FalhaNoAsaas(await Descrever(resposta, cancelamento));
     }
 
     /// <summary>

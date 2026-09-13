@@ -302,6 +302,170 @@ public class CobrancaPeloPsp : IDisposable
         Assert.Equal(SituacaoRecebivel.Aberto, await SituacaoDe(conta.TenantId, recebivel));
     }
 
+    /* ------------------------------------------- tirar a cobrança do ar */
+
+    [Fact]
+    public async Task Cancelar_tira_a_cobranca_do_psp()
+    {
+        var (http, conta) = await Entrar();
+        var recebivel = await CriarRecebivel(http);
+        await http.PostAsync($"/recebiveis/{recebivel}/cobrar", null);
+
+        var resposta = await http.PostAsJsonAsync($"/recebiveis/{recebivel}/cancelar",
+            new DadosDoCancelamento("Cliente desistiu do serviço"), Json);
+        resposta.EnsureSuccessStatusCode();
+
+        /*
+         * Antes disto, o boleto e o Pix continuavam pagáveis depois do
+         * cancelamento. O cliente pagava, e o aviso chegava para um recebível
+         * que não esperava mais por ele.
+         */
+        Assert.Equal(["pay_000001"], _psp.CobrancasExcluidas);
+
+        var cancelado = await Buscar(conta.TenantId, recebivel);
+        Assert.Equal(SituacaoRecebivel.Cancelado, cancelado.Situacao);
+        Assert.Equal(string.Empty, cancelado.CobrancaId);
+    }
+
+    [Fact]
+    public async Task Baixa_manual_tira_a_cobranca_do_psp()
+    {
+        var (http, conta) = await Entrar();
+        var recebivel = await CriarRecebivel(http);
+        await http.PostAsync($"/recebiveis/{recebivel}/cobrar", null);
+
+        var resposta = await http.PostAsJsonAsync($"/recebiveis/{recebivel}/baixar",
+            new DadosDaBaixa(450m, new DateOnly(2026, 3, 8)), Json);
+        resposta.EnsureSuccessStatusCode();
+
+        /* Quem baixa à mão diz que o dinheiro entrou por fora. A cobrança que
+           ficasse no ar seria um segundo pagamento esperando acontecer. */
+        Assert.Equal(["pay_000001"], _psp.CobrancasExcluidas);
+
+        var baixado = await Buscar(conta.TenantId, recebivel);
+        Assert.Equal(SituacaoRecebivel.Pago, baixado.Situacao);
+        Assert.Equal(OrigensDeBaixa.Manual, baixado.OrigemDaBaixa);
+    }
+
+    [Fact]
+    public async Task Se_o_psp_nao_retira_a_cobranca_o_cancelamento_nao_acontece()
+    {
+        var (http, conta) = await Entrar();
+        var recebivel = await CriarRecebivel(http);
+        await http.PostAsync($"/recebiveis/{recebivel}/cobrar", null);
+
+        /* O cliente acabou de pagar, e o aviso ainda não chegou. */
+        _psp.RecusaAoExcluir = "A cobrança já foi recebida.";
+
+        var resposta = await http.PostAsJsonAsync($"/recebiveis/{recebivel}/cancelar",
+            new DadosDoCancelamento("Cliente desistiu do serviço"), Json);
+
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, resposta.StatusCode);
+
+        /*
+         * Nada mudou aqui. Cancelar mesmo assim faria a baixa, que está a
+         * caminho, chegar para um recebível cancelado.
+         */
+        var intacto = await Buscar(conta.TenantId, recebivel);
+        Assert.Equal(SituacaoRecebivel.Aberto, intacto.Situacao);
+        Assert.Equal("pay_000001", intacto.CobrancaId);
+    }
+
+    [Fact]
+    public async Task Pagamento_que_chega_para_recebivel_cancelado_fica_marcado_para_conferir()
+    {
+        var (http, conta) = await Entrar();
+        var recebivel = await CriarRecebivel(http);
+        await http.PostAsync($"/recebiveis/{recebivel}/cobrar", null);
+
+        var cancelamento = await http.PostAsJsonAsync($"/recebiveis/{recebivel}/cancelar",
+            new DadosDoCancelamento("Cliente desistiu do serviço"), Json);
+        cancelamento.EnsureSuccessStatusCode();
+
+        /*
+         * Excluir no PSP não desfaz um pagamento que já estava em curso, e o
+         * aviso dele pode chegar depois do cancelamento.
+         */
+        var resposta = await Avisar(Aviso("evt_tardio", "PAYMENT_RECEIVED", conta.TenantId, recebivel, 450m));
+        resposta.EnsureSuccessStatusCode();
+
+        Assert.Equal(SituacaoRecebivel.Cancelado, await SituacaoDe(conta.TenantId, recebivel));
+
+        /*
+         * O dinheiro entrou, e isso não pode passar calado. Antes, este aviso
+         * era descartado sem deixar rastro diferente de um boleto visualizado.
+         */
+        await using var contexto = _banco.Criar(conta.TenantId);
+        var evento = await contexto.EventosDeCobranca.AsNoTracking()
+            .SingleAsync(e => e.Id == "evt_tardio");
+
+        Assert.Contains("cancelado", evento.Divergencia);
+    }
+
+    [Fact]
+    public async Task Sem_integracao_configurada_cancelar_segue_e_guarda_a_referencia()
+    {
+        var (http, conta) = await Entrar();
+        var recebivel = await CriarRecebivel(http);
+
+        /* Uma cobrança emitida antes de a integração ser desligada. */
+        await using (var contexto = _banco.Criar(conta.TenantId))
+        {
+            await contexto.Recebiveis.Where(r => r.Id == recebivel).ExecuteUpdateAsync(ajuste => ajuste
+                .SetProperty(r => r.CobrancaId, "pay_antiga")
+                .SetProperty(r => r.CobrancaUrl, "https://sandbox.asaas.com/i/pay_antiga"));
+        }
+
+        using var semIntegracao = new AplicacaoDeTestes(_banco.Conexao);
+        var outroHttp = await Contas.Entrar(semIntegracao, conta);
+
+        var resposta = await outroHttp.PostAsJsonAsync($"/recebiveis/{recebivel}/cancelar",
+            new DadosDoCancelamento("Serviço não prestado"), Json);
+        resposta.EnsureSuccessStatusCode();
+
+        var cancelado = await Buscar(conta.TenantId, recebivel);
+        Assert.Equal(SituacaoRecebivel.Cancelado, cancelado.Situacao);
+
+        /*
+         * Travar o cancelamento de tudo o que foi cobrado antes seria punir
+         * quem desligou a integração. A referência fica, porque é por ela que
+         * alguém acha a cobrança no painel do PSP para tirá-la de lá à mão.
+         */
+        Assert.Empty(_psp.CobrancasExcluidas);
+        Assert.Equal("pay_antiga", cancelado.CobrancaId);
+    }
+
+    [Fact]
+    public async Task Duas_gravacoes_sobre_o_mesmo_recebivel_nao_passam_uma_por_cima_da_outra()
+    {
+        var (http, conta) = await Entrar();
+        var recebivel = await CriarRecebivel(http);
+
+        /*
+         * Dois leitores veem "em aberto" ao mesmo tempo: o aviso do PSP e
+         * alguém cancelando noutra aba. Sem trava, o segundo a gravar passaria
+         * por cima do primeiro, e a baixa do PSP sumiria debaixo de um
+         * cancelamento.
+         */
+        await using var primeiro = _banco.Criar(conta.TenantId);
+        await using var segundo = _banco.Criar(conta.TenantId);
+
+        var peloPsp = await primeiro.Recebiveis.SingleAsync(r => r.Id == recebivel);
+        var naOutraAba = await segundo.Recebiveis.SingleAsync(r => r.Id == recebivel);
+
+        peloPsp.Situacao = SituacaoRecebivel.Pago;
+        peloPsp.ValorPago = 450m;
+        peloPsp.PagoEm = new DateOnly(2026, 3, 8);
+        peloPsp.OrigemDaBaixa = OrigensDeBaixa.Cobranca;
+        await primeiro.SaveChangesAsync();
+
+        naOutraAba.Situacao = SituacaoRecebivel.Cancelado;
+        naOutraAba.MotivoDoCancelamento = "Engano";
+
+        await Assert.ThrowsAsync<DbUpdateConcurrencyException>(() => segundo.SaveChangesAsync());
+        Assert.Equal(SituacaoRecebivel.Pago, await SituacaoDe(conta.TenantId, recebivel));
+    }
+
     /* --------------------------------------------------------- apoio */
 
     private async Task<(HttpClient, ContaDeTestes)> Entrar()

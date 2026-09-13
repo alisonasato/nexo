@@ -1,0 +1,202 @@
+# O módulo financeiro, em fases
+
+Contas a pagar e caixa estavam no `DEPOIS.md` como deixados de fora da primeira
+entrega. Em 13 de setembro de 2026 a regra daquele arquivo foi **suspensa para
+este módulo**, por decisão de quem é dono do projeto, escolhendo implementar em
+fases. Este arquivo é o plano: o que cada fase entrega, o modelo de dados a que
+o módulo chega, e como a tela se divide em componentes.
+
+A regra do `DEPOIS.md` continua valendo para todo o resto.
+
+## Onde se parte
+
+O que já existe é o lado **a receber**, e ele é o esqueleto do módulo:
+
+- Recebível com competência, vencimento, valor e situação.
+- Baixa manual com valor e data, estorno, cancelamento com motivo obrigatório.
+- Recorrência vinda dos contratos, com o índice único que impede gerar a mesma
+  mensalidade duas vezes.
+- Cobrança pelo Asaas, com webhook idempotente dando baixa.
+- Totais somados no banco, nunca na página.
+
+O que não existe: a pagar, contas bancárias, saldo, plano de contas, centro de
+custo, parcelamento, renegociação, baixa em lote e trilha de auditoria geral.
+
+## As fases
+
+### Fase 1 — Lançamentos a receber
+
+A tela de Recebíveis vira a tela de Lançamentos, com as operações avançadas
+sobre o que já existe. Sai em três PRs:
+
+1. **Cobrança segura.** Um defeito precisava ser fechado antes de qualquer
+   operação nova. Cancelar ou baixar à mão um recebível cobrado não tirava a
+   cobrança do Asaas: o boleto e o Pix continuavam pagáveis, o cliente pagava,
+   e o aviso chegava para um recebível que não estava mais em aberto. A baixa
+   era descartada sem alerta, e o dinheiro entrava sem registro. Agora cancelar
+   e baixar à mão retiram a cobrança do PSP antes, o pagamento que chega para
+   quem não esperava fica marcado como divergência, e a situação do recebível
+   virou trava de concorrência. A renegociação cancela títulos, então dependia
+   disto.
+2. **Operações.** Parcelamento ao lançar, renegociação, baixa em lote, e os
+   filtros e totais que a tela nova pede.
+3. **A tela.** Cards de resumo, tabela com seleção e barra de ações em lote,
+   gavetas para lançar e renegociar, e cores de situação. E um aviso dos
+   pagamentos marcados como divergência: o primeiro PR os grava e registra em
+   log, mas nenhuma tela os mostra antes deste.
+
+### Fase 2 — Contas a pagar
+
+A segunda natureza de lançamento, com fornecedor no lugar de cliente. É aqui, e
+não antes, que se decide entre uma tabela única de lançamentos com natureza e
+duas tabelas irmãs. A decisão Q20 vale de novo: generalizar com um caso só é
+adivinhar a forma.
+
+### Fase 3 — Contas bancárias e caixa
+
+Cadastro de contas, saldo e movimentos. A baixa passa a exigir a conta de
+destino ou de origem, e nasce o fluxo de caixa projetado contra o realizado.
+Saldo é **derivado** de saldo inicial mais movimentos, nunca um número editável:
+é o mesmo motivo pelo qual nenhum total vem da página.
+
+### Fase 4 — Plano de contas e centro de custo
+
+Categorias em árvore, por natureza, e centros de custo. Entram como campos
+opcionais do lançamento e como filtros da tela.
+
+### Fase 5 — Auditoria e ajustes
+
+Trilha de quem fez o quê e quando, descontos, juros e multa separados na baixa,
+e recorrência genérica além dos contratos. Juros e multa **automáticos** sobre o
+vencido dependem da taxa, que ainda é decisão em aberto no `DEPOIS.md`.
+
+## O modelo a que o módulo chega
+
+Escrito como o contrato TypeScript que o front recebe. No código, ele não é
+escrito à mão: sai do `openapi.json`, que sai da API (decisão Q19). A fase de
+cada campo está ao lado.
+
+```ts
+type Natureza = "Receber" | "Pagar";                          // fase 2
+type Situacao = "Aberto" | "Pago" | "Cancelado" | "Renegociado";
+
+interface Lancamento {
+  id: string;
+  natureza: Natureza;                                           // fase 2
+  pessoaId: string;             // cliente ao receber, fornecedor ao pagar
+  contratoId?: string;          // quando veio de recorrência de contrato
+  descricao: string;
+  competencia: { ano: number; mes: number };
+  vencimento: string;           // data ISO
+  valor: number;                // valor original: nunca reescrito
+  situacao: Situacao;
+
+  parcelamentoId?: string;                                      // fase 1
+  parcela?: { numero: number; total: number };                  // fase 1
+  renegociadoDeId?: string;     // nas parcelas que substituem  // fase 1
+
+  baixa?: {
+    pagoEm: string;
+    valorPago: number;          // o que entrou ou saiu de fato
+    origem: "manual" | "lote" | "cobranca";
+    contaId?: string;                                           // fase 3
+    desconto?: number;                                          // fase 5
+    juros?: number;                                             // fase 5
+    multa?: number;                                             // fase 5
+  };
+
+  cancelamento?: { motivo: string };
+  cobranca?: { id: string; url: string };
+
+  categoriaId?: string;                                         // fase 4
+  centroDeCustoId?: string;                                     // fase 4
+
+  criadoEm: string;
+  atualizadoEm: string;
+  criadoPor?: string;                                           // fase 5
+  atualizadoPor?: string;                                       // fase 5
+}
+
+interface Renegociacao {                                        // fase 1
+  id: string;
+  origemId: string;             // o título que foi substituído
+  juros: number;
+  multa: number;
+  desconto: number;
+  motivo: string;
+  novasParcelas: string[];
+}
+
+interface ContaBancaria {                                       // fase 3
+  id: string;
+  nome: string;
+  saldoInicial: number;
+  saldoInicialEm: string;
+}
+
+interface MovimentoDeConta {                                    // fase 3
+  id: string;
+  contaId: string;
+  lancamentoId?: string;
+  data: string;
+  valor: number;                // positivo entra, negativo sai
+}
+
+interface Categoria {                                           // fase 4
+  id: string;
+  nome: string;
+  natureza: Natureza;
+  paiId?: string;
+}
+
+interface EventoDeAuditoria {                                   // fase 5
+  id: string;
+  lancamentoId: string;
+  acao: string;
+  antes: unknown;
+  depois: unknown;
+  usuarioId: string;
+  em: string;
+}
+```
+
+As regras que o modelo carrega, e que valem em todas as fases:
+
+- **O valor original nunca é reescrito.** O que muda na baixa fica na baixa.
+- **Renegociar não edita título.** O original vira `Renegociado` e as parcelas
+  novas apontam para ele. `Renegociado` continua ocupando a competência no
+  índice único, que só libera cancelados: sem isso, gerar mensalidades cobraria
+  de novo um mês já renegociado.
+- **Nada se apaga.** Cancelar exige motivo e mantém a linha.
+- **Parcelas somam exatamente o total.** Os centavos que sobram da divisão vão
+  para a primeira parcela, e o vencimento de cada uma parte da primeira data,
+  não da parcela anterior: 31 de janeiro vira 28 de fevereiro e 31 de março, e
+  não 28 de março.
+- **Todo total vem do banco.**
+
+## Os componentes da tela
+
+A tela segue o que as outras listagens já fazem: recorte na URL, ordenação no
+banco, cartão no celular.
+
+```
+app/(app)/lancamentos/page.tsx     a tela: consultas, recorte na URL, orquestração
+  ResumoFinanceiro                 cards: em aberto, vencido, recebido; saldo na fase 3
+  FiltrosDeLancamentos             período, situação, pessoa; categoria na fase 4
+  TabelaDeLancamentos              tabela e cartões, com seleção e ordenação
+    TarjaDeSituacao                pago, vencido, vence hoje, a vencer
+    MenuDeAcoes                    por linha: baixar, cobrar, renegociar, cancelar, estornar
+  BarraDeSelecao                   ações em lote: baixar em lote
+  GavetaDeLancamento               lançar, com parcelamento
+  GavetaDeRenegociacao             título original, acréscimos e parcelas novas
+  DialogoDeBaixaEmLote             data da baixa, total, e a conta na fase 3
+  FluxoDeCaixa                     fase 3: projetado contra realizado
+```
+
+Três peças saem das telas existentes em vez de nascerem de novo: a seleção e a
+barra de ações de Pessoas, e o cabeçalho ordenável de `componentes/tabela.tsx`.
+É a segunda vez que a seleção aparece, que é a hora que a Q20 marca para
+extrair.
+
+Cores de situação, com texto sempre junto e nunca só cor: verde para pago,
+vermelho para vencido, âmbar para vence hoje, cinza para a vencer.
