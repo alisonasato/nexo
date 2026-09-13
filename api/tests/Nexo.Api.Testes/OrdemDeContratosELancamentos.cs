@@ -123,7 +123,7 @@ public class OrdemDeContratosELancamentos(BancoDeTestes banco) : IDisposable
         await CriarAvulso(http, "Alfa", 300m, new DateOnly(2026, 3, 20), 2026, 3);
         await CriarAvulso(http, "Mike", 200m, new DateOnly(2026, 3, 12), 2026, 3);
 
-        Assert.Equal(["Alfa", "Mike", "Zulu"], await NomesDosLancamentos(http, "?ordenarPor=Cliente"));
+        Assert.Equal(["Alfa", "Mike", "Zulu"], await NomesDosLancamentos(http, "?ordenarPor=Pessoa"));
         Assert.Equal([300m, 200m, 100m], await ValoresDosLancamentos(http, "?ordenarPor=Valor&direcao=Decrescente"));
     }
 
@@ -221,7 +221,7 @@ public class OrdemDeContratosELancamentos(BancoDeTestes banco) : IDisposable
     private static async Task CriarAvulso(
         HttpClient http, string cliente, decimal valor, DateOnly vencimento, int ano, int mes)
     {
-        var resposta = await http.PostAsJsonAsync("/lancamentos", new DadosDoAvulso(
+        var resposta = await http.PostAsJsonAsync("/lancamentos", new DadosDoAvulso(NaturezaLancamento.Receber,
             await CriarPessoa(http, cliente), "Certidão", valor, vencimento, ano, mes), Json);
 
         resposta.EnsureSuccessStatusCode();

@@ -527,7 +527,7 @@ export default function ListagemDeLancamentos() {
             {[
               { rotulo: "Em aberto", valor: resumo.totalEmAberto, tom: "text-slate-800" },
               { rotulo: "Vencido", valor: resumo.totalVencido, tom: "text-red-700" },
-              { rotulo: "Recebido", valor: resumo.totalRecebido, tom: "text-emerald-700" },
+              { rotulo: "Recebido", valor: resumo.totalPago, tom: "text-emerald-700" },
             ].map((cartao) => (
               <div key={cartao.rotulo} className="flex flex-col gap-1 bg-superficie px-5 py-4">
                 <span className="text-xs font-semibold tracking-wide text-slate-500 uppercase">
@@ -728,7 +728,7 @@ export default function ListagemDeLancamentos() {
                         className="size-4 rounded border-borda-forte accent-marca-600"
                       />
                     </th>
-                    <CabecalhoOrdenavel titulo="Cliente" por="Cliente" ordem={ordem} aoOrdenar={ordenarPor} />
+                    <CabecalhoOrdenavel titulo="Cliente" por="Pessoa" ordem={ordem} aoOrdenar={ordenarPor} />
                     <CabecalhoOrdenavel
                       titulo="Competência"
                       por="Competencia"

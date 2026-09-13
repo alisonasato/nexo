@@ -10,8 +10,8 @@ using Npgsql;
 namespace Nexo.Api.Endpoints;
 
 /// <summary>
-/// As operações avançadas sobre o que o escritório tem a receber: lançar em
-/// parcelas, renegociar e baixar em lote.
+/// As operações avançadas sobre os lançamentos, a receber e a pagar: lançar
+/// em parcelas, renegociar e baixar em lote.
 ///
 /// <para>
 /// Segundo PR da fase 1 do módulo financeiro, descrito no FINANCEIRO.md. Tudo
@@ -52,8 +52,8 @@ public static class OperacoesFinanceiras
 
         grupo.MapPost("/baixar-em-lote", BaixarEmLote)
             .WithName("BaixarLancamentosEmLote")
-            .WithSummary("Registra o recebimento de vários lançamentos de uma vez")
-            .WithDescription("Cada lançamento é baixado ou recusado por conta própria: um já pago não impede os outros. O valor recebido é o valor cobrado.")
+            .WithSummary("Registra a baixa de vários lançamentos de uma vez")
+            .WithDescription("Cada lançamento é baixado ou recusado por conta própria: um já pago não impede os outros. O valor baixado é o valor do lançamento.")
             .Produces<ResultadoDaBaixaEmLote>()
             .Produces<RespostaComProblemas>(StatusCodes.Status422UnprocessableEntity);
 
@@ -72,10 +72,11 @@ public static class OperacoesFinanceiras
 
         var total = decimal.Round(dados.ValorTotal, 2, MidpointRounding.AwayFromZero);
 
-        /* A mesma conferência do lançamento avulso: cliente com papel de
-           cliente, descrição, valor e competência. Parcelar não afrouxa nada. */
+        /* A mesma conferência do lançamento avulso: natureza, a pessoa com o
+           papel que ela pede, descrição, valor e competência. Parcelar não
+           afrouxa nada. */
         var problemas = await Lancamentos.Conferir(
-            new DadosDoAvulso(dados.PessoaId, dados.Descricao, total, dados.PrimeiroVencimento,
+            new DadosDoAvulso(dados.Natureza, dados.PessoaId, dados.Descricao, total, dados.PrimeiroVencimento,
                 dados.CompetenciaAno, dados.CompetenciaMes),
             banco, cancelamento);
 
@@ -96,6 +97,7 @@ public static class OperacoesFinanceiras
             {
                 Id = Guid.NewGuid(),
                 TenantId = tenant,
+                Natureza = dados.Natureza,
                 PessoaId = pessoa.Id,
                 Pessoa = pessoa,
                 ContratoId = null,
@@ -241,6 +243,7 @@ public static class OperacoesFinanceiras
             {
                 Id = Guid.NewGuid(),
                 TenantId = original.TenantId,
+                Natureza = original.Natureza,
                 PessoaId = original.PessoaId,
                 Pessoa = original.Pessoa,
                 ContratoId = null,
@@ -413,9 +416,11 @@ public static class OperacoesFinanceiras
             statusCode: 422);
 }
 
+/// <param name="Natureza">Obrigatória, e a mesma para todas as parcelas.</param>
 /// <param name="ValorTotal">O valor inteiro, antes de dividir.</param>
 /// <param name="CompetenciaAno">O mês do serviço, igual para todas as parcelas.</param>
 public record DadosDoParcelamento(
+    NaturezaLancamento Natureza,
     Guid PessoaId,
     string Descricao,
     decimal ValorTotal,

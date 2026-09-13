@@ -256,8 +256,8 @@ export interface paths {
         get: operations["ListarLancamentos"];
         put?: never;
         /**
-         * Lança uma cobrança fora de contrato
-         * @description Para o que o escritório faz e não é mensalidade: declaração de imposto de renda, abertura de empresa, certidão. Fica sem contrato por trás.
+         * Lança um valor fora de contrato, a receber ou a pagar
+         * @description A receber, para o que o escritório faz e não é mensalidade: declaração de imposto de renda, abertura de empresa, certidão. A pagar, para as contas do próprio escritório. A natureza é obrigatória, e a pessoa precisa ter o papel que ela pede: cliente para receber, fornecedor para pagar.
          */
         post: operations["CriarLancamentoAvulso"];
         delete?: never;
@@ -275,7 +275,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Registra o recebimento */
+        /** Registra a baixa */
         post: operations["BaixarLancamento"];
         delete?: never;
         options?: never;
@@ -373,8 +373,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Registra o recebimento de vários lançamentos de uma vez
-         * @description Cada lançamento é baixado ou recusado por conta própria: um já pago não impede os outros. O valor recebido é o valor cobrado.
+         * Registra a baixa de vários lançamentos de uma vez
+         * @description Cada lançamento é baixado ou recusado por conta própria: um já pago não impede os outros. O valor baixado é o valor do lançamento.
          */
         post: operations["BaixarLancamentosEmLote"];
         delete?: never;
@@ -576,6 +576,8 @@ export interface components {
             ativo: boolean;
         };
         DadosDoAvulso: {
+            /** @enum {string} */
+            natureza: "Receber" | "Pagar";
             /** Format: uuid */
             pessoaId: string;
             descricao: string;
@@ -592,6 +594,8 @@ export interface components {
             motivo?: string | null;
         };
         DadosDoParcelamento: {
+            /** @enum {string} */
+            natureza: "Receber" | "Pagar";
             /** Format: uuid */
             pessoaId: string;
             descricao: string;
@@ -661,6 +665,8 @@ export interface components {
         LancamentoNaLista: {
             /** Format: uuid */
             id: string;
+            /** @enum {string} */
+            natureza: "Receber" | "Pagar";
             codigoDaPessoa: string;
             nomeDaPessoa: string;
             descricao: string;
@@ -689,9 +695,11 @@ export interface components {
             cobrancaUrl: string;
         };
         /** @enum {string} */
+        NaturezaLancamento: "Receber" | "Pagar";
+        /** @enum {string} */
         OrdemDeContratos: "Codigo" | "Cliente" | "Valor" | "Vencimento";
         /** @enum {string} */
-        OrdemDeLancamentos: "Vencimento" | "Cliente" | "Competencia" | "Valor";
+        OrdemDeLancamentos: "Vencimento" | "Pessoa" | "Competencia" | "Valor";
         /** @enum {string} */
         OrdemDePessoas: "Nome" | "Codigo";
         PaginaDeContratos: {
@@ -718,7 +726,7 @@ export interface components {
             /** Format: double */
             totalVencido: number;
             /** Format: double */
-            totalRecebido: number;
+            totalPago: number;
         };
         PaginaDePessoas: {
             itens: components["schemas"]["PessoaNaLista"][];
@@ -1364,6 +1372,7 @@ export interface operations {
     ListarLancamentos: {
         parameters: {
             query?: {
+                natureza?: "Receber" | "Pagar";
                 situacao?: components["schemas"]["SituacaoLancamento"];
                 ano?: number;
                 mes?: number;
@@ -1372,7 +1381,7 @@ export interface operations {
                 vencimentoAte?: string;
                 pagina?: number;
                 tamanho?: number;
-                ordenarPor?: "Vencimento" | "Cliente" | "Competencia" | "Valor";
+                ordenarPor?: "Vencimento" | "Pessoa" | "Competencia" | "Valor";
                 direcao?: "Crescente" | "Decrescente";
             };
             header?: never;

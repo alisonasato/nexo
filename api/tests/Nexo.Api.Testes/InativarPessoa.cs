@@ -144,7 +144,7 @@ public class InativarPessoa(BancoDeTestes banco) : IDisposable
         var resposta = await http.DeleteAsync($"/pessoas/{pessoa}");
         var problema = Assert.Single(await Problemas(resposta));
 
-        Assert.Contains("2 cobranças em aberto", problema.Descricao);
+        Assert.Contains("2 lançamentos em aberto", problema.Descricao);
         Assert.Contains("R$ 1.250,00", problema.Descricao);
     }
 
@@ -227,7 +227,7 @@ public class InativarPessoa(BancoDeTestes banco) : IDisposable
 
     private static async Task<Guid> CriarAvulso(HttpClient http, Guid pessoa, decimal valor)
     {
-        var resposta = await http.PostAsJsonAsync("/lancamentos", new DadosDoAvulso(
+        var resposta = await http.PostAsJsonAsync("/lancamentos", new DadosDoAvulso(NaturezaLancamento.Receber,
             pessoa, "Serviço avulso", valor, new DateOnly(2026, 3, 10), 2026, 2), Json);
 
         resposta.EnsureSuccessStatusCode();

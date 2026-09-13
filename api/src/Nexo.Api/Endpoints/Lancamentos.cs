@@ -8,7 +8,7 @@ using Nexo.Api.Dominio;
 namespace Nexo.Api.Endpoints;
 
 /// <summary>
-/// O que o escritório tem a receber, e a baixa quando o dinheiro entra.
+/// O que o escritório tem a receber e a pagar, e a baixa quando o dinheiro se move.
 /// </summary>
 public static class Lancamentos
 {
@@ -23,14 +23,14 @@ public static class Lancamentos
 
         grupo.MapPost("/", Criar)
             .WithName("CriarLancamentoAvulso")
-            .WithSummary("Lança uma cobrança fora de contrato")
-            .WithDescription("Para o que o escritório faz e não é mensalidade: declaração de imposto de renda, abertura de empresa, certidão. Fica sem contrato por trás.")
+            .WithSummary("Lança um valor fora de contrato, a receber ou a pagar")
+            .WithDescription("A receber, para o que o escritório faz e não é mensalidade: declaração de imposto de renda, abertura de empresa, certidão. A pagar, para as contas do próprio escritório. A natureza é obrigatória, e a pessoa precisa ter o papel que ela pede: cliente para receber, fornecedor para pagar.")
             .Produces<LancamentoNaLista>(StatusCodes.Status201Created)
             .Produces<RespostaComProblemas>(StatusCodes.Status422UnprocessableEntity);
 
         grupo.MapPost("/{id:guid}/baixar", Baixar)
             .WithName("BaixarLancamento")
-            .WithSummary("Registra o recebimento")
+            .WithSummary("Registra a baixa")
             .Produces<LancamentoNaLista>()
             .Produces<RespostaComProblemas>(StatusCodes.Status422UnprocessableEntity)
             .Produces(StatusCodes.Status404NotFound);
@@ -68,10 +68,16 @@ public static class Lancamentos
     /// quer saber quanto o mês tem em aberto enquanto olha o que já entrou.
     /// A lista mostra a fatia escolhida, os totais mostram o mês.
     /// </para>
+    /// <para>
+    /// <b>Uma natureza de cada vez</b>, na lista e nos totais: somar o que entra
+    /// com o que sai não responde pergunta nenhuma. Sem natureza informada vem a
+    /// receber. É o que esta listagem sempre foi, e ler não inverte dinheiro.
+    /// </para>
     /// </summary>
     private static async Task<IResult> Listar(
         NexoDbContext banco,
         CancellationToken cancelamento,
+        [FromQuery] NaturezaLancamento natureza = NaturezaLancamento.Receber,
         [FromQuery] SituacaoLancamento? situacao = null,
         [FromQuery] int? ano = null,
         [FromQuery] int? mes = null,
@@ -87,7 +93,7 @@ public static class Lancamentos
         tamanho = Math.Clamp(tamanho, 1, 200);
 
         /* O período: o que os totais enxergam. */
-        var doPeriodo = banco.Lancamentos.AsNoTracking();
+        var doPeriodo = banco.Lancamentos.AsNoTracking().Where(r => r.Natureza == natureza);
         if (ano is { } a) doPeriodo = doPeriodo.Where(r => r.CompetenciaAno == a);
         if (mes is { } m) doPeriodo = doPeriodo.Where(r => r.CompetenciaMes == m);
 
@@ -131,7 +137,7 @@ public static class Lancamentos
         var totalVencido = await emAberto.Where(r => r.Vencimento < hoje)
             .Select(r => (decimal?)r.Valor).SumAsync(cancelamento) ?? 0m;
 
-        var totalRecebido = await doPeriodo.Where(r => r.Situacao == SituacaoLancamento.Pago)
+        var totalPago = await doPeriodo.Where(r => r.Situacao == SituacaoLancamento.Pago)
             .Select(r => r.ValorPago).SumAsync(cancelamento) ?? 0m;
 
         var itens = await Ordenar(daLista, ordenarPor, direcao)
@@ -139,6 +145,7 @@ public static class Lancamentos
             .Take(tamanho)
             .Select(lancamento => new LancamentoNaLista(
                 lancamento.Id,
+                lancamento.Natureza,
                 lancamento.Pessoa!.Codigo,
                 lancamento.Pessoa!.Nome,
                 lancamento.Descricao,
@@ -158,7 +165,7 @@ public static class Lancamentos
             .ToListAsync(cancelamento);
 
         return Results.Ok(new PaginaDeLancamentos(
-            itens, total, pagina, tamanho, totalEmAberto, totalVencido, totalRecebido));
+            itens, total, pagina, tamanho, totalEmAberto, totalVencido, totalPago));
     }
 
     /// <summary>
@@ -166,8 +173,8 @@ public static class Lancamentos
     ///
     /// <para>
     /// <b>Por vencimento é o padrão</b>, porque a pergunta que traz alguém a
-    /// esta tela é o que vence primeiro. Dentro do mesmo dia vem o código do
-    /// cliente, comparado pelo comprimento antes do texto: ele é número puro
+    /// esta tela é o que vence primeiro. Dentro do mesmo dia vem o código da
+    /// pessoa, comparado pelo comprimento antes do texto: ele é número puro
     /// guardado como texto, e sem isso o 10 viria antes do 2.
     /// </para>
     /// <para>
@@ -189,7 +196,7 @@ public static class Lancamentos
 
         IOrderedQueryable<Lancamento> ordenada = por switch
         {
-            OrdemDeLancamentos.Cliente => decrescente
+            OrdemDeLancamentos.Pessoa => decrescente
                 ? consulta.OrderByDescending(lancamento => lancamento.Pessoa!.Nome)
                 : consulta.OrderBy(lancamento => lancamento.Pessoa!.Nome),
 
@@ -250,6 +257,7 @@ public static class Lancamentos
         {
             Id = Guid.NewGuid(),
             TenantId = tenant,
+            Natureza = dados.Natureza,
             PessoaId = dados.PessoaId,
             ContratoId = null,
             CompetenciaAno = dados.CompetenciaAno,
@@ -278,40 +286,66 @@ public static class Lancamentos
         var problemas = new List<Problema>();
 
         /*
-         * Não basta a pessoa existir: ela precisa carregar o papel de cliente.
-         * Sem essa conferência, um fornecedor ou um colaborador entraria num
-         * contrato por engano de escolha na lista, e o erro só apareceria na
-         * hora de cobrar.
+         * Enum ausente no corpo chega como zero, que não é natureza nenhuma. E
+         * sem natureza não há o que conferir na pessoa: é ela que diz qual papel
+         * procurar.
+         */
+        var comNatureza = Enum.IsDefined(dados.Natureza);
+
+        if (!comNatureza)
+        {
+            problemas.Add(new Problema("natureza", "Natureza não informada",
+                "Não foi dito se o lançamento é a receber ou a pagar.",
+                "Informe a natureza: Receber ou Pagar."));
+        }
+
+        var aPagar = dados.Natureza == NaturezaLancamento.Pagar;
+
+        /*
+         * Não basta a pessoa existir: ela precisa carregar o papel que a
+         * natureza pede. A receber pede cliente, a pagar pede fornecedor. Sem
+         * essa conferência, cobrar um fornecedor ou pagar um cliente por engano
+         * de escolha na lista só apareceria na hora do dinheiro.
          */
         var pessoa = await banco.Pessoas.AsNoTracking()
             .Include(p => p.Papeis)
             .FirstOrDefaultAsync(p => p.Id == dados.PessoaId, cancelamento);
 
+        var (papel, papelPorExtenso, semPessoa) = aPagar
+            ? (Papel.Fornecedor, "fornecedor", "Lançamento sem fornecedor")
+            : (Papel.Cliente, "cliente", "Cobrança sem cliente");
+
         if (pessoa is null)
         {
-            problemas.Add(new Problema("pessoaId", "Cobrança sem cliente",
+            problemas.Add(new Problema("pessoaId", semPessoa,
                 "A pessoa informada não existe neste cadastro.",
                 "Escolha alguém da lista."));
         }
-        else if (pessoa.Papeis.All(p => p.Papel != Papel.Cliente))
+        else if (comNatureza && pessoa.Papeis.All(p => p.Papel != papel))
         {
-            problemas.Add(new Problema("pessoaId", "Cobrança sem cliente",
-                $"“{pessoa.Nome}” não está marcada como cliente.",
-                "Abra o cadastro dela e marque o papel Cliente."));
+            problemas.Add(new Problema("pessoaId", semPessoa,
+                $"“{pessoa.Nome}” não está marcada como {papelPorExtenso}.",
+                $"Abra o cadastro dela e marque o papel {papel}."));
         }
+
+        var falhaNaValidacao = aPagar ? "Falha na validação do lançamento" : "Falha na validação da cobrança";
 
         if (string.IsNullOrWhiteSpace(dados.Descricao))
         {
-            problemas.Add(new Problema("descricao", "Falha na validação da cobrança",
+            problemas.Add(new Problema("descricao", falhaNaValidacao,
                 "A descrição não foi informada.",
-                "Diga o que está sendo cobrado: “Declaração de IRPF 2026”, “Abertura de empresa”."));
+                aPagar
+                    ? "Diga o que está sendo pago: “Aluguel de março”, “Licença do sistema contábil”."
+                    : "Diga o que está sendo cobrado: “Declaração de IRPF 2026”, “Abertura de empresa”."));
         }
 
         if (dados.Valor <= 0)
         {
-            problemas.Add(new Problema("valor", "Falha na validação da cobrança",
+            problemas.Add(new Problema("valor", falhaNaValidacao,
                 "O valor precisa ser maior que zero.",
-                "Informe quanto o cliente tem a pagar por este serviço."));
+                aPagar
+                    ? "Informe quanto o escritório tem a pagar."
+                    : "Informe quanto o cliente tem a pagar por este serviço."));
         }
 
         if (dados.CompetenciaMes is < 1 or > 12)
@@ -374,9 +408,13 @@ public static class Lancamentos
 
         if (dados.ValorPago <= 0)
         {
-            return Problema("valorPago", "Valor inválido",
-                "O valor recebido precisa ser maior que zero.",
-                "Informe quanto entrou de fato — pode ser diferente do valor cobrado.");
+            return lancamento.Natureza == NaturezaLancamento.Pagar
+                ? Problema("valorPago", "Valor inválido",
+                    "O valor pago precisa ser maior que zero.",
+                    "Informe quanto saiu de fato — pode ser diferente do valor devido.")
+                : Problema("valorPago", "Valor inválido",
+                    "O valor recebido precisa ser maior que zero.",
+                    "Informe quanto entrou de fato — pode ser diferente do valor cobrado.");
         }
 
         /*
@@ -527,6 +565,7 @@ public static class Lancamentos
 
     internal static LancamentoNaLista Detalhar(Lancamento lancamento) => new(
         lancamento.Id,
+        lancamento.Natureza,
         lancamento.Pessoa!.Codigo,
         lancamento.Pessoa!.Nome,
         lancamento.Descricao,
@@ -550,9 +589,11 @@ public static class Lancamentos
             statusCode: 422);
 }
 
+/// <param name="Natureza">Obrigatória: a receber ou a pagar. Decide também o papel que a pessoa precisa ter.</param>
 /// <param name="CompetenciaAno">O ano a que o serviço se refere, não o do vencimento.</param>
 /// <param name="CompetenciaMes">O mês a que o serviço se refere, de 1 a 12.</param>
 public record DadosDoAvulso(
+    NaturezaLancamento Natureza,
     Guid PessoaId,
     string Descricao,
     decimal Valor,
@@ -565,6 +606,7 @@ public record DadosDoCancelamento(string? Motivo);
 
 public record LancamentoNaLista(
     Guid Id,
+    NaturezaLancamento Natureza,
     string CodigoDaPessoa,
     string NomeDaPessoa,
     string Descricao,
@@ -586,15 +628,17 @@ public record LancamentoNaLista(
 public enum OrdemDeLancamentos
 {
     Vencimento = 1,
-    Cliente = 2,
+
+    /// <summary>O nome de quem está do outro lado: cliente a receber, fornecedor a pagar.</summary>
+    Pessoa = 2,
     Competencia = 3,
     Valor = 4,
 }
 
 /// <param name="Total">Quantos lançamentos a seleção tem, e não quantos vieram nesta página.</param>
-/// <param name="TotalEmAberto">Soma do que ainda não entrou, no período — independente do filtro de situação.</param>
+/// <param name="TotalEmAberto">Soma do que ainda está em aberto, no período — independente do filtro de situação.</param>
 /// <param name="TotalVencido">Parte do aberto cujo vencimento já passou.</param>
-/// <param name="TotalRecebido">Soma do que de fato entrou, e não do que era devido.</param>
+/// <param name="TotalPago">Soma do que de fato foi pago, e não do que era devido: o que entrou, a receber, e o que saiu, a pagar.</param>
 public record PaginaDeLancamentos(
     List<LancamentoNaLista> Itens,
     int Total,
@@ -602,4 +646,4 @@ public record PaginaDeLancamentos(
     int Tamanho,
     decimal TotalEmAberto,
     decimal TotalVencido,
-    decimal TotalRecebido);
+    decimal TotalPago);
