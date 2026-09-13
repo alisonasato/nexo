@@ -95,7 +95,7 @@ public class OperacoesSobreLancamentos : IDisposable
         foreach (var quantidade in new[] { 0, Parcelas.Maximo + 1 })
         {
             var resposta = await http.PostAsJsonAsync("/lancamentos/parcelamentos",
-                new DadosDoParcelamento(pessoa, "Abertura de empresa", 600m, quantidade,
+                new DadosDoParcelamento(NaturezaLancamento.Receber, pessoa, "Abertura de empresa", 600m, quantidade,
                     new DateOnly(2026, 3, 10), 2026, 3), Json);
 
             Assert.Equal(HttpStatusCode.UnprocessableEntity, resposta.StatusCode);
@@ -355,7 +355,7 @@ public class OperacoesSobreLancamentos : IDisposable
     private static async Task<Guid> CriarAvulso(HttpClient http, Guid pessoa, decimal valor, DateOnly vencimento)
     {
         var resposta = await http.PostAsJsonAsync("/lancamentos",
-            new DadosDoAvulso(pessoa, "Honorários", valor, vencimento, 2026, 3), Json);
+            new DadosDoAvulso(NaturezaLancamento.Receber, pessoa, "Honorários", valor, vencimento, 2026, 3), Json);
 
         resposta.EnsureSuccessStatusCode();
         return (await resposta.Content.ReadFromJsonAsync<LancamentoNaLista>(Json))!.Id;
@@ -365,7 +365,7 @@ public class OperacoesSobreLancamentos : IDisposable
         HttpClient http, Guid pessoa, decimal total, int parcelas, DateOnly primeiroVencimento)
     {
         var resposta = await http.PostAsJsonAsync("/lancamentos/parcelamentos",
-            new DadosDoParcelamento(pessoa, "Abertura de empresa", total, parcelas, primeiroVencimento, 2026, 3),
+            new DadosDoParcelamento(NaturezaLancamento.Receber, pessoa, "Abertura de empresa", total, parcelas, primeiroVencimento, 2026, 3),
             Json);
 
         resposta.EnsureSuccessStatusCode();

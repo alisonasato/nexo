@@ -518,7 +518,7 @@ public class CobrancaPeloPsp : IDisposable
 
     private static async Task<Guid> CriarAvulso(HttpClient http, Guid pessoa, int ano, int mes)
     {
-        var resposta = await http.PostAsJsonAsync("/lancamentos", new DadosDoAvulso(
+        var resposta = await http.PostAsJsonAsync("/lancamentos", new DadosDoAvulso(NaturezaLancamento.Receber,
             pessoa, "Honorários", 450m, new DateOnly(ano, mes, 10), ano, mes), Json);
 
         resposta.EnsureSuccessStatusCode();

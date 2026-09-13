@@ -349,17 +349,18 @@ public static class Pessoas
             .Select(grupo => new { Quantidade = grupo.Count(), Total = grupo.Sum(r => r.Valor) })
             .FirstOrDefaultAsync(cancelamento);
 
+        /* A receber e a pagar contam juntos: nos dois casos há dinheiro pendente com esta pessoa. */
         if (abertas is { Quantidade: 1 })
         {
             problemas.Add(new Problema("lancamentos", TitulosDeProblema.Vinculo,
-                $"“{pessoa.Nome}” tem uma cobrança em aberto, de {EmReais(abertas.Total)}.",
-                "Dê baixa ou cancele a cobrança antes de inativar o cadastro."));
+                $"“{pessoa.Nome}” tem um lançamento em aberto, de {EmReais(abertas.Total)}.",
+                "Dê baixa ou cancele o lançamento antes de inativar o cadastro."));
         }
         else if (abertas is { Quantidade: > 1 })
         {
             problemas.Add(new Problema("lancamentos", TitulosDeProblema.Vinculo,
-                $"“{pessoa.Nome}” tem {abertas.Quantidade} cobranças em aberto, somando {EmReais(abertas.Total)}.",
-                "Dê baixa ou cancele as cobranças antes de inativar o cadastro."));
+                $"“{pessoa.Nome}” tem {abertas.Quantidade} lançamentos em aberto, somando {EmReais(abertas.Total)}.",
+                "Dê baixa ou cancele os lançamentos antes de inativar o cadastro."));
         }
 
         return problemas;

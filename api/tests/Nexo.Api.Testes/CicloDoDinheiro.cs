@@ -113,7 +113,7 @@ public class CicloDoDinheiro(BancoDeTestes banco) : IDisposable
 
         Lancamento Mensalidade() => new()
         {
-            Id = Guid.NewGuid(), TenantId = conta.TenantId, PessoaId = pessoaId,
+            Id = Guid.NewGuid(), TenantId = conta.TenantId, Natureza = NaturezaLancamento.Receber, PessoaId = pessoaId,
             ContratoId = contratoId, CompetenciaAno = 2026, CompetenciaMes = 9,
             Descricao = "Honorários", Valor = 100m, Vencimento = new DateOnly(2026, 9, 10),
         };
@@ -208,7 +208,7 @@ public class CicloDoDinheiro(BancoDeTestes banco) : IDisposable
         Assert.Equal(OrigensDeBaixa.Manual, baixado.OrigemDaBaixa);
 
         // O resumo conta o que entrou, não o que era devido.
-        Assert.Equal(950m, resumo.TotalRecebido);
+        Assert.Equal(950m, resumo.TotalPago);
         Assert.Equal(0m, resumo.TotalEmAberto);
     }
 
@@ -478,7 +478,7 @@ public class CicloDoDinheiro(BancoDeTestes banco) : IDisposable
          */
         Assert.Single(soPagos!.Itens);
         Assert.Equal(1000m - umDeles.Valor, soPagos.TotalEmAberto);
-        Assert.Equal(umDeles.Valor, soPagos.TotalRecebido);
+        Assert.Equal(umDeles.Valor, soPagos.TotalPago);
     }
 
     [Fact]
@@ -711,12 +711,12 @@ public class CicloDoDinheiro(BancoDeTestes banco) : IDisposable
 
         var resumo = await Listar(http);
         Assert.Equal(SituacaoLancamento.Pago, Assert.Single(resumo.Itens).Situacao);
-        Assert.Equal(1_200m, resumo.TotalRecebido);
+        Assert.Equal(1_200m, resumo.TotalPago);
         Assert.Equal(0m, resumo.TotalEmAberto);
     }
 
     private static DadosDoAvulso Avulso(Guid clienteId, string descricao, decimal valor) =>
-        new(clienteId, descricao, valor, new DateOnly(2026, 2, 10), 2026, 1);
+        new(NaturezaLancamento.Receber, clienteId, descricao, valor, new DateOnly(2026, 2, 10), 2026, 1);
 
     /* --------------------------------------------------------- apoio */
 

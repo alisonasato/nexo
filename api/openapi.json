@@ -669,6 +669,23 @@
         "operationId": "ListarLancamentos",
         "parameters": [
           {
+            "name": "natureza",
+            "in": "query",
+            "schema": {
+              "enum": [
+                "Receber",
+                "Pagar"
+              ],
+              "type": "string",
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/NaturezaLancamento"
+                }
+              ],
+              "default": 1
+            }
+          },
+          {
             "name": "situacao",
             "in": "query",
             "schema": {
@@ -742,7 +759,7 @@
             "schema": {
               "enum": [
                 "Vencimento",
-                "Cliente",
+                "Pessoa",
                 "Competencia",
                 "Valor"
               ],
@@ -790,8 +807,8 @@
         "tags": [
           "Lançamentos"
         ],
-        "summary": "Lança uma cobrança fora de contrato",
-        "description": "Para o que o escritório faz e não é mensalidade: declaração de imposto de renda, abertura de empresa, certidão. Fica sem contrato por trás.",
+        "summary": "Lança um valor fora de contrato, a receber ou a pagar",
+        "description": "A receber, para o que o escritório faz e não é mensalidade: declaração de imposto de renda, abertura de empresa, certidão. A pagar, para as contas do próprio escritório. A natureza é obrigatória, e a pessoa precisa ter o papel que ela pede: cliente para receber, fornecedor para pagar.",
         "operationId": "CriarLancamentoAvulso",
         "requestBody": {
           "content": {
@@ -836,7 +853,7 @@
         "tags": [
           "Lançamentos"
         ],
-        "summary": "Registra o recebimento",
+        "summary": "Registra a baixa",
         "operationId": "BaixarLancamento",
         "parameters": [
           {
@@ -1097,8 +1114,8 @@
         "tags": [
           "Lançamentos"
         ],
-        "summary": "Registra o recebimento de vários lançamentos de uma vez",
-        "description": "Cada lançamento é baixado ou recusado por conta própria: um já pago não impede os outros. O valor recebido é o valor cobrado.",
+        "summary": "Registra a baixa de vários lançamentos de uma vez",
+        "description": "Cada lançamento é baixado ou recusado por conta própria: um já pago não impede os outros. O valor baixado é o valor do lançamento.",
         "operationId": "BaixarLancamentosEmLote",
         "requestBody": {
           "content": {
@@ -1872,12 +1889,25 @@
           "competenciaAno",
           "competenciaMes",
           "descricao",
+          "natureza",
           "pessoaId",
           "valor",
           "vencimento"
         ],
         "type": "object",
         "properties": {
+          "natureza": {
+            "enum": [
+              "Receber",
+              "Pagar"
+            ],
+            "type": "string",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/NaturezaLancamento"
+              }
+            ]
+          },
           "pessoaId": {
             "type": "string",
             "format": "uuid"
@@ -1919,6 +1949,7 @@
           "competenciaAno",
           "competenciaMes",
           "descricao",
+          "natureza",
           "parcelas",
           "pessoaId",
           "primeiroVencimento",
@@ -1926,6 +1957,18 @@
         ],
         "type": "object",
         "properties": {
+          "natureza": {
+            "enum": [
+              "Receber",
+              "Pagar"
+            ],
+            "type": "string",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/NaturezaLancamento"
+              }
+            ]
+          },
           "pessoaId": {
             "type": "string",
             "format": "uuid"
@@ -2157,6 +2200,7 @@
           "descricao",
           "id",
           "motivoDoCancelamento",
+          "natureza",
           "nomeDaPessoa",
           "origemDaBaixa",
           "situacao",
@@ -2168,6 +2212,18 @@
           "id": {
             "type": "string",
             "format": "uuid"
+          },
+          "natureza": {
+            "enum": [
+              "Receber",
+              "Pagar"
+            ],
+            "type": "string",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/NaturezaLancamento"
+              }
+            ]
           },
           "codigoDaPessoa": {
             "type": "string"
@@ -2245,6 +2301,13 @@
         },
         "additionalProperties": false
       },
+      "NaturezaLancamento": {
+        "enum": [
+          "Receber",
+          "Pagar"
+        ],
+        "type": "string"
+      },
       "OrdemDeContratos": {
         "enum": [
           "Codigo",
@@ -2257,7 +2320,7 @@
       "OrdemDeLancamentos": {
         "enum": [
           "Vencimento",
-          "Cliente",
+          "Pessoa",
           "Competencia",
           "Valor"
         ],
@@ -2312,7 +2375,7 @@
           "tamanho",
           "total",
           "totalEmAberto",
-          "totalRecebido",
+          "totalPago",
           "totalVencido"
         ],
         "type": "object",
@@ -2343,7 +2406,7 @@
             "type": "number",
             "format": "double"
           },
-          "totalRecebido": {
+          "totalPago": {
             "type": "number",
             "format": "double"
           }

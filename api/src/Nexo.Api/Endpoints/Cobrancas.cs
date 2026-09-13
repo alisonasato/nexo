@@ -81,6 +81,14 @@ public static class Cobrancas
 
         if (lancamento is null) return Results.NotFound();
 
+        /* Cobrar é pedir dinheiro a um cliente. No lançamento a pagar, quem paga é o escritório. */
+        if (lancamento.Natureza != NaturezaLancamento.Receber)
+        {
+            return Problema("natureza", "Nada a cobrar",
+                "Este lançamento é a pagar: quem paga é o escritório.",
+                "Cobrança só se emite para o que é a receber.");
+        }
+
         /*
          * Já cobrado devolve o que existe, em vez de recusar.
          *

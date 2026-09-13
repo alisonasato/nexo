@@ -195,7 +195,8 @@ public class NexoDbContext(DbContextOptions<NexoDbContext> opcoes)
                  */
                 .HasFilter("situacao <> 3");
 
-            lancamento.HasIndex(r => new { r.TenantId, r.Situacao, r.Vencimento });
+            /* A listagem sempre recorta por natureza antes de olhar situação e vencimento. */
+            lancamento.HasIndex(r => new { r.TenantId, r.Natureza, r.Situacao, r.Vencimento });
 
             /* As parcelas de um mesmo lançamento são lidas juntas. */
             lancamento.HasIndex(r => new { r.TenantId, r.ParcelamentoId });

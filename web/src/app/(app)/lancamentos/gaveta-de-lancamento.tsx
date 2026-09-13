@@ -87,6 +87,7 @@ export function GavetaDeLancamento({ aberta, aoFechar }: Props) {
     mutationFn: async () => {
       const { data, error } = await api.POST("/lancamentos/parcelamentos", {
         body: {
+          natureza: "Receber",
           pessoaId: cliente,
           descricao,
           valorTotal: centavos / 100,

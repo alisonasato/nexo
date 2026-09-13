@@ -283,6 +283,7 @@ public static class Contratos
             {
                 Id = Guid.NewGuid(),
                 TenantId = tenant,
+                Natureza = NaturezaLancamento.Receber,
                 PessoaId = contrato.PessoaId,
                 ContratoId = contrato.Id,
                 CompetenciaAno = pedido.Ano,

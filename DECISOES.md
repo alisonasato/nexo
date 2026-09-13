@@ -490,6 +490,13 @@ O que só existe a receber continua só a receber: contrato, mensalidade e
 cobrança pelo PSP. Num lançamento a pagar essas colunas ficam vazias, e as rotas
 que dependem delas recusam a outra natureza.
 
+A natureza é obrigatória para criar, e não tem padrão: o corpo sem ela é
+recusado. Esquecê-la é o único erro que inverte o sentido do dinheiro, e um
+padrão silencioso o transformaria num lançamento a receber sem ninguém ver. Para
+listar é o contrário, e sem natureza vem a receber: ler não inverte nada, e a
+listagem sempre foi isso. Lista e totais olham uma natureza de cada vez, e o
+total do que foi baixado passou a se chamar pago, que vale para os dois lados.
+
 A renomeação é uma migração escrita à mão. Vendo classe e tabela com nomes
 novos, o EF gerou apagar `recebiveis` e criar `lancamentos`, o que em produção
 apagaria todo o dinheiro a receber. A migração renomeia tabela, chaves, índices

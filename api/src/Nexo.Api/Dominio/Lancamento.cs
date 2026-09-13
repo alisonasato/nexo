@@ -21,8 +21,26 @@ public enum SituacaoLancamento
 }
 
 /// <summary>
-/// Uma cobrança devida ao escritório: a mensalidade de um contrato numa
-/// competência, ou um valor avulso.
+/// Para que lado o dinheiro anda.
+///
+/// <para>
+/// A natureza separa as duas metades do caixa, e por isso entra em toda soma:
+/// um total que misturasse o que entra com o que sai não responderia pergunta
+/// nenhuma.
+/// </para>
+/// </summary>
+public enum NaturezaLancamento
+{
+    /// <summary>O escritório recebe: mensalidade, serviço avulso.</summary>
+    Receber = 1,
+
+    /// <summary>O escritório paga: aluguel, fornecedor, licença.</summary>
+    Pagar = 2,
+}
+
+/// <summary>
+/// Um valor a receber ou a pagar: a mensalidade de um contrato numa
+/// competência, um serviço avulso, ou uma conta do próprio escritório.
 ///
 /// <para>
 /// <b>Competência é o par ano/mês a que o valor se refere</b>, e não a data em
@@ -50,7 +68,22 @@ public class Lancamento
     public Guid Id { get; set; }
     public Guid TenantId { get; set; }
 
-    /// <summary>A pessoa com quem o acordo existe. Ela carrega o papel de cliente. </summary>
+    /// <summary>
+    /// A receber ou a pagar.
+    ///
+    /// <para>
+    /// <b>Obrigatória, e sem padrão.</b> Um lançamento a pagar gravado como a
+    /// receber por esquecimento inverteria o sentido do dinheiro e somaria no
+    /// total errado, sem erro nenhum. O <c>required</c> obriga todo lugar que
+    /// cria lançamento a dizer qual é, e o compilador aponta quem esqueceu.
+    /// </para>
+    /// </summary>
+    public required NaturezaLancamento Natureza { get; set; }
+
+    /// <summary>
+    /// A pessoa do outro lado: cliente quando é a receber, fornecedor quando é
+    /// a pagar.
+    /// </summary>
     public Guid PessoaId { get; set; }
     public Pessoa? Pessoa { get; set; }
 
