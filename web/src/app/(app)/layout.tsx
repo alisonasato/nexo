@@ -11,6 +11,7 @@ const menu = [
   { href: "/pessoas", rotulo: "Pessoas" },
   { href: "/contratos", rotulo: "Contratos" },
   { href: "/lancamentos", rotulo: "Lançamentos" },
+  { href: "/contas-bancarias", rotulo: "Contas bancárias" },
 ];
 
 /**
@@ -55,6 +56,13 @@ export default function LayoutDaAplicacao({ children }: { children: ReactNode })
   const encerrar = () =>
     sair.mutate(undefined, { onSuccess: () => navegacao.replace("/entrar") });
 
+  /*
+   * A rota ou uma rota abaixo dela, e não qualquer caminho que comece igual:
+   * "/contas-bancarias" começa com "/conta", e marcaria a página da conta do
+   * usuário como a atual.
+   */
+  const estaEm = (rota: string) => caminho === rota || caminho.startsWith(rota + "/");
+
   const aparencia = (ativo: boolean) =>
     "rounded-[--radius-controle] px-3 py-2 font-medium transition-colors " +
     (ativo ? "bg-marca-800 text-white" : "hover:bg-marca-900");
@@ -82,8 +90,8 @@ export default function LayoutDaAplicacao({ children }: { children: ReactNode })
               <Link
                 key={item.href}
                 href={item.href}
-                aria-current={caminho.startsWith(item.href) ? "page" : undefined}
-                className={aparencia(caminho.startsWith(item.href))}
+                aria-current={estaEm(item.href) ? "page" : undefined}
+                className={aparencia(estaEm(item.href))}
               >
                 {item.rotulo}
               </Link>
@@ -96,16 +104,16 @@ export default function LayoutDaAplicacao({ children }: { children: ReactNode })
             */}
             <Link
               href="/empresa"
-              aria-current={caminho.startsWith("/empresa") ? "page" : undefined}
-              className={aparencia(caminho.startsWith("/empresa")) + " sm:hidden"}
+              aria-current={estaEm("/empresa") ? "page" : undefined}
+              className={aparencia(estaEm("/empresa")) + " sm:hidden"}
             >
               Empresa
             </Link>
 
             <Link
               href="/conta"
-              aria-current={caminho.startsWith("/conta") ? "page" : undefined}
-              className={aparencia(caminho.startsWith("/conta")) + " sm:hidden"}
+              aria-current={estaEm("/conta") ? "page" : undefined}
+              className={aparencia(estaEm("/conta")) + " sm:hidden"}
             >
               Conta
             </Link>

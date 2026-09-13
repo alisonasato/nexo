@@ -239,6 +239,134 @@
         }
       }
     },
+    "/contas-bancarias": {
+      "get": {
+        "tags": [
+          "Contas bancárias"
+        ],
+        "summary": "Lista as contas do escritório",
+        "description": "As ativas primeiro, e dentro de cada grupo pelo nome. Um escritório tem poucas contas: a lista vem inteira, sem página.",
+        "operationId": "ListarContasBancarias",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ContaNaLista"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Contas bancárias"
+        ],
+        "summary": "Cadastra uma conta",
+        "operationId": "CriarContaBancaria",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/DadosDaConta"
+                  }
+                ]
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContaNaLista"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RespostaComProblemas"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/contas-bancarias/{id}": {
+      "put": {
+        "tags": [
+          "Contas bancárias"
+        ],
+        "summary": "Altera uma conta",
+        "description": "Também inativa e reativa. Conta não se apaga: o dinheiro que passou por ela continua precisando dela.",
+        "operationId": "AlterarContaBancaria",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/DadosDaConta"
+                  }
+                ]
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContaNaLista"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RespostaComProblemas"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
     "/contratos": {
       "get": {
         "tags": [
@@ -1482,6 +1610,64 @@
   },
   "components": {
     "schemas": {
+      "ContaNaLista": {
+        "required": [
+          "agencia",
+          "ativa",
+          "banco",
+          "id",
+          "nome",
+          "numero",
+          "saldoInicial",
+          "saldoInicialEm",
+          "tipo"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "nome": {
+            "type": "string"
+          },
+          "tipo": {
+            "enum": [
+              "Corrente",
+              "Poupanca",
+              "Pagamento",
+              "Dinheiro"
+            ],
+            "type": "string",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TipoConta"
+              }
+            ]
+          },
+          "banco": {
+            "type": "string"
+          },
+          "agencia": {
+            "type": "string"
+          },
+          "numero": {
+            "type": "string"
+          },
+          "saldoInicial": {
+            "type": "number",
+            "format": "double"
+          },
+          "saldoInicialEm": {
+            "type": "string",
+            "format": "date"
+          },
+          "ativa": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
       "ContratoDetalhado": {
         "required": [
           "codigo",
@@ -1637,6 +1823,59 @@
             "type": "string",
             "format": "date",
             "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "DadosDaConta": {
+        "required": [
+          "ativa",
+          "saldoInicial",
+          "tipo"
+        ],
+        "type": "object",
+        "properties": {
+          "nome": {
+            "type": "string",
+            "nullable": true
+          },
+          "tipo": {
+            "enum": [
+              "Corrente",
+              "Poupanca",
+              "Pagamento",
+              "Dinheiro"
+            ],
+            "type": "string",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TipoConta"
+              }
+            ]
+          },
+          "banco": {
+            "type": "string",
+            "nullable": true
+          },
+          "agencia": {
+            "type": "string",
+            "nullable": true
+          },
+          "numero": {
+            "type": "string",
+            "nullable": true
+          },
+          "saldoInicial": {
+            "type": "number",
+            "format": "double"
+          },
+          "saldoInicialEm": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "ativa": {
+            "type": "boolean"
           }
         },
         "additionalProperties": false
@@ -2939,6 +3178,15 @@
           "Pago",
           "Cancelado",
           "Renegociado"
+        ],
+        "type": "string"
+      },
+      "TipoConta": {
+        "enum": [
+          "Corrente",
+          "Poupanca",
+          "Pagamento",
+          "Dinheiro"
         ],
         "type": "string"
       },

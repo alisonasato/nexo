@@ -16,6 +16,7 @@ public class NexoDbContext(DbContextOptions<NexoDbContext> opcoes)
     public DbSet<Lancamento> Lancamentos => Set<Lancamento>();
     public DbSet<EventoDeCobranca> EventosDeCobranca => Set<EventoDeCobranca>();
     public DbSet<Renegociacao> Renegociacoes => Set<Renegociacao>();
+    public DbSet<ContaBancaria> ContasBancarias => Set<ContaBancaria>();
 
     protected override void OnModelCreating(ModelBuilder modelo)
     {
@@ -268,6 +269,27 @@ public class NexoDbContext(DbContextOptions<NexoDbContext> opcoes)
             evento.Property(e => e.RecebidoEm).HasDefaultValueSql("now()");
 
             evento.HasIndex(e => new { e.TenantId, e.LancamentoId });
+        });
+
+        modelo.Entity<ContaBancaria>(conta =>
+        {
+            conta.HasKey(c => c.Id);
+            conta.Property(c => c.Nome).HasMaxLength(60);
+            conta.Property(c => c.Banco).HasMaxLength(60);
+            conta.Property(c => c.Agencia).HasMaxLength(10);
+            conta.Property(c => c.Numero).HasMaxLength(20);
+            conta.Property(c => c.SaldoInicial).HasPrecision(14, 2);
+            conta.Property(c => c.CriadoEm).HasDefaultValueSql("now()");
+            conta.Property(c => c.AtualizadoEm).HasDefaultValueSql("now()");
+
+            /*
+             * Ativa fica sem valor padrão no banco, de propósito. Com padrão
+             * verdadeiro, o EF deixaria de mandar o falso, que é o valor vazio
+             * de bool, e toda conta gravada como inativa voltaria ativa.
+             */
+
+            /* O nome é como a conta se escolhe na tela: dois iguais obrigariam a adivinhar. */
+            conta.HasIndex(c => new { c.TenantId, c.Nome }).IsUnique();
         });
 
         modelo.Entity<Usuario>(usuario =>
