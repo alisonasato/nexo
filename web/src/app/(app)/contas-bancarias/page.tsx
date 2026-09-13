@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 
@@ -138,7 +139,13 @@ export default function ListagemDeContasBancarias() {
                     </p>
                   </div>
 
-                  <div className="mt-auto">
+                  <div className="mt-auto flex flex-wrap gap-2">
+                    <Link
+                      href={`/contas-bancarias/${conta.id}`}
+                      className="inline-flex min-h-11 items-center rounded-[--radius-controle] border border-borda-forte bg-superficie px-4 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50 md:min-h-0 md:px-3 md:py-1"
+                    >
+                      Ver extrato
+                    </Link>
                     <Botao
                       aparencia="secundario"
                       type="button"

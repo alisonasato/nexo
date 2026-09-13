@@ -108,25 +108,30 @@ public static class ContasBancarias
     }
 
     /// <summary>
-    /// A conta de uma baixa: informada, deste escritório, ativa, e começando
-    /// antes do dinheiro.
+    /// A conta de um movimento: informada, deste escritório, ativa, e começando
+    /// antes do dinheiro. Serve à baixa, ao movimento avulso e às duas pontas de
+    /// uma transferência.
     ///
     /// <para>
-    /// <b>Baixa antes do saldo inicial é recusada.</b> O dinheiro de antes daquele
+    /// <b>Data antes do saldo inicial é recusada.</b> O dinheiro de antes daquele
     /// dia já está dentro do saldo inicial, e um movimento anterior a ele contaria
     /// o mesmo dinheiro duas vezes.
     /// </para>
     /// </summary>
-    internal static async Task<(ContaBancaria? Conta, Problema? Recusa)> ConferirContaDaBaixa(
+    /// <param name="campoDaConta">Para onde a recusa da conta aponta: "contaId" na baixa, "origemId" ou "destinoId" na transferência.</param>
+    /// <param name="campoDaData">Para onde a recusa da data aponta: "pagoEm" na baixa, "data" no movimento.</param>
+    internal static async Task<(ContaBancaria? Conta, Problema? Recusa)> ConferirContaDoMovimento(
         Guid contaId,
-        DateOnly pagoEm,
+        DateOnly data,
+        string campoDaConta,
+        string campoDaData,
         NexoDbContext banco,
         CancellationToken cancelamento)
     {
         if (contaId == Guid.Empty)
         {
-            return (null, new Problema("contaId", "Conta não informada",
-                "A baixa não disse em que conta o dinheiro entrou ou saiu.",
+            return (null, new Problema(campoDaConta, "Conta não informada",
+                "Não foi dito em que conta o dinheiro entrou ou saiu.",
                 "Escolha a conta."));
         }
 
@@ -135,23 +140,23 @@ public static class ContasBancarias
 
         if (conta is null)
         {
-            return (null, new Problema("contaId", "Conta não encontrada",
+            return (null, new Problema(campoDaConta, "Conta não encontrada",
                 "A conta informada não existe neste escritório.",
                 "Escolha uma conta da lista."));
         }
 
         if (!conta.Ativa)
         {
-            return (null, new Problema("contaId", "Conta inativa",
+            return (null, new Problema(campoDaConta, "Conta inativa",
                 $"A conta “{conta.Nome}” está inativa.",
                 "Escolha uma conta ativa, ou reative esta em Contas bancárias."));
         }
 
-        if (pagoEm < conta.SaldoInicialEm)
+        if (data < conta.SaldoInicialEm)
         {
-            return (null, new Problema("pagoEm", "Baixa antes do saldo inicial",
-                $"A conta “{conta.Nome}” começa com o saldo de {conta.SaldoInicialEm:dd/MM/yyyy}, e a baixa é de {pagoEm:dd/MM/yyyy}.",
-                "O dinheiro de antes daquele dia já está no saldo inicial. Confira a data da baixa ou a conta."));
+            return (null, new Problema(campoDaData, "Data antes do saldo inicial",
+                $"A conta “{conta.Nome}” começa com o saldo de {conta.SaldoInicialEm:dd/MM/yyyy}, e a data informada é {data:dd/MM/yyyy}.",
+                "O dinheiro de antes daquele dia já está no saldo inicial. Confira a data ou a conta."));
         }
 
         return (conta, null);

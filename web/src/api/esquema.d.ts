@@ -153,6 +153,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/contas-bancarias/{id}/extrato": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * O extrato de uma conta num período, com o saldo linha a linha
+         * @description Sem datas, vai do primeiro dia do mês até hoje. O período nunca começa antes do saldo inicial da conta.
+         */
+        get: operations["ExtratoDaContaBancaria"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/contas-bancarias/{id}/movimentos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Lança uma tarifa, um rendimento ou outra entrada ou saída
+         * @description O valor vai sem sinal: o tipo diz se entra ou sai.
+         */
+        post: operations["LancarMovimentoAvulso"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/contas-bancarias/{id}/movimentos/{movimentoId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Apaga um movimento avulso ou uma transferência
+         * @description A transferência sai com as duas pontas. Movimento de baixa não se apaga por aqui: quem o desfaz é o estorno.
+         */
+        delete: operations["ApagarMovimento"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/contas-bancarias/transferencias": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Transfere dinheiro de uma conta do escritório para outra
+         * @description Grava as duas pontas juntas: a saída na origem e a entrada no destino.
+         */
+        post: operations["TransferirEntreContas"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/contratos": {
         parameters: {
             query?: never;
@@ -629,6 +709,17 @@ export interface components {
             desconto: number;
             motivo?: string | null;
         };
+        DadosDaTransferencia: {
+            /** Format: uuid */
+            origemId: string;
+            /** Format: uuid */
+            destinoId: string;
+            /** Format: date */
+            data?: string | null;
+            /** Format: double */
+            valor: number;
+            descricao?: string | null;
+        };
         DadosDeContrato: {
             /** Format: uuid */
             pessoaId: string;
@@ -696,6 +787,15 @@ export interface components {
         DadosDoCancelamento: {
             motivo?: string | null;
         };
+        DadosDoMovimentoAvulso: {
+            /** @enum {string} */
+            tipo: "Tarifa" | "Rendimento" | "OutraEntrada" | "OutraSaida";
+            /** Format: date */
+            data?: string | null;
+            /** Format: double */
+            valor: number;
+            descricao?: string | null;
+        };
         DadosDoParcelamento: {
             /** @enum {string} */
             natureza: "Receber" | "Pagar";
@@ -755,6 +855,20 @@ export interface components {
             bairro: string;
             cidade: string;
             uf: string;
+        };
+        ExtratoDaConta: {
+            /** Format: uuid */
+            contaId: string;
+            nome: string;
+            /** Format: date */
+            de: string;
+            /** Format: date */
+            ate: string;
+            /** Format: double */
+            saldoNoInicio: number;
+            movimentos: components["schemas"]["MovimentoNoExtrato"][];
+            /** Format: double */
+            saldoNoFim: number;
         };
         FalhaDeEntrada: {
             mensagem: string;
@@ -824,6 +938,33 @@ export interface components {
             renegociadoDeId?: string | null;
             cobrancaUrl: string;
             contaDaBaixa?: string | null;
+        };
+        MovimentoGravado: {
+            /** Format: uuid */
+            id: string;
+            /** Format: date */
+            data: string;
+            descricao: string;
+            /** Format: double */
+            valor: number;
+            origem: string;
+        };
+        MovimentoNoExtrato: {
+            /** Format: uuid */
+            id: string;
+            /** Format: date */
+            data: string;
+            descricao: string;
+            /** Format: double */
+            valor: number;
+            origem: string;
+            /** Format: uuid */
+            lancamentoId?: string | null;
+            /** Format: uuid */
+            transferenciaId?: string | null;
+            /** Format: double */
+            saldoDepois: number;
+            podeApagar: boolean;
         };
         /** @enum {string} */
         NaturezaLancamento: "Receber" | "Pagar";
@@ -1013,7 +1154,17 @@ export interface components {
         /** @enum {string} */
         TipoConta: "Corrente" | "Poupanca" | "Pagamento" | "Dinheiro";
         /** @enum {string} */
+        TipoDeMovimentoAvulso: "Tarifa" | "Rendimento" | "OutraEntrada" | "OutraSaida";
+        /** @enum {string} */
         TipoPessoa: "Fisica" | "Juridica";
+        TransferenciaFeita: {
+            /** Format: uuid */
+            transferenciaId: string;
+            /** Format: uuid */
+            saidaId: string;
+            /** Format: uuid */
+            entradaId: string;
+        };
     };
     responses: never;
     parameters: never;
@@ -1328,6 +1479,159 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespostaComProblemas"];
+                };
+            };
+        };
+    };
+    ExtratoDaContaBancaria: {
+        parameters: {
+            query?: {
+                de?: string;
+                ate?: string;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExtratoDaConta"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespostaComProblemas"];
+                };
+            };
+        };
+    };
+    LancarMovimentoAvulso: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DadosDoMovimentoAvulso"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MovimentoGravado"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespostaComProblemas"];
+                };
+            };
+        };
+    };
+    ApagarMovimento: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                movimentoId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespostaComProblemas"];
+                };
+            };
+        };
+    };
+    TransferirEntreContas: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DadosDaTransferencia"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TransferenciaFeita"];
+                };
             };
             /** @description Unprocessable Content */
             422: {

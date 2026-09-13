@@ -541,6 +541,23 @@ amanhã faz o caixa parecer maior justo quando a pergunta é se dá para pagar a
 contas da semana. Deixado à parte, o valor continua à vista de quem decide
 cobrar, e o saldo projetado continua sendo só o que tem data para acontecer.
 
+## Transferência não é entrada nem saída
+
+A transferência entre contas do escritório grava dois movimentos numa
+gravação só, a saída na origem e a entrada no destino, ligados pelo mesmo
+identificador. Apagar uma ponta apaga as duas: uma sozinha seria dinheiro
+sumindo ou aparecendo do nada.
+
+No fluxo de caixa ela fica fora das entradas e das saídas. Para o escritório
+nada entrou nem saiu, e contá-la dos dois lados inflaria o realizado com o
+mesmo valor duas vezes. No saldo ela continua, e se anula sozinha.
+
+Tarifa, rendimento e as outras entradas e saídas avulsas se apagam pelo
+extrato, como o estorno à mão apaga a baixa: corrigem um registro errado.
+Movimento de baixa não se apaga por ali. Apagá-lo deixaria o lançamento pago
+sem dinheiro nenhum entrando; quem o desfaz é o estorno, que reabre o
+lançamento junto.
+
 ## Ordem de execução
 
 1. ~~Repositório e contrato~~ — feito.

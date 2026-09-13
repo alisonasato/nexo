@@ -11,6 +11,27 @@ public static class OrigensDeMovimento
 
     /// <summary>A saída do dinheiro que o PSP devolveu ao cliente.</summary>
     public const string EstornoDoPsp = "estorno-psp";
+
+    /// <summary>A tarifa que o banco cobrou. Sai.</summary>
+    public const string Tarifa = "tarifa";
+
+    /// <summary>O rendimento da conta ou da aplicação. Entra.</summary>
+    public const string Rendimento = "rendimento";
+
+    /// <summary>Dinheiro que entrou e não é lançamento de ninguém, como o aporte do sócio.</summary>
+    public const string EntradaAvulsa = "entrada-avulsa";
+
+    /// <summary>Dinheiro que saiu e não é lançamento de ninguém, como a retirada do sócio.</summary>
+    public const string SaidaAvulsa = "saida-avulsa";
+
+    /// <summary>Uma ponta de uma transferência entre contas do escritório.</summary>
+    public const string Transferencia = "transferencia";
+
+    /// <summary>
+    /// As origens que se apagam pelo extrato. As de baixa não entram aqui: quem
+    /// as desfaz é o estorno, que também reabre o lançamento.
+    /// </summary>
+    public static readonly string[] Avulsas = [Tarifa, Rendimento, EntradaAvulsa, SaidaAvulsa, Transferencia];
 }
 
 /// <summary>
@@ -22,7 +43,7 @@ public static class OrigensDeMovimento
 /// </para>
 /// <para>
 /// <b>O estorno feito aqui apaga; o estorno do PSP compensa.</b> O primeiro
-/// corrige uma baixa que não devia existir, e o extrato do banco nunca teve
+/// corrige um registro que não devia existir, e o extrato do banco nunca teve
 /// aquele dinheiro. O segundo devolve dinheiro que entrou de verdade, e o
 /// extrato do PSP mostra as duas linhas: a entrada e a devolução.
 /// </para>
@@ -37,6 +58,13 @@ public class MovimentoDeConta
 
     /// <summary>O lançamento de onde o movimento veio. Nulo no que não vem de lançamento.</summary>
     public Guid? LancamentoId { get; set; }
+
+    /// <summary>
+    /// A transferência de que este movimento é uma ponta. As duas pontas levam o
+    /// mesmo identificador, e se apagam juntas: uma sozinha seria dinheiro saindo
+    /// de uma conta para lugar nenhum.
+    /// </summary>
+    public Guid? TransferenciaId { get; set; }
 
     /// <summary>O dia em que o dinheiro entrou ou saiu, que é o dia que o extrato mostra.</summary>
     public DateOnly Data { get; set; }

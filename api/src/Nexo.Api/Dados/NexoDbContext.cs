@@ -317,6 +317,9 @@ public class NexoDbContext(DbContextOptions<NexoDbContext> opcoes)
                 .IsUnique()
                 .HasFilter("lancamento_id IS NOT NULL AND origem = 'baixa'");
 
+            /* As duas pontas de uma transferência se acham pelo identificador dela, e se apagam juntas. */
+            movimento.HasIndex(m => m.TransferenciaId);
+
             /* Restrict: conta e lançamento com dinheiro passado por eles não somem de baixo do movimento. */
             movimento.HasOne(m => m.Conta)
                 .WithMany()

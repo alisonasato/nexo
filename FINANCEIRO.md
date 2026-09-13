@@ -92,7 +92,11 @@ Saldo é **derivado** de saldo inicial mais movimentos, nunca um número editáv
    começa.
 4. **Transferências e movimentos avulsos.** Dinheiro que muda de conta, tarifa,
    rendimento: o que o extrato tem e não é lançamento. Sem isso o saldo nunca
-   bate com o banco.
+   bate com o banco. O extrato de cada conta mostra o saldo linha a linha. A
+   transferência grava as duas pontas juntas e fica fora do realizado do fluxo
+   de caixa, porque para o escritório nada entrou nem saiu. Avulsos e
+   transferências se apagam pelo extrato, com as duas pontas saindo juntas;
+   movimento de baixa não, porque quem o desfaz é o estorno.
 
 ### Fase 4 — Plano de contas e centro de custo
 

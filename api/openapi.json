@@ -367,6 +367,222 @@
         }
       }
     },
+    "/contas-bancarias/{id}/extrato": {
+      "get": {
+        "tags": [
+          "Contas bancárias"
+        ],
+        "summary": "O extrato de uma conta num período, com o saldo linha a linha",
+        "description": "Sem datas, vai do primeiro dia do mês até hoje. O período nunca começa antes do saldo inicial da conta.",
+        "operationId": "ExtratoDaContaBancaria",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "de",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "ate",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExtratoDaConta"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RespostaComProblemas"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/contas-bancarias/{id}/movimentos": {
+      "post": {
+        "tags": [
+          "Contas bancárias"
+        ],
+        "summary": "Lança uma tarifa, um rendimento ou outra entrada ou saída",
+        "description": "O valor vai sem sinal: o tipo diz se entra ou sai.",
+        "operationId": "LancarMovimentoAvulso",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/DadosDoMovimentoAvulso"
+                  }
+                ]
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MovimentoGravado"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RespostaComProblemas"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/contas-bancarias/{id}/movimentos/{movimentoId}": {
+      "delete": {
+        "tags": [
+          "Contas bancárias"
+        ],
+        "summary": "Apaga um movimento avulso ou uma transferência",
+        "description": "A transferência sai com as duas pontas. Movimento de baixa não se apaga por aqui: quem o desfaz é o estorno.",
+        "operationId": "ApagarMovimento",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "movimentoId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RespostaComProblemas"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/contas-bancarias/transferencias": {
+      "post": {
+        "tags": [
+          "Contas bancárias"
+        ],
+        "summary": "Transfere dinheiro de uma conta do escritório para outra",
+        "description": "Grava as duas pontas juntas: a saída na origem e a entrada no destino.",
+        "operationId": "TransferirEntreContas",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/DadosDaTransferencia"
+                  }
+                ]
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransferenciaFeita"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RespostaComProblemas"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/contratos": {
       "get": {
         "tags": [
@@ -2021,6 +2237,38 @@
         },
         "additionalProperties": false
       },
+      "DadosDaTransferencia": {
+        "required": [
+          "destinoId",
+          "origemId",
+          "valor"
+        ],
+        "type": "object",
+        "properties": {
+          "origemId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "destinoId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "data": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "valor": {
+            "type": "number",
+            "format": "double"
+          },
+          "descricao": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
       "DadosDeContrato": {
         "required": [
           "diaDeVencimento",
@@ -2287,6 +2535,43 @@
         },
         "additionalProperties": false
       },
+      "DadosDoMovimentoAvulso": {
+        "required": [
+          "tipo",
+          "valor"
+        ],
+        "type": "object",
+        "properties": {
+          "tipo": {
+            "enum": [
+              "Tarifa",
+              "Rendimento",
+              "OutraEntrada",
+              "OutraSaida"
+            ],
+            "type": "string",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TipoDeMovimentoAvulso"
+              }
+            ]
+          },
+          "data": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "valor": {
+            "type": "number",
+            "format": "double"
+          },
+          "descricao": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
       "DadosDoParcelamento": {
         "required": [
           "competenciaAno",
@@ -2497,6 +2782,50 @@
           },
           "uf": {
             "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ExtratoDaConta": {
+        "required": [
+          "ate",
+          "contaId",
+          "de",
+          "movimentos",
+          "nome",
+          "saldoNoFim",
+          "saldoNoInicio"
+        ],
+        "type": "object",
+        "properties": {
+          "contaId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "nome": {
+            "type": "string"
+          },
+          "de": {
+            "type": "string",
+            "format": "date"
+          },
+          "ate": {
+            "type": "string",
+            "format": "date"
+          },
+          "saldoNoInicio": {
+            "type": "number",
+            "format": "double"
+          },
+          "movimentos": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MovimentoNoExtrato"
+            }
+          },
+          "saldoNoFim": {
+            "type": "number",
+            "format": "double"
           }
         },
         "additionalProperties": false
@@ -2727,6 +3056,87 @@
           "contaDaBaixa": {
             "type": "string",
             "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "MovimentoGravado": {
+        "required": [
+          "data",
+          "descricao",
+          "id",
+          "origem",
+          "valor"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "data": {
+            "type": "string",
+            "format": "date"
+          },
+          "descricao": {
+            "type": "string"
+          },
+          "valor": {
+            "type": "number",
+            "format": "double"
+          },
+          "origem": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "MovimentoNoExtrato": {
+        "required": [
+          "data",
+          "descricao",
+          "id",
+          "origem",
+          "podeApagar",
+          "saldoDepois",
+          "valor"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "data": {
+            "type": "string",
+            "format": "date"
+          },
+          "descricao": {
+            "type": "string"
+          },
+          "valor": {
+            "type": "number",
+            "format": "double"
+          },
+          "origem": {
+            "type": "string"
+          },
+          "lancamentoId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "transferenciaId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "saldoDepois": {
+            "type": "number",
+            "format": "double"
+          },
+          "podeApagar": {
+            "type": "boolean"
           }
         },
         "additionalProperties": false
@@ -3429,12 +3839,44 @@
         ],
         "type": "string"
       },
+      "TipoDeMovimentoAvulso": {
+        "enum": [
+          "Tarifa",
+          "Rendimento",
+          "OutraEntrada",
+          "OutraSaida"
+        ],
+        "type": "string"
+      },
       "TipoPessoa": {
         "enum": [
           "Fisica",
           "Juridica"
         ],
         "type": "string"
+      },
+      "TransferenciaFeita": {
+        "required": [
+          "entradaId",
+          "saidaId",
+          "transferenciaId"
+        ],
+        "type": "object",
+        "properties": {
+          "transferenciaId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "saidaId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "entradaId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "additionalProperties": false
       }
     }
   }
