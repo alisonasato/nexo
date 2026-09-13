@@ -130,3 +130,29 @@ body {
     transform: translateY(0);
   }
 }
+
+/*
+ * A gaveta entrando pela direita, e o véu atrás dela.
+ *
+ * Ficam sob `motion-safe` no componente: quem pediu menos movimento no sistema
+ * vê a gaveta aparecer já no lugar.
+ */
+@keyframes entrar-da-direita {
+  from {
+    opacity: 0;
+    transform: translateX(1.5rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes aparecer {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}

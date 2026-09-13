@@ -18,6 +18,16 @@ import type { NextConfig } from "next";
  * e no PaaS ela pode ficar numa rede interna, sem porta pública.
  */
 const nextConfig: NextConfig = {
+  /*
+   * Recebíveis virou Lançamentos. O endereço antigo continua levando à tela,
+   * com o recorte da URL junto: ele pode estar em favorito ou num link mandado
+   * a alguém. Temporário, e não permanente, para o navegador não guardar para
+   * sempre um desvio que um dia pode mudar.
+   */
+  async redirects() {
+    return [{ source: "/recebiveis", destination: "/lancamentos", permanent: false }];
+  },
+
   async rewrites() {
     const api = process.env.API_INTERNA ?? "http://localhost:5240";
 

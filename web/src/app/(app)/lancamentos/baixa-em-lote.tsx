@@ -1,0 +1,145 @@
+"use client";
+
+import { useState } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+
+import { api } from "@/api/cliente";
+import type { components } from "@/api/esquema";
+import { useAvisos } from "@/componentes/avisos";
+import { Botao, Entrada } from "@/componentes/controles";
+import { Gaveta } from "@/componentes/gaveta";
+import { formatarData, formatarValor, hojeIso } from "@/lib/dinheiro";
+
+type RecebivelNaLista = components["schemas"]["RecebivelNaLista"];
+
+/** "1 baixado" e "3 baixados": o número manda no particípio. */
+const concordar = (quantos: number, participio: string) =>
+  `${quantos} ${participio}${quantos === 1 ? "" : "s"}`;
+
+type Props = {
+  selecionados: RecebivelNaLista[];
+  aberta: boolean;
+  aoFechar: () => void;
+  aoConcluir: () => void;
+};
+
+/**
+ * Baixar de uma vez o que foi marcado na lista.
+ *
+ * <p>
+ * Cada lançamento é baixado pelo <b>valor cobrado</b>. Quem recebeu valor
+ * diferente de algum deles baixa aquele à mão, pela linha; o lote é para o caso
+ * comum, o do extrato que bate.
+ * </p>
+ * <p>
+ * <b>A soma que aparece aqui é do que foi marcado, e não um total da lista.</b>
+ * A regra do projeto é que total nenhum vem da página, porque somar a página
+ * dá um número errado com cara de certo. Esta soma não pretende responder
+ * quanto o mês tem: ela confere, antes de confirmar, se a seleção bate com o
+ * que entrou no extrato.
+ * </p>
+ */
+export function BaixaEmLote({ selecionados, aberta, aoFechar, aoConcluir }: Props) {
+  const avisar = useAvisos();
+  const clienteDeConsultas = useQueryClient();
+  const [pagoEm, definirPagoEm] = useState(hojeIso());
+
+  const baixar = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await api.POST("/recebiveis/baixar-em-lote", {
+        body: { ids: selecionados.map((item) => item.id), pagoEm },
+      });
+      if (error || !data) throw new Error("Não foi possível baixar a seleção.");
+      return data;
+    },
+    onSuccess: (resultado) => {
+      clienteDeConsultas.invalidateQueries({ queryKey: ["recebiveis"] });
+      clienteDeConsultas.invalidateQueries({ queryKey: ["divergencias"] });
+
+      const recusados = resultado.recusados.length;
+
+      if (recusados === 0) {
+        avisar({
+          tom: "sucesso",
+          titulo:
+            resultado.baixados === 1
+              ? "1 lançamento baixado."
+              : `${resultado.baixados} lançamentos baixados.`,
+        });
+      } else {
+        avisar({
+          tom: resultado.baixados === 0 ? "erro" : "informacao",
+          titulo: `${concordar(resultado.baixados, "baixado")}, ${concordar(recusados, "recusado")}.`,
+          /* O primeiro motivo por extenso: é o que diz o que fazer a seguir. */
+          detalhe: resultado.recusados[0].motivo,
+        });
+      }
+
+      aoConcluir();
+    },
+    onError: (erro) => avisar({ tom: "erro", titulo: erro.message }),
+  });
+
+  const soma = selecionados.reduce((total, item) => total + Math.round(item.valor * 100), 0) / 100;
+
+  return (
+    <Gaveta
+      titulo="Baixar em lote"
+      descricao="Cada lançamento é baixado pelo valor cobrado. Os que não puderem ser baixados voltam com o motivo."
+      aberta={aberta}
+      aoFechar={aoFechar}
+      rodape={
+        <div className="flex justify-end gap-2">
+          <Botao aparencia="secundario" type="button" onClick={aoFechar}>
+            Voltar
+          </Botao>
+          <Botao
+            type="button"
+            disabled={baixar.isPending || selecionados.length === 0}
+            onClick={() => baixar.mutate()}
+          >
+            {baixar.isPending
+              ? "Baixando…"
+              : selecionados.length === 1
+                ? "Baixar 1"
+                : `Baixar ${selecionados.length}`}
+          </Botao>
+        </div>
+      }
+    >
+      <div className="flex flex-col gap-4">
+        <Entrada
+          rotulo="Data do recebimento"
+          type="date"
+          required
+          value={pagoEm}
+          onChange={(evento) => definirPagoEm(evento.target.value)}
+          ajuda="Quando o dinheiro entrou, e não quando a baixa é registrada."
+        />
+
+        <div className="rounded-[--radius-controle] bg-slate-50 px-4 py-3">
+          <p className="text-xs font-semibold tracking-wide text-slate-500 uppercase">
+            Soma dos selecionados
+          </p>
+          <p className="numeros-tabulares text-2xl font-semibold text-slate-800">{formatarValor(soma)}</p>
+        </div>
+
+        <ul className="flex flex-col divide-y divide-borda">
+          {selecionados.map((item) => (
+            <li key={item.id} className="flex items-start justify-between gap-3 py-2">
+              <span className="min-w-0">
+                <span className="block truncate font-medium text-slate-800">{item.nomeDaPessoa}</span>
+                <span className="block text-sm text-slate-500">
+                  {item.descricao} · vence {formatarData(item.vencimento)}
+                </span>
+              </span>
+              <span className="numeros-tabulares shrink-0 font-medium text-slate-800">
+                {formatarValor(item.valor)}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </Gaveta>
+  );
+}

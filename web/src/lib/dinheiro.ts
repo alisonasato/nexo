@@ -72,3 +72,17 @@ export function competenciaAtual(): { ano: number; mes: number } {
   const agora = new Date();
   return { ano: agora.getFullYear(), mes: agora.getMonth() + 1 };
 }
+
+/**
+ * Hoje, em data ISO, no fuso de quem está usando.
+ *
+ * <b>Não é `toISOString`.</b> Aquele devolve a data em UTC, e às 21h no Brasil
+ * já é o dia seguinte: um título que vence hoje apareceria como vencido a noite
+ * inteira. A tela de recebíveis calculava assim, e errava todo fim de dia.
+ */
+export function hojeIso(): string {
+  const agora = new Date();
+  const mes = String(agora.getMonth() + 1).padStart(2, "0");
+  const dia = String(agora.getDate()).padStart(2, "0");
+  return `${agora.getFullYear()}-${mes}-${dia}`;
+}

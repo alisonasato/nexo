@@ -31,12 +31,29 @@ export function MenuDeAcoes({ rotulo, acoes }: { rotulo: string; acoes: AcaoDeLi
   const [aberto, definirAberto] = useState(false);
   const [confirmacao, definirConfirmacao] = useState<string | null>(null);
   const area = useRef<HTMLDivElement>(null);
+  const gatilho = useRef<HTMLButtonElement>(null);
+
+  /*
+   * Fechar o menu devolve o foco aos três pontos.
+   *
+   * O item que tinha o foco some junto com o menu, e sem isto o foco cai no
+   * corpo da página: quem navega por teclado volta ao topo. E a ação que abre
+   * uma gaveta guardaria o corpo como origem, e fechar a gaveta não devolveria
+   * a pessoa a lugar nenhum.
+   */
+  const fechar = () => {
+    definirAberto(false);
+    gatilho.current?.focus();
+  };
 
   useEffect(() => {
     if (!aberto) return;
 
     function aoTeclar(evento: KeyboardEvent) {
-      if (evento.key === "Escape") definirAberto(false);
+      if (evento.key === "Escape") {
+        definirAberto(false);
+        gatilho.current?.focus();
+      }
     }
 
     function aoClicar(evento: MouseEvent) {
@@ -62,6 +79,7 @@ export function MenuDeAcoes({ rotulo, acoes }: { rotulo: string; acoes: AcaoDeLi
   return (
     <div ref={area} className="relative flex justify-end">
       <button
+        ref={gatilho}
         type="button"
         onClick={() => definirAberto((estava) => !estava)}
         aria-expanded={aberto}
@@ -109,7 +127,8 @@ export function MenuDeAcoes({ rotulo, acoes }: { rotulo: string; acoes: AcaoDeLi
                 type="button"
                 role="menuitem"
                 onClick={async () => {
-                  definirAberto(false);
+                  /* Antes de executar: a ação pode abrir algo que guarda quem tinha o foco. */
+                  fechar();
                   const recado = await acao.executar();
                   if (recado) definirConfirmacao(recado);
                 }}

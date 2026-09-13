@@ -5,15 +5,18 @@ import { useState } from "react";
 /**
  * A seleção de linhas, amarrada à consulta que a produziu.
  *
- * <b>Seleção pertence à página que está na tela.</b> Marcar três pessoas, mudar
- * de página e mandar inativar precisa inativar aquelas três — não três linhas
- * de outra lista que por acaso ocupam as mesmas posições. Guardar ids soltos
- * sobreviveria à troca de página e produziria exatamente esse acidente.
+ * <b>Seleção pertence à página que está na tela.</b> Marcar três linhas, mudar
+ * de página e mandar agir precisa agir sobre aquelas três — não sobre três
+ * linhas de outra lista que por acaso ocupam as mesmas posições. Guardar ids
+ * soltos sobreviveria à troca de página e produziria exatamente esse acidente.
  *
  * A amarração é feita por derivação, e não por um efeito que limpa quando a
  * consulta muda: efeito roda depois da pintura, e existiria um quadro em que a
  * barra de ações mostra "3 selecionadas" sobre a lista nova. Aqui a seleção de
  * outra consulta simplesmente não é lida.
+ *
+ * Nasceu na listagem de pessoas e saiu de lá quando a de lançamentos passou a
+ * precisar do mesmo: é a segunda repetição que a decisão Q20 manda esperar.
  */
 export function useSelecaoPorConsulta(chaveDaConsulta: string) {
   const [guardada, definirGuardada] = useState<{ chave: string; ids: string[] }>({

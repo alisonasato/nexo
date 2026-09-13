@@ -431,15 +431,45 @@ condicional escondida.
 ## Abaixo de 768 pixels, cartão
 
 As três listagens viram cartão no celular. A régua é a mesma: a tabela de
-recebíveis tem seis colunas e a de contratos sete, e nenhuma cabe em 375
+lançamentos e a de contratos têm sete colunas cada, e nenhuma cabe em 375
 pixels. Rolando de lado, o que some primeiro é justamente o valor e o
 vencimento — que é o que se confere antes de confirmar uma baixa.
 
-No cartão de recebíveis os botões de ação sobem para 44 pixels de altura, e na
-tabela ficam compactos. É o alvo que o polegar acerta sem mirar, e importa mais
-aqui do que em outro lugar: **Cancelar** fica encostado em **Baixar**. Na
-tabela, onde quem clica é ponteiro e há um par por linha, a altura cheia
-engordaria a lista sem ganho nenhum.
+No cartão de lançamentos os botões de ação sobem para 44 pixels de altura, e na
+tabela ficam compactos. É o alvo que o polegar acerta sem mirar. **Cancelar**,
+que ficava encostado em **Baixar**, foi para os três pontos junto com cobrar e
+renegociar. Na tabela, onde quem clica é ponteiro, a altura cheia engordaria a
+lista sem ganho nenhum.
+
+## Recebíveis vira Lançamentos
+
+A tela mudou de nome porque vai mudar de conteúdo: na fase 2 do
+[FINANCEIRO.md](FINANCEIRO.md) entram as contas a pagar, e "recebíveis" deixaria
+de descrever o que está nela. A rota da API continua `/recebiveis`. O recurso
+ainda é o recebível, e renomear o contrato agora anteciparia a escolha entre
+tabela única e tabelas irmãs, que é da fase 2.
+
+O endereço antigo redireciona, com o recorte junto, e o desvio é temporário. Um
+permanente fica guardado no navegador, e desfazê-lo depois não alcança quem já
+o recebeu.
+
+Lançar, renegociar e baixar em lote abrem em **gaveta**, por cima da lista, e
+não em página. Fechar devolve a pessoa à mesma fatia, com a seleção intacta. As
+gavetas não moram na URL: um link que abrisse um lançamento preenchido seria
+convite a lançar o que ninguém conferiu.
+
+Só o que está em aberto se marca. A baixa em lote recusaria o resto, e caixa
+marcável em título pago promete uma ação que não existe. O lote baixa cada um
+pelo valor cobrado; quem recebeu valor diferente baixa aquele à mão.
+
+A gaveta do lote mostra a soma dos selecionados, e isso não fura a regra de que
+total nenhum vem da página. A regra existe porque somar a página responde errado
+a quanto o mês tem. Esta soma responde a outra pergunta: se o que foi marcado
+bate com o extrato.
+
+"Vence hoje" ganhou cor própria, e a data de hoje passou a ser a do fuso de quem
+usa. A tela antiga tirava hoje de `toISOString`, que é UTC: das 21h à
+meia-noite, no Brasil, o que vencia hoje aparecia como vencido.
 
 ## Ordem de execução
 
