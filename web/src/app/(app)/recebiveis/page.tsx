@@ -230,7 +230,9 @@ export default function ListagemDeRecebiveis() {
             ? "bg-emerald-50 text-emerald-800"
             : item.situacao === "Cancelado"
               ? "bg-slate-100 text-slate-600 line-through"
-              : vencido
+              : item.situacao === "Renegociado"
+                ? "bg-slate-100 text-slate-700"
+                : vencido
                 ? "bg-red-50 text-red-800"
                 : "bg-slate-100 text-slate-600")
         }
@@ -239,7 +241,9 @@ export default function ListagemDeRecebiveis() {
           ? "Pago"
           : item.situacao === "Cancelado"
             ? "Cancelado"
-            : vencido
+            : item.situacao === "Renegociado"
+              ? "Renegociado"
+              : vencido
               ? "Vencido"
               : "Em aberto"}
       </span>
@@ -247,7 +251,9 @@ export default function ListagemDeRecebiveis() {
   }
 
   function acoes(item: RecebivelNaLista) {
-    if (item.situacao === "Cancelado") return <span className="text-xs text-slate-400">—</span>;
+    /* Renegociado já foi substituído por parcelas novas: é nelas que se age. */
+    if (item.situacao === "Cancelado" || item.situacao === "Renegociado")
+      return <span className="text-xs text-slate-400">—</span>;
 
     if (cancelando === item.id) {
       return (
@@ -545,6 +551,7 @@ export default function ListagemDeRecebiveis() {
             ["Aberto", "Em aberto"],
             ["Pago", "Pagos"],
             ["Cancelado", "Cancelados"],
+            ["Renegociado", "Renegociados"],
           ] as const).map(([valor, rotulo]) => (
             <button
               key={rotulo}

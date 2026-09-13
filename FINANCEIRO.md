@@ -38,8 +38,9 @@ sobre o que já existe. Sai em três PRs:
    quem não esperava fica marcado como divergência, e a situação do recebível
    virou trava de concorrência. A renegociação cancela títulos, então dependia
    disto.
-2. **Operações.** Parcelamento ao lançar, renegociação, baixa em lote, e os
-   filtros e totais que a tela nova pede.
+2. **Operações.** Parcelamento ao lançar, renegociação, baixa em lote, busca
+   e período de vencimento na lista, e a consulta dos pagamentos marcados como
+   divergência. Os totais ficam como estão: seguem a competência, e não a busca.
 3. **A tela.** Cards de resumo, tabela com seleção e barra de ações em lote,
    gavetas para lançar e renegociar, e cores de situação. E um aviso dos
    pagamentos marcados como divergência: o primeiro PR os grava e registra em

@@ -472,6 +472,7 @@ app.MapPessoas();
 app.MapContratos();
 app.MapRecebiveis();
 app.MapCobrancas();
+app.MapOperacoesFinanceiras();
 app.MapConsultas();
 
 app.Run();

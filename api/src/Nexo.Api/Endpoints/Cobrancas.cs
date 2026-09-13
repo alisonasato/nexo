@@ -33,6 +33,13 @@ public static class Cobrancas
             .Produces<RespostaComProblemas>(StatusCodes.Status422UnprocessableEntity)
             .Produces(StatusCodes.Status404NotFound);
 
+        rotas.MapGet("/cobrancas/divergencias", ListarDivergencias)
+            .WithTags("Recebíveis")
+            .WithName("ListarDivergenciasDeCobranca")
+            .WithSummary("Pagamentos do PSP que não puderam ser aplicados")
+            .WithDescription("Os avisos de pagamento que chegaram para recebíveis que já não estavam em aberto. Decidir entre devolver o valor e reabrir o título é trabalho de gente.")
+            .Produces<List<DivergenciaDeCobranca>>();
+
         /*
          * O webhook é anônimo porque quem chama é o PSP, que não tem sessão
          * nossa. Quem autentica é o token combinado, conferido abaixo.
@@ -87,9 +94,12 @@ public static class Cobrancas
         if (recebivel.Situacao != SituacaoRecebivel.Aberto)
         {
             return Problema("situacao", "Nada a cobrar",
-                recebivel.Situacao == SituacaoRecebivel.Pago
-                    ? "Este recebível já foi baixado."
-                    : "Este recebível foi cancelado.",
+                recebivel.Situacao switch
+                {
+                    SituacaoRecebivel.Pago => "Este recebível já foi baixado.",
+                    SituacaoRecebivel.Renegociado => "Este recebível foi renegociado: cobre as parcelas novas.",
+                    _ => "Este recebível foi cancelado.",
+                },
                 "Cobrança só se emite para o que está em aberto.");
         }
 
@@ -146,8 +156,8 @@ public static class Cobrancas
     /// por outro caminho que não o pagamento: cancelamento ou baixa à mão.
     ///
     /// <para>
-    /// Devolve um problema quando o PSP não retira, e aí quem chamou precisa
-    /// parar sem gravar nada. A recusa mais provável é a cobrança já ter sido
+    /// Devolve a falha quando o PSP não retira, e aí quem chamou precisa parar
+    /// sem gravar nada. A recusa mais provável é a cobrança já ter sido
     /// paga: o cliente pagou há instantes e o aviso ainda não chegou. Cancelar
     /// por cima faria esse aviso chegar para um recebível cancelado.
     /// </para>
@@ -159,7 +169,7 @@ public static class Cobrancas
     /// PSP para tirá-la de lá à mão.
     /// </para>
     /// </summary>
-    internal static async Task<IResult?> RetirarDoPsp(
+    internal static async Task<FalhaAoRetirar?> TentarRetirarDoPsp(
         Recebivel recebivel,
         ClienteDoAsaas asaas,
         OpcoesDoAsaas opcoes,
@@ -182,12 +192,12 @@ public static class Cobrancas
         }
         catch (FalhaNoAsaas falha)
         {
-            return Problema("cobranca", "O PSP não retirou a cobrança", falha.Message,
+            return new FalhaAoRetirar("O PSP não retirou a cobrança", falha.Message,
                 "Se o cliente acabou de pagar, a baixa chega sozinha em instantes. Senão, tente de novo.");
         }
         catch (Exception erro) when (erro is HttpRequestException or TaskCanceledException)
         {
-            return Problema("cobranca", "Não foi possível falar com o PSP",
+            return new FalhaAoRetirar("Não foi possível falar com o PSP",
                 "A cobrança continua pagável lá, e por isso nada foi alterado aqui.",
                 "Tente de novo em alguns minutos.");
         }
@@ -197,6 +207,62 @@ public static class Cobrancas
         recebivel.CobrancaId = string.Empty;
         recebivel.CobrancaUrl = string.Empty;
         return null;
+    }
+
+    /// <summary>
+    /// A mesma retirada, com a falha já pronta para devolver a quem chamou.
+    ///
+    /// A baixa em lote usa a versão de cima porque precisa do motivo por item,
+    /// e não de uma resposta para a requisição inteira.
+    /// </summary>
+    internal static async Task<IResult?> RetirarDoPsp(
+        Recebivel recebivel,
+        ClienteDoAsaas asaas,
+        OpcoesDoAsaas opcoes,
+        ILogger registro,
+        CancellationToken cancelamento) =>
+        await TentarRetirarDoPsp(recebivel, asaas, opcoes, registro, cancelamento) is { } falha
+            ? Problema("cobranca", falha.Titulo, falha.Descricao, falha.Sugestao)
+            : null;
+
+    internal sealed record FalhaAoRetirar(string Titulo, string Descricao, string Sugestao);
+
+    /* ------------------------------------------------------ divergências */
+
+    /// <summary>
+    /// Os pagamentos marcados como divergência, dos mais novos aos mais antigos.
+    ///
+    /// Sem filtro de tenant na consulta, como em todo o resto: quem limita é a
+    /// política de linha, alimentada pela sessão.
+    /// </summary>
+    private static async Task<IResult> ListarDivergencias(NexoDbContext banco, CancellationToken cancelamento)
+    {
+        var eventos = await banco.EventosDeCobranca.AsNoTracking()
+            .Where(evento => evento.Divergencia != "")
+            .OrderByDescending(evento => evento.RecebidoEm)
+            .Take(50)
+            .ToListAsync(cancelamento);
+
+        var ids = eventos
+            .Where(evento => evento.RecebivelId != null)
+            .Select(evento => evento.RecebivelId!.Value)
+            .Distinct()
+            .ToList();
+
+        var recebiveis = await banco.Recebiveis.AsNoTracking()
+            .Where(recebivel => ids.Contains(recebivel.Id))
+            .Select(recebivel => new { recebivel.Id, recebivel.Descricao, recebivel.Valor, Nome = recebivel.Pessoa!.Nome })
+            .ToDictionaryAsync(recebivel => recebivel.Id, cancelamento);
+
+        return Results.Ok(eventos
+            .Select(evento =>
+            {
+                recebiveis.TryGetValue(evento.RecebivelId ?? Guid.Empty, out var recebivel);
+                return new DivergenciaDeCobranca(
+                    evento.Id, evento.RecebivelId, evento.Tipo, evento.Divergencia, evento.RecebidoEm,
+                    recebivel?.Nome, recebivel?.Descricao, recebivel?.Valor);
+            })
+            .ToList());
     }
 
     /* ---------------------------------------------------------- notificar */
@@ -459,6 +525,18 @@ public static class Referencia
 }
 
 public record RecebivelCobrado(Guid Id, string CobrancaId, string CobrancaUrl);
+
+/// <param name="EventoId">O identificador do aviso no PSP, para achá-lo no painel de lá.</param>
+/// <param name="NomeDaPessoa">Nulo quando o recebível não existe mais.</param>
+public record DivergenciaDeCobranca(
+    string EventoId,
+    Guid? RecebivelId,
+    string Tipo,
+    string Divergencia,
+    DateTimeOffset RecebidoEm,
+    string? NomeDaPessoa,
+    string? Descricao,
+    decimal? Valor);
 
 /// <param name="Id">O identificador da entrega, e a chave da idempotência.</param>
 public record AvisoDoAsaas(

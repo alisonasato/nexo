@@ -5,6 +5,19 @@ public enum SituacaoRecebivel
     Aberto = 1,
     Pago = 2,
     Cancelado = 3,
+
+    /// <summary>
+    /// Substituído por parcelas novas numa renegociação.
+    ///
+    /// <para>
+    /// <b>É situação própria, e não um cancelamento com outro nome.</b> O índice
+    /// único de mensalidade só libera cancelados. Renegociado continua ocupando a
+    /// competência, e é isso que impede gerar mensalidades de cobrar de novo um
+    /// mês que já virou acordo. Se renegociar cancelasse o título, o próximo
+    /// clique em "gerar" emitiria a mesma mensalidade uma segunda vez.
+    /// </para>
+    /// </summary>
+    Renegociado = 4,
 }
 
 /// <summary>
@@ -50,10 +63,32 @@ public class Recebivel
 
     public string Descricao { get; set; } = string.Empty;
 
+    /// <summary>O valor original. Nunca é reescrito: o que muda na baixa fica na baixa.</summary>
     public decimal Valor { get; set; }
     public DateOnly Vencimento { get; set; }
 
     public SituacaoRecebivel Situacao { get; set; } = SituacaoRecebivel.Aberto;
+
+    /* ----------------------------------------------------- parcelamento */
+
+    /// <summary>
+    /// O grupo das parcelas lançadas juntas. Nulo para quem foi lançado inteiro.
+    ///
+    /// Número e total ficam em campos, e não escritos na descrição, para a tela
+    /// poder mostrar "2 de 3" do jeito que quiser e para a descrição continuar
+    /// sendo o que foi cobrado.
+    /// </summary>
+    public Guid? ParcelamentoId { get; set; }
+    public int? ParcelaNumero { get; set; }
+    public int? ParcelasTotal { get; set; }
+
+    /// <summary>
+    /// O título que esta parcela substitui, quando ela nasceu de renegociação.
+    ///
+    /// É por aqui que o acordo se reconstrói: o título original fica como
+    /// renegociado, e as parcelas novas apontam para ele.
+    /// </summary>
+    public Guid? RenegociadoDeId { get; set; }
 
     /* --------------------------------------------------------- cobrança */
 
@@ -88,9 +123,9 @@ public class Recebivel
     public DateOnly? PagoEm { get; set; }
 
     /// <summary>
-    /// Como a baixa aconteceu: à mão ou por retorno do meio de cobrança.
-    /// Guardado porque, quando o valor não bate, a primeira pergunta é sempre
-    /// "quem deu essa baixa".
+    /// Como a baixa aconteceu: à mão, em lote ou por retorno do meio de
+    /// cobrança. Guardado porque, quando o valor não bate, a primeira pergunta
+    /// é sempre "quem deu essa baixa".
     /// </summary>
     public string OrigemDaBaixa { get; set; } = string.Empty;
 
@@ -113,5 +148,13 @@ public class Recebivel
 public static class OrigensDeBaixa
 {
     public const string Manual = "manual";
+
+    /// <summary>
+    /// Baixado junto com outros, numa seleção. Separado de manual porque, quando
+    /// o valor não bate, "foi no lote" já diz que ninguém digitou o valor: ele
+    /// veio igual ao cobrado.
+    /// </summary>
+    public const string Lote = "lote";
+
     public const string Cobranca = "cobranca";
 }
