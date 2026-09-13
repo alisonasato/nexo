@@ -153,6 +153,18 @@ public class NexoDbContext(DbContextOptions<NexoDbContext> opcoes)
             recebivel.Property(r => r.OrigemDaBaixa).HasMaxLength(30);
             recebivel.Property(r => r.CobrancaId).HasMaxLength(60);
             recebivel.Property(r => r.CobrancaUrl).HasMaxLength(300);
+
+            /*
+             * A situação é a trava de concorrência do recebível.
+             *
+             * Toda gravação passa a exigir que a situação ainda seja a lida.
+             * Sem isto, a baixa manual e o aviso do PSP podiam ler "em aberto"
+             * ao mesmo tempo e gravar os dois, a segunda por cima da primeira:
+             * o dinheiro não duplicava, mas a origem e o valor da baixa ficavam
+             * com o que chegou por último. Com a baixa em lote, esse encontro
+             * deixa de ser raro.
+             */
+            recebivel.Property(r => r.Situacao).IsConcurrencyToken();
             recebivel.Property(r => r.MotivoDoCancelamento).HasMaxLength(200);
             recebivel.Property(r => r.Valor).HasPrecision(14, 2);
             recebivel.Property(r => r.ValorPago).HasPrecision(14, 2);
@@ -209,6 +221,7 @@ public class NexoDbContext(DbContextOptions<NexoDbContext> opcoes)
             evento.HasKey(e => new { e.TenantId, e.Id });
             evento.Property(e => e.Id).HasMaxLength(200);
             evento.Property(e => e.Tipo).HasMaxLength(60);
+            evento.Property(e => e.Divergencia).HasMaxLength(300);
             evento.Property(e => e.RecebidoEm).HasDefaultValueSql("now()");
 
             evento.HasIndex(e => new { e.TenantId, e.RecebivelId });

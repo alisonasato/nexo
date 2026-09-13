@@ -18,8 +18,9 @@ e não atrapalha.
 
 ## Deixado de fora da primeira entrega, de propósito
 
-- Contas a pagar e caixa — o ciclo financeiro completo do escritório (era a
-  opção 3 da Q24).
+- ~~Contas a pagar e caixa~~ — saiu daqui em 13 de setembro de 2026. A regra
+  deste arquivo foi suspensa para o módulo financeiro, que passou a ser
+  implementado em fases. O plano está em [FINANCEIRO.md](FINANCEIRO.md).
 - Portal do cliente do escritório: documentos, boletos, solicitações (era a
   opção 3 da Q18, e é a primeira expansão natural).
 - NFS-e por agregador (Q21). Conferir na hora a cobertura real do padrão
@@ -111,8 +112,9 @@ e não atrapalha.
 
 ## Aberto pelo passo 5
 
-- **Cobrança automática pelo PSP.** O PSP está escolhido — Asaas, com o
-  porquê no DECISOES.md. O que falta é a conta nele, que só você pode criar.
+- **Cobrança automática pelo PSP.** A integração com o Asaas já está em main,
+  com emissão e baixa por webhook. O que falta para ligá-la é a conta no Asaas,
+  que só você pode criar.
 - Editar ou cancelar uma cobrança avulsa recém-lançada. Hoje o conserto de um
   valor digitado errado é cancelar e lançar de novo, o que funciona e deixa
   duas linhas no histórico onde bastaria uma.

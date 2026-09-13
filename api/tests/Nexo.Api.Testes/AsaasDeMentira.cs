@@ -14,8 +14,9 @@ namespace Nexo.Api.Testes;
 /// </para>
 /// <para>
 /// Ele <b>conta</b> as chamadas, e é isso que torna verificável o que mais
-/// importa aqui: que cobrar duas vezes não cria duas cobranças, e que um
-/// cadastro sem documento é recusado <b>antes</b> de a requisição sair.
+/// importa aqui: que cobrar duas vezes não cria duas cobranças, que um cadastro
+/// sem documento é recusado <b>antes</b> de a requisição sair, e que cancelar
+/// um recebível cobrado tira a cobrança do ar.
 /// </para>
 /// </summary>
 public sealed class AsaasDeMentira : HttpMessageHandler
@@ -23,8 +24,19 @@ public sealed class AsaasDeMentira : HttpMessageHandler
     public int ClientesCriados { get; private set; }
     public int CobrancasCriadas { get; private set; }
 
-    /// <summary>Quando verdadeiro, responde como o Asaas responde a erro.</summary>
+    /// <summary>As cobranças tiradas do ar, na ordem em que foram.</summary>
+    public List<string> CobrancasExcluidas { get; } = [];
+
+    /// <summary>Quando preenchido, responde a qualquer chamada como o Asaas responde a erro.</summary>
     public string? Recusa { get; set; }
+
+    /// <summary>
+    /// Quando preenchido, recusa só a exclusão, como o PSP recusa tirar do ar
+    /// uma cobrança que o cliente acabou de pagar.
+    /// </summary>
+    public string? RecusaAoExcluir { get; set; }
+
+    public JsonElement UltimaCobranca { get; private set; }
 
     protected override async Task<HttpResponseMessage> SendAsync(
         HttpRequestMessage pedido,
@@ -32,15 +44,15 @@ public sealed class AsaasDeMentira : HttpMessageHandler
     {
         var caminho = pedido.RequestUri!.AbsolutePath;
 
-        if (Recusa is { } motivo)
+        if (Recusa is { } motivo) return Erro(motivo);
+
+        if (pedido.Method == HttpMethod.Delete && caminho.Contains("/payments/"))
         {
-            return new HttpResponseMessage(HttpStatusCode.BadRequest)
-            {
-                Content = JsonContent.Create(new
-                {
-                    errors = new[] { new { code = "invalid_action", description = motivo } },
-                }),
-            };
+            if (RecusaAoExcluir is { } motivoDaExclusao) return Erro(motivoDaExclusao);
+
+            var id = caminho[(caminho.LastIndexOf('/') + 1)..];
+            CobrancasExcluidas.Add(id);
+            return Ok(new { deleted = true, id });
         }
 
         if (caminho.EndsWith("/customers"))
@@ -68,8 +80,15 @@ public sealed class AsaasDeMentira : HttpMessageHandler
         return new HttpResponseMessage(HttpStatusCode.NotFound);
     }
 
-    public JsonElement UltimaCobranca { get; private set; }
-
     private static HttpResponseMessage Ok(object corpo) =>
         new(HttpStatusCode.OK) { Content = JsonContent.Create(corpo) };
+
+    private static HttpResponseMessage Erro(string motivo) =>
+        new(HttpStatusCode.BadRequest)
+        {
+            Content = JsonContent.Create(new
+            {
+                errors = new[] { new { code = "invalid_action", description = motivo } },
+            }),
+        };
 }

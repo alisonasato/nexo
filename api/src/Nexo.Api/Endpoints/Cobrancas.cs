@@ -139,6 +139,66 @@ public static class Cobrancas
         }
     }
 
+    /* ----------------------------------------------------------- retirar */
+
+    /// <summary>
+    /// Tira do PSP a cobrança de um recebível que vai deixar de estar em aberto
+    /// por outro caminho que não o pagamento: cancelamento ou baixa à mão.
+    ///
+    /// <para>
+    /// Devolve um problema quando o PSP não retira, e aí quem chamou precisa
+    /// parar sem gravar nada. A recusa mais provável é a cobrança já ter sido
+    /// paga: o cliente pagou há instantes e o aviso ainda não chegou. Cancelar
+    /// por cima faria esse aviso chegar para um recebível cancelado.
+    /// </para>
+    /// <para>
+    /// <b>Sem integração configurada, segue sem chamar ninguém</b>, e guarda a
+    /// referência. O escritório desligou a cobrança automática, e travar o
+    /// cancelamento de tudo o que foi cobrado antes seria punir quem desligou. A
+    /// referência fica porque é por ela que alguém acha a cobrança no painel do
+    /// PSP para tirá-la de lá à mão.
+    /// </para>
+    /// </summary>
+    internal static async Task<IResult?> RetirarDoPsp(
+        Recebivel recebivel,
+        ClienteDoAsaas asaas,
+        OpcoesDoAsaas opcoes,
+        ILogger registro,
+        CancellationToken cancelamento)
+    {
+        if (string.IsNullOrEmpty(recebivel.CobrancaId)) return null;
+
+        if (!opcoes.Configurado)
+        {
+            registro.LogWarning(
+                "Recebível {Id} tem a cobrança {Cobranca} no PSP e a integração está desligada: a cobrança continua pagável lá.",
+                recebivel.Id, recebivel.CobrancaId);
+            return null;
+        }
+
+        try
+        {
+            await asaas.ExcluirCobranca(recebivel.CobrancaId, cancelamento);
+        }
+        catch (FalhaNoAsaas falha)
+        {
+            return Problema("cobranca", "O PSP não retirou a cobrança", falha.Message,
+                "Se o cliente acabou de pagar, a baixa chega sozinha em instantes. Senão, tente de novo.");
+        }
+        catch (Exception erro) when (erro is HttpRequestException or TaskCanceledException)
+        {
+            return Problema("cobranca", "Não foi possível falar com o PSP",
+                "A cobrança continua pagável lá, e por isso nada foi alterado aqui.",
+                "Tente de novo em alguns minutos.");
+        }
+
+        /* O link morreu com a cobrança. Deixá-lo aqui faria um estorno futuro
+           reabrir o recebível apontando para um boleto que não existe mais. */
+        recebivel.CobrancaId = string.Empty;
+        recebivel.CobrancaUrl = string.Empty;
+        return null;
+    }
+
     /* ---------------------------------------------------------- notificar */
 
     /// <summary>
@@ -151,7 +211,8 @@ public static class Cobrancas
     /// que não existe mais, é permanente: repetir não conserta, e insistir
     /// derruba a fila inteira — inclusive os avisos de pagamento que
     /// importam. Erro só sai daqui quando repetir tem chance de funcionar, como
-    /// banco fora do ar.
+    /// banco fora do ar ou outra operação mudando o mesmo recebível no mesmo
+    /// instante.
     /// </para>
     /// </summary>
     private static async Task<IResult> Notificar(
@@ -193,14 +254,16 @@ public static class Cobrancas
          */
         ContextoDeTenantHttp.Fixar(http, tenant);
 
-        banco.EventosDeCobranca.Add(new EventoDeCobranca
+        var evento = new EventoDeCobranca
         {
             Id = aviso.Id,
             TenantId = tenant,
             Tipo = aviso.Event,
             RecebivelId = recebivelId,
             RecebidoEm = DateTimeOffset.UtcNow,
-        });
+        };
+
+        banco.EventosDeCobranca.Add(evento);
 
         var recebivel = await banco.Recebiveis
             .FirstOrDefaultAsync(r => r.Id == recebivelId, cancelamento);
@@ -212,14 +275,29 @@ public static class Cobrancas
             return Results.Ok();
         }
 
-        Aplicar(aviso.Event, pagamento, recebivel);
+        var divergencia = Aplicar(aviso.Event, pagamento, recebivel);
+
+        if (divergencia.Length > 0)
+        {
+            /*
+             * O aviso não mudou nada, e isso não pode passar calado: é dinheiro
+             * que entrou para um recebível que já não esperava por ele. O evento
+             * fica marcado para alguém conferir. Devolver ao cliente ou reabrir
+             * o título é decisão de gente, e não do webhook.
+             */
+            evento.Divergencia = divergencia;
+            registro.LogWarning(
+                "Aviso {Evento} não aplicado ao recebível {Id}: {Divergencia}",
+                aviso.Event, recebivelId, divergencia);
+        }
 
         await GravarIgnorandoRepetido(banco, cancelamento);
         return Results.Ok();
     }
 
     /// <summary>
-    /// O que cada aviso faz com o recebível.
+    /// O que cada aviso faz com o recebível. Devolve a divergência, quando o
+    /// aviso trazia algo que não pôde ser aplicado.
     ///
     /// <para>
     /// <b>Confirmado e recebido dão a mesma baixa.</b> Os dois existem porque o
@@ -240,13 +318,28 @@ public static class Cobrancas
     /// pela data.
     /// </para>
     /// </summary>
-    private static void Aplicar(string evento, PagamentoDoAsaas pagamento, Recebivel recebivel)
+    private static string Aplicar(string evento, PagamentoDoAsaas pagamento, Recebivel recebivel)
     {
         switch (evento)
         {
             case "PAYMENT_CONFIRMED":
             case "PAYMENT_RECEIVED":
-                if (recebivel.Situacao != SituacaoRecebivel.Aberto) return;
+                if (recebivel.Situacao != SituacaoRecebivel.Aberto)
+                {
+                    /*
+                     * Confirmado e depois recebido é o mesmo pagamento em dois
+                     * tempos, e não divergência. Qualquer outro caso é dinheiro
+                     * chegando para quem não esperava: baixado à mão e pago de
+                     * novo pelo PSP, ou cancelado e pago mesmo assim.
+                     */
+                    if (recebivel.Situacao == SituacaoRecebivel.Pago
+                        && recebivel.OrigemDaBaixa == OrigensDeBaixa.Cobranca)
+                        return string.Empty;
+
+                    return recebivel.Situacao == SituacaoRecebivel.Pago
+                        ? "Pagamento pelo PSP para um recebível já baixado à mão."
+                        : $"Pagamento pelo PSP para um recebível {recebivel.Situacao.ToString().ToLowerInvariant()}.";
+                }
 
                 recebivel.Situacao = SituacaoRecebivel.Pago;
                 recebivel.ValorPago = pagamento.Value ?? recebivel.Valor;
@@ -256,19 +349,21 @@ public static class Cobrancas
                     ?? DateOnly.FromDateTime(DateTime.UtcNow);
                 recebivel.OrigemDaBaixa = OrigensDeBaixa.Cobranca;
                 recebivel.AtualizadoEm = DateTimeOffset.UtcNow;
-                return;
+                return string.Empty;
 
             case "PAYMENT_REFUNDED":
             case "PAYMENT_RECEIVED_IN_CASH_UNDONE":
-                if (recebivel.Situacao != SituacaoRecebivel.Pago) return;
+                if (recebivel.Situacao != SituacaoRecebivel.Pago) return string.Empty;
 
                 recebivel.Situacao = SituacaoRecebivel.Aberto;
                 recebivel.ValorPago = null;
                 recebivel.PagoEm = null;
                 recebivel.OrigemDaBaixa = string.Empty;
                 recebivel.AtualizadoEm = DateTimeOffset.UtcNow;
-                return;
+                return string.Empty;
         }
+
+        return string.Empty;
     }
 
     /// <summary>
@@ -278,6 +373,10 @@ public static class Cobrancas
     /// <i>at least once</i>, então o mesmo aviso chega de novo. O banco recusar
     /// a segunda inserção é exatamente o desenho — e recusar dentro da mesma
     /// transação descarta junto a baixa que ela traria.
+    ///
+    /// Conflito de concorrência <b>não</b> é engolido: sobe como erro, a
+    /// transação inteira volta, inclusive o registro do evento, e o PSP reenvia.
+    /// Na segunda tentativa o recebível já está no estado novo.
     /// </summary>
     private static async Task GravarIgnorandoRepetido(
         NexoDbContext banco,
