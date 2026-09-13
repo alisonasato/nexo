@@ -496,6 +496,8 @@ padrão silencioso o transformaria num lançamento a receber sem ninguém ver. P
 listar é o contrário, e sem natureza vem a receber: ler não inverte nada, e a
 listagem sempre foi isso. Lista e totais olham uma natureza de cada vez, e o
 total do que foi baixado passou a se chamar pago, que vale para os dois lados.
+Na tela, a natureza é uma aba e mora na URL com o resto do recorte; a receber,
+o padrão, não aparece no endereço.
 
 A renomeação é uma migração escrita à mão. Vendo classe e tabela com nomes
 novos, o EF gerou apagar `recebiveis` e criar `lancamentos`, o que em produção

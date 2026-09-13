@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { api } from "@/api/cliente";
@@ -36,10 +36,44 @@ import { AvisoDeDivergencias } from "./divergencias";
 import { GavetaDeLancamento } from "./gaveta-de-lancamento";
 import { GavetaDeRenegociacao } from "./gaveta-de-renegociacao";
 
+type NaturezaLancamento = components["schemas"]["NaturezaLancamento"];
 type SituacaoLancamento = components["schemas"]["SituacaoLancamento"];
 type LancamentoNaLista = components["schemas"]["LancamentoNaLista"];
 type OrdemDeLancamentos = components["schemas"]["OrdemDeLancamentos"];
 type Problema = components["schemas"]["Problema"];
+
+/**
+ * O que muda de uma natureza para a outra é quase só palavra.
+ *
+ * As regras são as mesmas dos dois lados, e por isso a tela é uma só. O que
+ * não pode escapar é o texto: "recebido" numa conta a pagar lê como dinheiro
+ * entrando, e a pessoa confere o extrato do lado errado.
+ */
+const textos = {
+  Receber: {
+    aba: "A receber",
+    pessoa: "Cliente",
+    busca: "Buscar por cliente, código ou descrição",
+    aberto: "Em aberto",
+    baixado: "Recebido",
+    baixadoNaFrase: "recebido",
+    vazio: "Nenhum lançamento a receber nesta seleção.",
+    comoEntra:
+      "As mensalidades saem dos contratos, em Contratos → Gerar mensalidades. O resto entra por Novo lançamento.",
+  },
+  Pagar: {
+    aba: "A pagar",
+    pessoa: "Fornecedor",
+    busca: "Buscar por fornecedor, código ou descrição",
+    aberto: "A pagar",
+    baixado: "Pago",
+    baixadoNaFrase: "pago",
+    vazio: "Nenhuma conta a pagar nesta seleção.",
+    comoEntra: "As contas do escritório entram por Novo lançamento, com o fornecedor marcado no cadastro.",
+  },
+} as const;
+
+const naturezas = ["Receber", "Pagar"] as const;
 
 /**
  * Os botões de ação: altura de dedo no celular, compactos na tabela.
@@ -116,26 +150,90 @@ const origens: Record<string, string> = {
   cobranca: "pelo PSP",
 };
 
+/**
+ * As abas de natureza, do jeito que o teclado e o leitor de tela esperam.
+ *
+ * Tab entra na aba escolhida e sai do grupo, e as setas trocam de aba. Um par
+ * de botões soltos faria tabular pelos dois, e o leitor de tela não diria que
+ * um deles está escolhido.
+ */
+function AbasDeNatureza({
+  atual,
+  aoTrocar,
+}: {
+  atual: NaturezaLancamento;
+  aoTrocar: (natureza: NaturezaLancamento) => void;
+}) {
+  const abas = useRef<(HTMLButtonElement | null)[]>([]);
+
+  function aoTeclar(evento: KeyboardEvent, indice: number) {
+    if (evento.key !== "ArrowRight" && evento.key !== "ArrowLeft") return;
+    evento.preventDefault();
+
+    const passo = evento.key === "ArrowRight" ? 1 : -1;
+    const proxima = (indice + passo + naturezas.length) % naturezas.length;
+
+    aoTrocar(naturezas[proxima]);
+    abas.current[proxima]?.focus();
+  }
+
+  return (
+    <div role="tablist" aria-label="Natureza dos lançamentos" className="flex gap-1 border-b border-borda">
+      {naturezas.map((natureza, indice) => {
+        const escolhida = natureza === atual;
+
+        return (
+          <button
+            key={natureza}
+            ref={(botao) => {
+              abas.current[indice] = botao;
+            }}
+            id={`aba-${natureza}`}
+            type="button"
+            role="tab"
+            aria-selected={escolhida}
+            aria-controls="painel-da-natureza"
+            tabIndex={escolhida ? 0 : -1}
+            onClick={() => aoTrocar(natureza)}
+            onKeyDown={(evento) => aoTeclar(evento, indice)}
+            className={
+              "-mb-px inline-flex min-h-11 items-center border-b-2 px-4 font-semibold transition-colors " +
+              (escolhida
+                ? "border-marca-600 text-marca-950"
+                : "border-transparent text-slate-500 hover:text-slate-800")
+            }
+          >
+            {textos[natureza].aba}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function ListagemDeLancamentos() {
   const clienteDeConsultas = useQueryClient();
   const avisar = useAvisos();
 
   /*
-   * Situação, busca, período, página e ordem moram na URL, como nas outras
-   * listagens: a lista vira link, e "os vencidos deste mês" passa a ser algo
-   * que se manda a alguém em vez de descrever por escrito.
+   * Natureza, situação, busca, período, página e ordem moram na URL, como nas
+   * outras listagens: a lista vira link, e "as contas a pagar vencidas deste
+   * mês" passa a ser algo que se manda a alguém em vez de descrever por escrito.
+   * A receber é o padrão e não aparece no endereço.
    *
    * As gavetas <b>não</b> moram lá. Elas não recortam a lista, e um link que já
-   * abrisse um lançamento com cliente e valor preenchidos seria um convite a
+   * abrisse um lançamento com pessoa e valor preenchidos seria um convite a
    * lançar o que ninguém conferiu.
    */
   const { ler, gravar, estabilizada } = useConsultaDaUrl("/lancamentos");
 
+  const natureza: NaturezaLancamento = ler("natureza") === "Pagar" ? "Pagar" : "Receber";
   const situacao = (ler("situacao") ?? "") as SituacaoLancamento | "";
   const pagina = Math.max(1, Number(ler("pagina")) || 1);
   const busca = ler("busca") ?? "";
   const vencimentoDe = ler("vencimentoDe") ?? "";
   const vencimentoAte = ler("vencimentoAte") ?? "";
+  const texto = textos[natureza];
 
   const { ordenarPor, ...ordem } = useOrdenacao<OrdemDeLancamentos>({ ler, gravar }, "Vencimento");
 
@@ -152,6 +250,13 @@ export default function ListagemDeLancamentos() {
 
   const definirPagina = (numero: number) => gravar({ pagina: numero === 1 ? null : numero });
 
+  /*
+   * Trocar de aba volta à primeira página e mantém o resto do recorte: "em
+   * aberto, vencendo este mês" é uma pergunta que se faz dos dois lados.
+   */
+  const trocarNatureza = (nova: NaturezaLancamento) =>
+    gravar({ natureza: nova === "Receber" ? null : nova, pagina: null });
+
   /* As gavetas. */
   const [lancando, definirLancando] = useState(false);
   const [renegociando, definirRenegociando] = useState<LancamentoNaLista | null>(null);
@@ -165,7 +270,7 @@ export default function ListagemDeLancamentos() {
   const [cancelando, definirCancelando] = useState<string | null>(null);
   const [motivo, definirMotivo] = useState("");
 
-  const consulta = { situacao, pagina, ordem, busca, vencimentoDe, vencimentoAte };
+  const consulta = { natureza, situacao, pagina, ordem, busca, vencimentoDe, vencimentoAte };
 
   const lancamentos = useQuery({
     queryKey: ["lancamentos", consulta],
@@ -173,6 +278,7 @@ export default function ListagemDeLancamentos() {
       const { data, error } = await api.GET("/lancamentos", {
         params: {
           query: {
+            natureza,
             pagina,
             ordenarPor: ordem.por,
             direcao: ordem.direcao,
@@ -368,7 +474,7 @@ export default function ListagemDeLancamentos() {
           <div className="flex flex-wrap items-end gap-2 md:justify-end">
             <div className="w-32">
               <EntradaMascarada
-                rotulo="Recebido"
+                rotulo={textos[item.natureza].baixado}
                 className="text-right"
                 autoFocus
                 digitos={valorDigitado}
@@ -424,7 +530,8 @@ export default function ListagemDeLancamentos() {
      */
     const menu: AcaoDeLinha[] = [];
 
-    if (item.cobrancaUrl) {
+    /* Cobrança pelo PSP é pedir dinheiro a um cliente: numa conta a pagar, quem paga é o escritório. */
+    if (item.natureza === "Receber" && item.cobrancaUrl) {
       menu.push({
         tipo: "botao",
         rotulo: "Copiar link de pagamento",
@@ -438,7 +545,7 @@ export default function ListagemDeLancamentos() {
           }
         },
       });
-    } else {
+    } else if (item.natureza === "Receber") {
       menu.push({
         tipo: "botao",
         rotulo: "Emitir cobrança",
@@ -478,7 +585,7 @@ export default function ListagemDeLancamentos() {
           onClick={() => {
             definirBaixando(item.id);
             definirFalha(null);
-            /* O valor cobrado já vem preenchido: é o caso comum. */
+            /* O valor do lançamento já vem preenchido: é o caso comum. */
             definirValorDigitado(digitosDoValor(item.valor));
             definirDataDaBaixa(hojeIso());
           }}
@@ -503,9 +610,7 @@ export default function ListagemDeLancamentos() {
           <h1 id="conteudo" tabIndex={-1} className="text-xl font-semibold tracking-tight text-marca-950">
             Lançamentos
           </h1>
-          <p className="text-slate-600">
-            O que o escritório tem a receber: mensalidades, cobranças avulsas e parcelas.
-          </p>
+          <p className="text-slate-600">O que o escritório tem a receber e a pagar, e o que já foi baixado.</p>
         </div>
 
         <Botao type="button" onClick={() => definirLancando(true)}>
@@ -514,333 +619,341 @@ export default function ListagemDeLancamentos() {
       </header>
 
       <div className="flex flex-1 flex-col gap-5 p-6">
-        <AvisoDeDivergencias />
+        <AbasDeNatureza atual={natureza} aoTrocar={trocarNatureza} />
 
-        {resumo && (
-          <div className="grid gap-px overflow-hidden rounded-[--radius-cartao] border border-borda bg-borda sm:grid-cols-3">
-            {/*
-              Estes números descrevem o período inteiro, não a página, a busca
-              nem o filtro de situação: é a pergunta que o escritório faz
-              enquanto olha uma fatia, quanto do mês ainda falta entrar. O saldo
-              das contas chega na fase 3, com as contas bancárias.
-            */}
-            {[
-              { rotulo: "Em aberto", valor: resumo.totalEmAberto, tom: "text-slate-800" },
-              { rotulo: "Vencido", valor: resumo.totalVencido, tom: "text-red-700" },
-              { rotulo: "Recebido", valor: resumo.totalPago, tom: "text-emerald-700" },
-            ].map((cartao) => (
-              <div key={cartao.rotulo} className="flex flex-col gap-1 bg-superficie px-5 py-4">
-                <span className="text-xs font-semibold tracking-wide text-slate-500 uppercase">
-                  {cartao.rotulo}
-                </span>
-                <span className={`numeros-tabulares text-2xl font-semibold ${cartao.tom}`}>
-                  {formatarValor(cartao.valor)}
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
-
-        <section
-          aria-label="Busca e filtros"
-          className="flex flex-col gap-3 rounded-[--radius-cartao] border border-borda bg-superficie p-4 shadow-nivel-1"
+        <div
+          role="tabpanel"
+          id="painel-da-natureza"
+          aria-labelledby={`aba-${natureza}`}
+          className="flex flex-col gap-5"
         >
-          <div className="flex flex-wrap items-end gap-3">
-            <div className="relative min-w-0 basis-full sm:flex-1 sm:basis-auto">
-              <IconeDeBusca className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-400" />
-              <input
-                type="search"
-                value={textoDaBusca}
-                onChange={(evento) => definirRascunho(evento.target.value)}
-                placeholder="Buscar por cliente, código ou descrição"
-                aria-label="Buscar lançamentos"
-                className="min-h-11 w-full rounded-[--radius-controle] border border-borda-forte bg-superficie py-2.5 pr-3 pl-9 placeholder:text-slate-400 focus:border-marca-500"
-              />
+          {/* Divergência é pagamento que chegou pelo PSP, e o PSP só existe do lado a receber. */}
+          {natureza === "Receber" && <AvisoDeDivergencias />}
+
+          {resumo && (
+            <div className="grid gap-px overflow-hidden rounded-[--radius-cartao] border border-borda bg-borda sm:grid-cols-3">
+              {/*
+                Estes números descrevem o período inteiro, não a página, a busca
+                nem o filtro de situação: é a pergunta que o escritório faz
+                enquanto olha uma fatia, quanto do mês ainda falta entrar ou
+                sair. O saldo das contas chega na fase 3, com as contas bancárias.
+              */}
+              {[
+                { rotulo: texto.aberto, valor: resumo.totalEmAberto, tom: "text-slate-800" },
+                { rotulo: "Vencido", valor: resumo.totalVencido, tom: "text-red-700" },
+                { rotulo: texto.baixado, valor: resumo.totalPago, tom: "text-emerald-700" },
+              ].map((cartao) => (
+                <div key={cartao.rotulo} className="flex flex-col gap-1 bg-superficie px-5 py-4">
+                  <span className="text-xs font-semibold tracking-wide text-slate-500 uppercase">
+                    {cartao.rotulo}
+                  </span>
+                  <span className={`numeros-tabulares text-2xl font-semibold ${cartao.tom}`}>
+                    {formatarValor(cartao.valor)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <section
+            aria-label="Busca e filtros"
+            className="flex flex-col gap-3 rounded-[--radius-cartao] border border-borda bg-superficie p-4 shadow-nivel-1"
+          >
+            <div className="flex flex-wrap items-end gap-3">
+              <div className="relative min-w-0 basis-full sm:flex-1 sm:basis-auto">
+                <IconeDeBusca className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="search"
+                  value={textoDaBusca}
+                  onChange={(evento) => definirRascunho(evento.target.value)}
+                  placeholder={texto.busca}
+                  aria-label="Buscar lançamentos"
+                  className="min-h-11 w-full rounded-[--radius-controle] border border-borda-forte bg-superficie py-2.5 pr-3 pl-9 placeholder:text-slate-400 focus:border-marca-500"
+                />
+              </div>
+
+              <div className="w-full sm:w-40">
+                <Entrada
+                  rotulo="Vence de"
+                  type="date"
+                  value={vencimentoDe}
+                  onChange={(evento) => gravar({ vencimentoDe: evento.target.value, pagina: null })}
+                />
+              </div>
+              <div className="w-full sm:w-40">
+                <Entrada
+                  rotulo="Até"
+                  type="date"
+                  value={vencimentoAte}
+                  onChange={(evento) => gravar({ vencimentoAte: evento.target.value, pagina: null })}
+                />
+              </div>
             </div>
 
-            <div className="w-full sm:w-40">
-              <Entrada
-                rotulo="Vence de"
-                type="date"
-                value={vencimentoDe}
-                onChange={(evento) => gravar({ vencimentoDe: evento.target.value, pagina: null })}
-              />
+            <div className="flex flex-wrap items-center gap-2">
+              {([
+                ["", "Todos"],
+                ["Aberto", "Em aberto"],
+                ["Pago", "Pagos"],
+                ["Cancelado", "Cancelados"],
+                ["Renegociado", "Renegociados"],
+              ] as const).map(([valor, rotulo]) => (
+                <button
+                  key={rotulo}
+                  type="button"
+                  /* A página sete de uma situação não é a página sete de outra. */
+                  onClick={() => gravar({ situacao: valor, pagina: null })}
+                  aria-pressed={situacao === valor}
+                  className={
+                    "inline-flex min-h-9 items-center rounded-full px-3.5 text-sm font-medium transition-colors " +
+                    (situacao === valor
+                      ? "bg-marca-600 text-white"
+                      : "border border-borda-forte bg-superficie text-slate-700 hover:bg-slate-50")
+                  }
+                >
+                  {rotulo}
+                </button>
+              ))}
             </div>
-            <div className="w-full sm:w-40">
-              <Entrada
-                rotulo="Até"
-                type="date"
-                value={vencimentoAte}
-                onChange={(evento) => gravar({ vencimentoAte: evento.target.value, pagina: null })}
-              />
-            </div>
-          </div>
+          </section>
 
-          <div className="flex flex-wrap items-center gap-2">
-            {([
-              ["", "Todos"],
-              ["Aberto", "Em aberto"],
-              ["Pago", "Pagos"],
-              ["Cancelado", "Cancelados"],
-              ["Renegociado", "Renegociados"],
-            ] as const).map(([valor, rotulo]) => (
-              <button
-                key={rotulo}
-                type="button"
-                /* A página sete de uma situação não é a página sete de outra. */
-                onClick={() => gravar({ situacao: valor, pagina: null })}
-                aria-pressed={situacao === valor}
-                className={
-                  "inline-flex min-h-9 items-center rounded-full px-3.5 text-sm font-medium transition-colors " +
-                  (situacao === valor
-                    ? "bg-marca-600 text-white"
-                    : "border border-borda-forte bg-superficie text-slate-700 hover:bg-slate-50")
-                }
-              >
-                {rotulo}
-              </button>
-            ))}
-          </div>
-        </section>
+          {lancamentos.isPending && <p className="text-slate-600">Carregando os lançamentos…</p>}
 
-        {lancamentos.isPending && <p className="text-slate-600">Carregando os lançamentos…</p>}
-
-        {lancamentos.isError && (
-          <p role="alert" className="rounded-[--radius-controle] bg-red-50 px-4 py-3 text-red-700">
-            {lancamentos.error.message}
-          </p>
-        )}
-
-        {resumo && itens.length === 0 && (
-          <div className="rounded-[--radius-cartao] border border-dashed border-borda-forte bg-superficie px-6 py-12 text-center">
-            <p className="font-medium text-slate-700">Nenhum lançamento nesta seleção.</p>
-            <p className="mt-1 text-slate-600">
-              As mensalidades saem dos contratos, em Contratos → Gerar mensalidades. O resto entra por
-              Novo lançamento.
+          {lancamentos.isError && (
+            <p role="alert" className="rounded-[--radius-controle] bg-red-50 px-4 py-3 text-red-700">
+              {lancamentos.error.message}
             </p>
-          </div>
-        )}
+          )}
 
-        {resumo && itens.length > 0 && (
-          <>
-            {/*
-              No celular, cartão; da largura média para cima, tabela. A tabela
-              tem sete colunas e a última abre formulário dentro da célula:
-              rolando de lado, o valor e o vencimento, que é o que se confere
-              antes de confirmar, ficariam para trás.
-            */}
-            <ul className="flex flex-col gap-3 md:hidden">
-              {itens.map((item) => {
-                const estado = estadoDe(item, hoje);
-                const marcada = selecao.marcadas.has(item.id);
+          {resumo && itens.length === 0 && (
+            <div className="rounded-[--radius-cartao] border border-dashed border-borda-forte bg-superficie px-6 py-12 text-center">
+              <p className="font-medium text-slate-700">{texto.vazio}</p>
+              <p className="mt-1 text-slate-600">{texto.comoEntra}</p>
+            </div>
+          )}
 
-                return (
-                  <li key={item.id}>
-                    <article
-                      className={
-                        "rounded-[--radius-cartao] border p-4 shadow-nivel-1 " +
-                        (marcada ? "border-marca-400 bg-marca-50" : "border-borda bg-superficie")
-                      }
-                    >
-                      <div className="flex items-start gap-3">
-                        {item.situacao === "Aberto" && (
-                          <input
-                            type="checkbox"
-                            checked={marcada}
-                            onChange={() => selecao.alternar(item.id)}
-                            aria-label={`Selecionar ${item.nomeDaPessoa}, ${item.descricao}`}
-                            className="mt-1 size-5 shrink-0 rounded border-borda-forte accent-marca-600"
-                          />
-                        )}
+          {resumo && itens.length > 0 && (
+            <>
+              {/*
+                No celular, cartão; da largura média para cima, tabela. A tabela
+                tem sete colunas e a última abre formulário dentro da célula:
+                rolando de lado, o valor e o vencimento, que é o que se confere
+                antes de confirmar, ficariam para trás.
+              */}
+              <ul className="flex flex-col gap-3 md:hidden">
+                {itens.map((item) => {
+                  const estado = estadoDe(item, hoje);
+                  const marcada = selecao.marcadas.has(item.id);
 
-                        <div className="min-w-0 flex-1">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className="numeros-tabulares text-slate-600">{item.codigoDaPessoa}</span>
-                            <span className="font-semibold text-slate-800">{item.nomeDaPessoa}</span>
-                            <Tarja estado={estado} />
-                          </div>
-
-                          <p className="mt-1 text-slate-600">
-                            {item.descricao}
-                            {rotuloDaParcela(item)}
-                          </p>
-
-                          <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
-                            <dt className="text-xs tracking-wide text-slate-400 uppercase">Competência</dt>
-                            <dd className="text-slate-700">
-                              {formatarCompetencia(item.competenciaAno, item.competenciaMes)}
-                            </dd>
-
-                            <dt className="text-xs tracking-wide text-slate-400 uppercase">Vence</dt>
-                            <dd className={`numeros-tabulares ${corDoVencimento(item, hoje)}`}>
-                              {formatarData(item.vencimento)}
-                            </dd>
-
-                            <dt className="text-xs tracking-wide text-slate-400 uppercase">Valor</dt>
-                            <dd className="numeros-tabulares font-medium text-slate-800">
-                              {formatarValor(item.valor)}
-                              {/* != null cobre nulo e ausente: o contrato admite os dois. */}
-                              {item.valorPago != null && item.valorPago !== item.valor && (
-                                <span className="block font-normal text-emerald-700">
-                                  recebido {formatarValor(item.valorPago)}
-                                </span>
-                              )}
-                            </dd>
-
-                            {item.pagoEm && (
-                              <>
-                                <dt className="text-xs tracking-wide text-slate-400 uppercase">Baixado</dt>
-                                <dd className="numeros-tabulares text-slate-700">{detalheDaBaixa(item)}</dd>
-                              </>
-                            )}
-
-                            {item.motivoDoCancelamento && (
-                              <>
-                                <dt className="text-xs tracking-wide text-slate-400 uppercase">Motivo</dt>
-                                <dd className="min-w-0 text-slate-600">{item.motivoDoCancelamento}</dd>
-                              </>
-                            )}
-                          </dl>
-                        </div>
-                      </div>
-
-                      <div className="mt-3 border-t border-borda pt-3">{acoes(item)}</div>
-                    </article>
-                  </li>
-                );
-              })}
-            </ul>
-
-            <div className="hidden overflow-x-auto rounded-[--radius-cartao] border border-borda bg-superficie shadow-nivel-1 md:block">
-              <table className="w-full min-w-3xl border-collapse text-left">
-                <thead>
-                  <tr className="border-b border-borda bg-slate-50/60 text-xs tracking-wide text-slate-500 uppercase">
-                    <th scope="col" className="w-10 px-4 py-3">
-                      <input
-                        type="checkbox"
-                        checked={todasMarcadas}
-                        ref={(caixa) => {
-                          if (caixa) caixa.indeterminate = algumaMarcada && !todasMarcadas;
-                        }}
-                        disabled={selecionaveis.length === 0}
-                        onChange={() => selecao.trocarTodas(selecionaveis.map((item) => item.id))}
-                        aria-label="Selecionar os lançamentos em aberto desta página"
-                        className="size-4 rounded border-borda-forte accent-marca-600"
-                      />
-                    </th>
-                    <CabecalhoOrdenavel titulo="Cliente" por="Pessoa" ordem={ordem} aoOrdenar={ordenarPor} />
-                    <CabecalhoOrdenavel
-                      titulo="Competência"
-                      por="Competencia"
-                      ordem={ordem}
-                      aoOrdenar={ordenarPor}
-                    />
-                    <CabecalhoOrdenavel
-                      titulo="Vencimento"
-                      por="Vencimento"
-                      ordem={ordem}
-                      aoOrdenar={ordenarPor}
-                    />
-                    <CabecalhoOrdenavel
-                      titulo="Valor"
-                      alinhamento="direita"
-                      por="Valor"
-                      ordem={ordem}
-                      aoOrdenar={ordenarPor}
-                    />
-                    <CabecalhoOrdenavel titulo="Situação" ordem={ordem} aoOrdenar={ordenarPor} />
-                    <th scope="col" className="px-4 py-3 text-right font-semibold">
-                      <span className="sr-only">Ações</span>
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {itens.map((item) => {
-                    const marcada = selecao.marcadas.has(item.id);
-
-                    return (
-                      <tr
-                        key={item.id}
+                  return (
+                    <li key={item.id}>
+                      <article
                         className={
-                          "border-b border-borda align-top transition-colors last:border-0 " +
-                          (marcada ? "bg-marca-50" : "hover:bg-slate-50")
+                          "rounded-[--radius-cartao] border p-4 shadow-nivel-1 " +
+                          (marcada ? "border-marca-400 bg-marca-50" : "border-borda bg-superficie")
                         }
                       >
-                        <td className="px-4 py-3">
+                        <div className="flex items-start gap-3">
                           {item.situacao === "Aberto" && (
                             <input
                               type="checkbox"
                               checked={marcada}
                               onChange={() => selecao.alternar(item.id)}
                               aria-label={`Selecionar ${item.nomeDaPessoa}, ${item.descricao}`}
-                              className="size-4 rounded border-borda-forte accent-marca-600"
+                              className="mt-1 size-5 shrink-0 rounded border-borda-forte accent-marca-600"
                             />
                           )}
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className="numeros-tabulares text-slate-600">{item.codigoDaPessoa}</span>{" "}
-                          <span className="text-slate-800">{item.nomeDaPessoa}</span>
-                          <span className="block text-slate-600">
-                            {item.descricao}
-                            {rotuloDaParcela(item)}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-slate-700">
-                          {formatarCompetencia(item.competenciaAno, item.competenciaMes)}
-                        </td>
-                        <td className={`numeros-tabulares px-4 py-3 ${corDoVencimento(item, hoje)}`}>
-                          {formatarData(item.vencimento)}
-                        </td>
-                        <td className="numeros-tabulares px-4 py-3 text-right font-medium text-slate-800">
-                          {formatarValor(item.valor)}
-                          {/* != null cobre nulo e ausente: o contrato admite os dois. */}
-                          {item.valorPago != null && item.valorPago !== item.valor && (
-                            <span className="block text-emerald-700">
-                              recebido {formatarValor(item.valorPago)}
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3">
-                          <Tarja estado={estadoDe(item, hoje)} />
-                          {item.motivoDoCancelamento && (
-                            <span className="mt-1 block max-w-48 text-xs text-slate-600">
-                              {item.motivoDoCancelamento}
-                            </span>
-                          )}
-                          {item.pagoEm && (
-                            <span className="mt-1 block text-xs text-slate-600">{detalheDaBaixa(item)}</span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3 text-right">{acoes(item)}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
 
-            <Paginacao
-              pagina={resumo.pagina}
-              tamanho={resumo.tamanho}
-              total={resumo.total}
-              aoMudar={definirPagina}
-              substantivo={{ singular: "lançamento", plural: "lançamentos" }}
-            />
-          </>
-        )}
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="numeros-tabulares text-slate-600">{item.codigoDaPessoa}</span>
+                              <span className="font-semibold text-slate-800">{item.nomeDaPessoa}</span>
+                              <Tarja estado={estado} />
+                            </div>
 
-        <BarraDeSelecao
-          quantidade={selecao.quantidade}
-          substantivo={{ singular: "lançamento", plural: "lançamentos" }}
-          aoLimpar={selecao.limpar}
-        >
-          <Botao type="button" onClick={() => definirBaixandoEmLote(true)} className="px-3 py-1.5">
-            {selecao.quantidade === 1 ? "Baixar" : `Baixar ${selecao.quantidade}`}
-          </Botao>
-        </BarraDeSelecao>
+                            <p className="mt-1 text-slate-600">
+                              {item.descricao}
+                              {rotuloDaParcela(item)}
+                            </p>
+
+                            <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
+                              <dt className="text-xs tracking-wide text-slate-400 uppercase">Competência</dt>
+                              <dd className="text-slate-700">
+                                {formatarCompetencia(item.competenciaAno, item.competenciaMes)}
+                              </dd>
+
+                              <dt className="text-xs tracking-wide text-slate-400 uppercase">Vence</dt>
+                              <dd className={`numeros-tabulares ${corDoVencimento(item, hoje)}`}>
+                                {formatarData(item.vencimento)}
+                              </dd>
+
+                              <dt className="text-xs tracking-wide text-slate-400 uppercase">Valor</dt>
+                              <dd className="numeros-tabulares font-medium text-slate-800">
+                                {formatarValor(item.valor)}
+                                {/* != null cobre nulo e ausente: o contrato admite os dois. */}
+                                {item.valorPago != null && item.valorPago !== item.valor && (
+                                  <span className="block font-normal text-emerald-700">
+                                    {textos[item.natureza].baixadoNaFrase} {formatarValor(item.valorPago)}
+                                  </span>
+                                )}
+                              </dd>
+
+                              {item.pagoEm && (
+                                <>
+                                  <dt className="text-xs tracking-wide text-slate-400 uppercase">Baixado</dt>
+                                  <dd className="numeros-tabulares text-slate-700">{detalheDaBaixa(item)}</dd>
+                                </>
+                              )}
+
+                              {item.motivoDoCancelamento && (
+                                <>
+                                  <dt className="text-xs tracking-wide text-slate-400 uppercase">Motivo</dt>
+                                  <dd className="min-w-0 text-slate-600">{item.motivoDoCancelamento}</dd>
+                                </>
+                              )}
+                            </dl>
+                          </div>
+                        </div>
+
+                        <div className="mt-3 border-t border-borda pt-3">{acoes(item)}</div>
+                      </article>
+                    </li>
+                  );
+                })}
+              </ul>
+
+              <div className="hidden overflow-x-auto rounded-[--radius-cartao] border border-borda bg-superficie shadow-nivel-1 md:block">
+                <table className="w-full min-w-3xl border-collapse text-left">
+                  <thead>
+                    <tr className="border-b border-borda bg-slate-50/60 text-xs tracking-wide text-slate-500 uppercase">
+                      <th scope="col" className="w-10 px-4 py-3">
+                        <input
+                          type="checkbox"
+                          checked={todasMarcadas}
+                          ref={(caixa) => {
+                            if (caixa) caixa.indeterminate = algumaMarcada && !todasMarcadas;
+                          }}
+                          disabled={selecionaveis.length === 0}
+                          onChange={() => selecao.trocarTodas(selecionaveis.map((item) => item.id))}
+                          aria-label="Selecionar os lançamentos em aberto desta página"
+                          className="size-4 rounded border-borda-forte accent-marca-600"
+                        />
+                      </th>
+                      <CabecalhoOrdenavel titulo={texto.pessoa} por="Pessoa" ordem={ordem} aoOrdenar={ordenarPor} />
+                      <CabecalhoOrdenavel
+                        titulo="Competência"
+                        por="Competencia"
+                        ordem={ordem}
+                        aoOrdenar={ordenarPor}
+                      />
+                      <CabecalhoOrdenavel
+                        titulo="Vencimento"
+                        por="Vencimento"
+                        ordem={ordem}
+                        aoOrdenar={ordenarPor}
+                      />
+                      <CabecalhoOrdenavel
+                        titulo="Valor"
+                        alinhamento="direita"
+                        por="Valor"
+                        ordem={ordem}
+                        aoOrdenar={ordenarPor}
+                      />
+                      <CabecalhoOrdenavel titulo="Situação" ordem={ordem} aoOrdenar={ordenarPor} />
+                      <th scope="col" className="px-4 py-3 text-right font-semibold">
+                        <span className="sr-only">Ações</span>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {itens.map((item) => {
+                      const marcada = selecao.marcadas.has(item.id);
+
+                      return (
+                        <tr
+                          key={item.id}
+                          className={
+                            "border-b border-borda align-top transition-colors last:border-0 " +
+                            (marcada ? "bg-marca-50" : "hover:bg-slate-50")
+                          }
+                        >
+                          <td className="px-4 py-3">
+                            {item.situacao === "Aberto" && (
+                              <input
+                                type="checkbox"
+                                checked={marcada}
+                                onChange={() => selecao.alternar(item.id)}
+                                aria-label={`Selecionar ${item.nomeDaPessoa}, ${item.descricao}`}
+                                className="size-4 rounded border-borda-forte accent-marca-600"
+                              />
+                            )}
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className="numeros-tabulares text-slate-600">{item.codigoDaPessoa}</span>{" "}
+                            <span className="text-slate-800">{item.nomeDaPessoa}</span>
+                            <span className="block text-slate-600">
+                              {item.descricao}
+                              {rotuloDaParcela(item)}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-slate-700">
+                            {formatarCompetencia(item.competenciaAno, item.competenciaMes)}
+                          </td>
+                          <td className={`numeros-tabulares px-4 py-3 ${corDoVencimento(item, hoje)}`}>
+                            {formatarData(item.vencimento)}
+                          </td>
+                          <td className="numeros-tabulares px-4 py-3 text-right font-medium text-slate-800">
+                            {formatarValor(item.valor)}
+                            {/* != null cobre nulo e ausente: o contrato admite os dois. */}
+                            {item.valorPago != null && item.valorPago !== item.valor && (
+                              <span className="block text-emerald-700">
+                                {textos[item.natureza].baixadoNaFrase} {formatarValor(item.valorPago)}
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3">
+                            <Tarja estado={estadoDe(item, hoje)} />
+                            {item.motivoDoCancelamento && (
+                              <span className="mt-1 block max-w-48 text-xs text-slate-600">
+                                {item.motivoDoCancelamento}
+                              </span>
+                            )}
+                            {item.pagoEm && (
+                              <span className="mt-1 block text-xs text-slate-600">{detalheDaBaixa(item)}</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-right">{acoes(item)}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              <Paginacao
+                pagina={resumo.pagina}
+                tamanho={resumo.tamanho}
+                total={resumo.total}
+                aoMudar={definirPagina}
+                substantivo={{ singular: "lançamento", plural: "lançamentos" }}
+              />
+            </>
+          )}
+
+          <BarraDeSelecao
+            quantidade={selecao.quantidade}
+            substantivo={{ singular: "lançamento", plural: "lançamentos" }}
+            aoLimpar={selecao.limpar}
+          >
+            <Botao type="button" onClick={() => definirBaixandoEmLote(true)} className="px-3 py-1.5">
+              {selecao.quantidade === 1 ? "Baixar" : `Baixar ${selecao.quantidade}`}
+            </Botao>
+          </BarraDeSelecao>
+        </div>
       </div>
 
-      <GavetaDeLancamento aberta={lancando} aoFechar={() => definirLancando(false)} />
+      {/* A chave é a natureza: trocar de aba começa um lançamento do zero. */}
+      <GavetaDeLancamento key={natureza} natureza={natureza} aberta={lancando} aoFechar={() => definirLancando(false)} />
 
       <GavetaDeRenegociacao
         key={renegociando?.id ?? "nenhum"}
@@ -849,6 +962,7 @@ export default function ListagemDeLancamentos() {
       />
 
       <BaixaEmLote
+        natureza={natureza}
         selecionados={selecionados}
         aberta={baixandoEmLote}
         aoFechar={() => definirBaixandoEmLote(false)}

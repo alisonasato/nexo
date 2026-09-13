@@ -18,6 +18,7 @@ import {
 } from "@/lib/dinheiro";
 import { dividirEmParcelas, limitarParcelas, MAXIMO_DE_PARCELAS } from "@/lib/parcelas";
 
+type NaturezaLancamento = components["schemas"]["NaturezaLancamento"];
 type Problema = components["schemas"]["Problema"];
 
 function problemasDaResposta(erro: unknown): Problema[] {
@@ -27,13 +28,38 @@ function problemasDaResposta(erro: unknown): Problema[] {
   return [];
 }
 
-type Props = { aberta: boolean; aoFechar: () => void };
+/*
+ * O que muda entre lançar a receber e a pagar: quem está do outro lado, e as
+ * palavras. A lista oferece só quem a API aceita, cliente de um lado e
+ * fornecedor do outro, para a recusa não aparecer só depois do clique.
+ */
+const lados = {
+  Receber: {
+    titulo: "Novo lançamento a receber",
+    descricao: "Fora de contrato: declaração de IRPF, abertura de empresa, certidão.",
+    papel: "Cliente",
+    escolha: "Escolha um cliente…",
+    oQue: "O que está sendo cobrado.",
+  },
+  Pagar: {
+    titulo: "Novo lançamento a pagar",
+    descricao: "As contas do escritório: aluguel, licença de sistema, serviço de terceiros.",
+    papel: "Fornecedor",
+    escolha: "Escolha um fornecedor…",
+    oQue: "O que está sendo pago.",
+  },
+} as const;
 
 /**
- * Lançar a receber fora de contrato, inteiro ou em parcelas.
+ * Quem abre passa uma chave com a natureza: trocar de aba começa um lançamento
+ * do zero, e um cliente escolhido antes não segue adiante como fornecedor.
+ */
+type Props = { natureza: NaturezaLancamento; aberta: boolean; aoFechar: () => void };
+
+/**
+ * Lançar fora de contrato, inteiro ou em parcelas, a receber ou a pagar.
  *
  * <p>
- * Substitui o formulário de cobrança avulsa que ficava aberto no alto da tela.
  * Uma parcela só é o avulso de sempre; mais de uma divide o valor em parcelas
  * mensais, e a lista das parcelas aparece enquanto se digita.
  * </p>
@@ -43,12 +69,13 @@ type Props = { aberta: boolean; aoFechar: () => void };
  * vezes continua sendo o trabalho de março.
  * </p>
  */
-export function GavetaDeLancamento({ aberta, aoFechar }: Props) {
+export function GavetaDeLancamento({ natureza, aberta, aoFechar }: Props) {
   const avisar = useAvisos();
   const clienteDeConsultas = useQueryClient();
   const competencia = competenciaAtual();
+  const lado = lados[natureza];
 
-  const [cliente, definirCliente] = useState("");
+  const [pessoa, definirPessoa] = useState("");
   const [descricao, definirDescricao] = useState("");
   const [digitos, definirDigitos] = useState("");
   const [parcelas, definirParcelas] = useState(1);
@@ -57,16 +84,14 @@ export function GavetaDeLancamento({ aberta, aoFechar }: Props) {
   const [mes, definirMes] = useState(competencia.mes);
   const [problemas, definirProblemas] = useState<Problema[]>([]);
 
-  /* Só quem carrega o papel de cliente: cobrar um fornecedor por engano de
-     escolha na lista é erro que só aparece na hora de receber. */
-  const clientes = useQuery({
-    queryKey: ["pessoas", "clientes"],
+  const pessoas = useQuery({
+    queryKey: ["pessoas", lado.papel],
     enabled: aberta,
     queryFn: async () => {
       const { data, error } = await api.GET("/pessoas", {
-        params: { query: { papel: "Cliente", tamanho: 200 } },
+        params: { query: { papel: lado.papel, tamanho: 200 } },
       });
-      if (error || !data) throw new Error("Não foi possível carregar os clientes.");
+      if (error || !data) throw new Error("Não foi possível carregar a lista de pessoas.");
       return data.itens;
     },
   });
@@ -75,7 +100,7 @@ export function GavetaDeLancamento({ aberta, aoFechar }: Props) {
   const previa = dividirEmParcelas(centavos, parcelas, primeiroVencimento);
 
   function limpar() {
-    definirCliente("");
+    definirPessoa("");
     definirDescricao("");
     definirDigitos("");
     definirParcelas(1);
@@ -87,8 +112,8 @@ export function GavetaDeLancamento({ aberta, aoFechar }: Props) {
     mutationFn: async () => {
       const { data, error } = await api.POST("/lancamentos/parcelamentos", {
         body: {
-          natureza: "Receber",
-          pessoaId: cliente,
+          natureza,
+          pessoaId: pessoa,
           descricao,
           valorTotal: centavos / 100,
           parcelas,
@@ -119,8 +144,8 @@ export function GavetaDeLancamento({ aberta, aoFechar }: Props) {
 
   return (
     <Gaveta
-      titulo="Novo lançamento"
-      descricao="A receber, fora de contrato: declaração de IRPF, abertura de empresa, certidão."
+      titulo={lado.titulo}
+      descricao={lado.descricao}
       aberta={aberta}
       aoFechar={aoFechar}
       rodape={
@@ -131,7 +156,7 @@ export function GavetaDeLancamento({ aberta, aoFechar }: Props) {
           <Botao
             type="submit"
             form="formulario-de-lancamento"
-            disabled={lancar.isPending || !cliente || descricao.trim().length === 0 || previa.length === 0}
+            disabled={lancar.isPending || !pessoa || descricao.trim().length === 0 || previa.length === 0}
           >
             {lancar.isPending ? "Lançando…" : parcelas > 1 ? `Lançar ${parcelas} parcelas` : "Lançar"}
           </Botao>
@@ -155,13 +180,13 @@ export function GavetaDeLancamento({ aberta, aoFechar }: Props) {
         )}
 
         <Selecao
-          rotulo="Cliente"
+          rotulo={lado.papel}
           required
-          value={cliente}
-          onChange={(evento) => definirCliente(evento.target.value)}
+          value={pessoa}
+          onChange={(evento) => definirPessoa(evento.target.value)}
         >
-          <option value="">{clientes.isPending ? "Carregando…" : "Escolha um cliente…"}</option>
-          {clientes.data?.map((item) => (
+          <option value="">{pessoas.isPending ? "Carregando…" : lado.escolha}</option>
+          {pessoas.data?.map((item) => (
             <option key={item.id} value={item.id}>
               {item.codigo} · {item.nomeFantasia || item.nome}
             </option>
@@ -173,7 +198,7 @@ export function GavetaDeLancamento({ aberta, aoFechar }: Props) {
           required
           value={descricao}
           onChange={(evento) => definirDescricao(evento.target.value)}
-          ajuda="O que está sendo cobrado."
+          ajuda={lado.oQue}
         />
 
         <div className="grid grid-cols-2 gap-4">
