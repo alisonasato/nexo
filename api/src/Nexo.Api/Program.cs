@@ -470,7 +470,7 @@ app.MapAcesso();
 app.MapEmpresas();
 app.MapPessoas();
 app.MapContratos();
-app.MapRecebiveis();
+app.MapLancamentos();
 app.MapCobrancas();
 app.MapOperacoesFinanceiras();
 app.MapConsultas();

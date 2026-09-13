@@ -342,22 +342,22 @@ public static class Pessoas
          * para somar aqui daria o mesmo número hoje e o número errado no dia em
          * que alguém paginasse — é a mesma regra que vale para os totais da tela.
          */
-        var abertas = await banco.Recebiveis
-            .Where(recebivel => recebivel.PessoaId == pessoa.Id
-                && recebivel.Situacao == SituacaoRecebivel.Aberto)
-            .GroupBy(recebivel => 1)
+        var abertas = await banco.Lancamentos
+            .Where(lancamento => lancamento.PessoaId == pessoa.Id
+                && lancamento.Situacao == SituacaoLancamento.Aberto)
+            .GroupBy(lancamento => 1)
             .Select(grupo => new { Quantidade = grupo.Count(), Total = grupo.Sum(r => r.Valor) })
             .FirstOrDefaultAsync(cancelamento);
 
         if (abertas is { Quantidade: 1 })
         {
-            problemas.Add(new Problema("recebiveis", TitulosDeProblema.Vinculo,
+            problemas.Add(new Problema("lancamentos", TitulosDeProblema.Vinculo,
                 $"“{pessoa.Nome}” tem uma cobrança em aberto, de {EmReais(abertas.Total)}.",
                 "Dê baixa ou cancele a cobrança antes de inativar o cadastro."));
         }
         else if (abertas is { Quantidade: > 1 })
         {
-            problemas.Add(new Problema("recebiveis", TitulosDeProblema.Vinculo,
+            problemas.Add(new Problema("lancamentos", TitulosDeProblema.Vinculo,
                 $"“{pessoa.Nome}” tem {abertas.Quantidade} cobranças em aberto, somando {EmReais(abertas.Total)}.",
                 "Dê baixa ou cancele as cobranças antes de inativar o cadastro."));
         }

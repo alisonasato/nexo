@@ -36,9 +36,9 @@ import { AvisoDeDivergencias } from "./divergencias";
 import { GavetaDeLancamento } from "./gaveta-de-lancamento";
 import { GavetaDeRenegociacao } from "./gaveta-de-renegociacao";
 
-type SituacaoRecebivel = components["schemas"]["SituacaoRecebivel"];
-type RecebivelNaLista = components["schemas"]["RecebivelNaLista"];
-type OrdemDeRecebiveis = components["schemas"]["OrdemDeRecebiveis"];
+type SituacaoLancamento = components["schemas"]["SituacaoLancamento"];
+type LancamentoNaLista = components["schemas"]["LancamentoNaLista"];
+type OrdemDeLancamentos = components["schemas"]["OrdemDeLancamentos"];
 type Problema = components["schemas"]["Problema"];
 
 /**
@@ -71,7 +71,7 @@ type Estado = { rotulo: string; classe: string };
  * vencer. A cor ajuda a varrer a lista, mas quem não distingue vermelho de
  * verde lê a palavra, e a palavra está sempre lá.
  */
-function estadoDe(item: RecebivelNaLista, hoje: string): Estado {
+function estadoDe(item: LancamentoNaLista, hoje: string): Estado {
   switch (item.situacao) {
     case "Pago":
       return { rotulo: "Pago", classe: "bg-emerald-50 text-emerald-800" };
@@ -86,7 +86,7 @@ function estadoDe(item: RecebivelNaLista, hoje: string): Estado {
   return { rotulo: "A vencer", classe: "bg-slate-100 text-slate-600" };
 }
 
-function corDoVencimento(item: RecebivelNaLista, hoje: string): string {
+function corDoVencimento(item: LancamentoNaLista, hoje: string): string {
   if (item.situacao !== "Aberto") return "text-slate-700";
   if (item.vencimento < hoje) return "font-semibold text-red-700";
   if (item.vencimento === hoje) return "font-semibold text-amber-700";
@@ -102,7 +102,7 @@ function Tarja({ estado }: { estado: Estado }) {
 }
 
 /** "parcela 2 de 3", ou a marca de que veio de um acordo. Vazio para o comum. */
-function rotuloDaParcela(item: RecebivelNaLista): string {
+function rotuloDaParcela(item: LancamentoNaLista): string {
   if (item.parcelaNumero && item.parcelasTotal) {
     return ` · parcela ${item.parcelaNumero} de ${item.parcelasTotal}`;
   }
@@ -131,13 +131,13 @@ export default function ListagemDeLancamentos() {
    */
   const { ler, gravar, estabilizada } = useConsultaDaUrl("/lancamentos");
 
-  const situacao = (ler("situacao") ?? "") as SituacaoRecebivel | "";
+  const situacao = (ler("situacao") ?? "") as SituacaoLancamento | "";
   const pagina = Math.max(1, Number(ler("pagina")) || 1);
   const busca = ler("busca") ?? "";
   const vencimentoDe = ler("vencimentoDe") ?? "";
   const vencimentoAte = ler("vencimentoAte") ?? "";
 
-  const { ordenarPor, ...ordem } = useOrdenacao<OrdemDeRecebiveis>({ ler, gravar }, "Vencimento");
+  const { ordenarPor, ...ordem } = useOrdenacao<OrdemDeLancamentos>({ ler, gravar }, "Vencimento");
 
   /* Nulo enquanto ninguém digitou: o campo mostra o que a URL disser. */
   const [rascunho, definirRascunho] = useState<string | null>(null);
@@ -154,7 +154,7 @@ export default function ListagemDeLancamentos() {
 
   /* As gavetas. */
   const [lancando, definirLancando] = useState(false);
-  const [renegociando, definirRenegociando] = useState<RecebivelNaLista | null>(null);
+  const [renegociando, definirRenegociando] = useState<LancamentoNaLista | null>(null);
   const [baixandoEmLote, definirBaixandoEmLote] = useState(false);
 
   /* Os formulários que abrem dentro da própria linha. */
@@ -168,9 +168,9 @@ export default function ListagemDeLancamentos() {
   const consulta = { situacao, pagina, ordem, busca, vencimentoDe, vencimentoAte };
 
   const lancamentos = useQuery({
-    queryKey: ["recebiveis", consulta],
+    queryKey: ["lancamentos", consulta],
     queryFn: async () => {
-      const { data, error } = await api.GET("/recebiveis", {
+      const { data, error } = await api.GET("/lancamentos", {
         params: {
           query: {
             pagina,
@@ -195,13 +195,13 @@ export default function ListagemDeLancamentos() {
   const selecao = useSelecaoPorConsulta(JSON.stringify(consulta));
 
   const invalidar = () => {
-    clienteDeConsultas.invalidateQueries({ queryKey: ["recebiveis"] });
+    clienteDeConsultas.invalidateQueries({ queryKey: ["lancamentos"] });
     clienteDeConsultas.invalidateQueries({ queryKey: ["divergencias"] });
   };
 
   const baixar = useMutation({
     mutationFn: async (id: string) => {
-      const { data, error } = await api.POST("/recebiveis/{id}/baixar", {
+      const { data, error } = await api.POST("/lancamentos/{id}/baixar", {
         params: { path: { id } },
         body: { valorPago: valorDosDigitos(valorDigitado), pagoEm: dataDaBaixa },
       });
@@ -218,7 +218,7 @@ export default function ListagemDeLancamentos() {
 
   const cancelar = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await api.POST("/recebiveis/{id}/cancelar", {
+      const { error } = await api.POST("/lancamentos/{id}/cancelar", {
         params: { path: { id } },
         body: { motivo },
       });
@@ -235,7 +235,7 @@ export default function ListagemDeLancamentos() {
 
   const estornar = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await api.POST("/recebiveis/{id}/estornar", {
+      const { error } = await api.POST("/lancamentos/{id}/estornar", {
         params: { path: { id } },
       });
       if (error) throw new Error("Não foi possível estornar.");
@@ -246,7 +246,7 @@ export default function ListagemDeLancamentos() {
 
   const cobrar = useMutation({
     mutationFn: async (id: string) => {
-      const { data, error } = await api.POST("/recebiveis/{id}/cobrar", {
+      const { data, error } = await api.POST("/lancamentos/{id}/cobrar", {
         params: { path: { id } },
       });
       if (error) throw error;
@@ -296,7 +296,7 @@ export default function ListagemDeLancamentos() {
    * digitado. Passar tudo isso para fora seria uma lista de propriedades maior
    * que o componente.
    */
-  function acoes(item: RecebivelNaLista) {
+  function acoes(item: LancamentoNaLista) {
     /* Cancelado e renegociado já não se movem: nas parcelas novas é que se age. */
     if (item.situacao === "Cancelado" || item.situacao === "Renegociado") {
       return <span className="text-xs text-slate-400">—</span>;
@@ -490,7 +490,7 @@ export default function ListagemDeLancamentos() {
     );
   }
 
-  function detalheDaBaixa(item: RecebivelNaLista) {
+  function detalheDaBaixa(item: LancamentoNaLista) {
     if (!item.pagoEm) return null;
     const origem = origens[item.origemDaBaixa];
     return `${formatarData(item.pagoEm)}${origem ? ` · ${origem}` : ""}`;

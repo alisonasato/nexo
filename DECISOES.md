@@ -471,6 +471,35 @@ bate com o extrato.
 usa. A tela antiga tirava hoje de `toISOString`, que é UTC: das 21h à
 meia-noite, no Brasil, o que vencia hoje aparecia como vencido.
 
+## Uma tabela de lançamentos, com natureza
+
+A fase 2 do [FINANCEIRO.md](FINANCEIRO.md) pedia a escolha entre uma tabela
+única de lançamentos, com natureza, e duas tabelas irmãs. Ficou a tabela única:
+`recebiveis` vira `lancamentos`, e a natureza, a receber ou a pagar, entra como
+coluna.
+
+O que decidiu foi olhar o que já existe. Baixa, baixa em lote, estorno,
+cancelamento, parcelamento e renegociação são as mesmas regras nas duas
+naturezas, e cada uma custou uma trava: a situação como trava de concorrência,
+o índice único do acordo, a sobra de centavos na primeira parcela. Duas tabelas
+irmãs pediriam cada trava escrita duas vezes, e a fase 3 ainda ligaria os
+movimentos de conta às duas e montaria o fluxo de caixa por união. É a segunda
+repetição que a decisão Q20 manda esperar, e ela chegou.
+
+O que só existe a receber continua só a receber: contrato, mensalidade e
+cobrança pelo PSP. Num lançamento a pagar essas colunas ficam vazias, e as rotas
+que dependem delas recusam a outra natureza.
+
+A renomeação é uma migração escrita à mão. Vendo classe e tabela com nomes
+novos, o EF gerou apagar `recebiveis` e criar `lancamentos`, o que em produção
+apagaria todo o dinheiro a receber. A migração renomeia tabela, chaves, índices
+e a política de isolamento, e um teste passou a conferir que todo nome do modelo
+existe no banco: um nome esquecido numa renomeação não estoura no dia, estoura
+meses depois, na subida de uma migração gerada.
+
+Sai em três PRs: a renomeação, sem mudar comportamento; a natureza a pagar na
+API; e as abas A receber e A pagar na tela.
+
 ## Ordem de execução
 
 1. ~~Repositório e contrato~~ — feito.

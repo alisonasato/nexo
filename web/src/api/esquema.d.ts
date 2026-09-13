@@ -205,6 +205,184 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/lancamentos/{id}/cobrar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Emite boleto e Pix para um lançamento
+         * @description Cria a cobrança no PSP e guarda o link onde o cliente escolhe entre boleto e Pix. Recusa cobrar duas vezes o mesmo lançamento: a segunda emissão não substituiria a primeira, e o cliente receberia dois boletos.
+         */
+        post: operations["CobrarLancamento"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/cobrancas/divergencias": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Pagamentos do PSP que não puderam ser aplicados
+         * @description Os avisos de pagamento que chegaram para lançamentos que já não estavam em aberto. Decidir entre devolver o valor e reabrir o título é trabalho de gente.
+         */
+        get: operations["ListarDivergenciasDeCobranca"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/lancamentos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Lista os lançamentos */
+        get: operations["ListarLancamentos"];
+        put?: never;
+        /**
+         * Lança uma cobrança fora de contrato
+         * @description Para o que o escritório faz e não é mensalidade: declaração de imposto de renda, abertura de empresa, certidão. Fica sem contrato por trás.
+         */
+        post: operations["CriarLancamentoAvulso"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/lancamentos/{id}/baixar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Registra o recebimento */
+        post: operations["BaixarLancamento"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/lancamentos/{id}/cancelar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancela um lançamento em aberto
+         * @description Libera a competência para ser gerada de novo, sem apagar o histórico do que foi cancelado.
+         */
+        post: operations["CancelarLancamento"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/lancamentos/{id}/estornar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Desfaz a baixa
+         * @description Existe porque baixa errada acontece, e sem estorno a correção viraria um segundo registro inventado.
+         */
+        post: operations["EstornarLancamento"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/lancamentos/parcelamentos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Lança um valor dividido em parcelas mensais
+         * @description Os centavos que sobram da divisão vão para a primeira parcela, e cada vencimento parte da primeira data. Com uma parcela só, é um lançamento avulso comum.
+         */
+        post: operations["ParcelarLancamento"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/lancamentos/{id}/renegociar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Troca um título em aberto por parcelas novas
+         * @description O título original vira renegociado e continua ocupando a competência; as parcelas novas apontam para ele. Juros e multa acrescentam, desconto abate.
+         */
+        post: operations["RenegociarLancamento"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/lancamentos/baixar-em-lote": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Registra o recebimento de vários lançamentos de uma vez
+         * @description Cada lançamento é baixado ou recusado por conta própria: um já pago não impede os outros. O valor recebido é o valor cobrado.
+         */
+        post: operations["BaixarLancamentosEmLote"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/pessoas": {
         parameters: {
             query?: never;
@@ -259,184 +437,6 @@ export interface paths {
          * @description Existe como endereço próprio, e não como um PUT com ativo=true, porque o PUT reescreve o cadastro inteiro: a tela precisaria mandar de volta campos que ela não tem em mãos, e apagaria o que não conhece.
          */
         post: operations["ReativarPessoa"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/recebiveis/{id}/cobrar": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Emite boleto e Pix para um recebível
-         * @description Cria a cobrança no PSP e guarda o link onde o cliente escolhe entre boleto e Pix. Recusa cobrar duas vezes o mesmo recebível: a segunda emissão não substituiria a primeira, e o cliente receberia dois boletos.
-         */
-        post: operations["CobrarRecebivel"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/cobrancas/divergencias": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Pagamentos do PSP que não puderam ser aplicados
-         * @description Os avisos de pagamento que chegaram para recebíveis que já não estavam em aberto. Decidir entre devolver o valor e reabrir o título é trabalho de gente.
-         */
-        get: operations["ListarDivergenciasDeCobranca"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/recebiveis": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Lista os recebíveis */
-        get: operations["ListarRecebiveis"];
-        put?: never;
-        /**
-         * Lança uma cobrança fora de contrato
-         * @description Para o que o escritório faz e não é mensalidade: declaração de imposto de renda, abertura de empresa, certidão. Fica sem contrato por trás.
-         */
-        post: operations["CriarRecebivelAvulso"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/recebiveis/{id}/baixar": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Registra o recebimento */
-        post: operations["BaixarRecebivel"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/recebiveis/{id}/cancelar": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Cancela um recebível em aberto
-         * @description Libera a competência para ser gerada de novo, sem apagar o histórico do que foi cancelado.
-         */
-        post: operations["CancelarRecebivel"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/recebiveis/{id}/estornar": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Desfaz a baixa
-         * @description Existe porque baixa errada acontece, e sem estorno a correção viraria um segundo registro inventado.
-         */
-        post: operations["EstornarRecebivel"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/recebiveis/parcelamentos": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Lança um valor dividido em parcelas mensais
-         * @description Os centavos que sobram da divisão vão para a primeira parcela, e cada vencimento parte da primeira data. Com uma parcela só, é um lançamento avulso comum.
-         */
-        post: operations["ParcelarRecebivel"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/recebiveis/{id}/renegociar": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Troca um título em aberto por parcelas novas
-         * @description O título original vira renegociado e continua ocupando a competência; as parcelas novas apontam para ele. Juros e multa acrescentam, desconto abate.
-         */
-        post: operations["RenegociarRecebivel"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/recebiveis/baixar-em-lote": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Registra o recebimento de vários recebíveis de uma vez
-         * @description Cada recebível é baixado ou recusado por conta própria: um já pago não impede os outros. O valor recebido é o valor cobrado.
-         */
-        post: operations["BaixarRecebiveisEmLote"];
         delete?: never;
         options?: never;
         head?: never;
@@ -611,7 +611,7 @@ export interface components {
         DivergenciaDeCobranca: {
             eventoId: string;
             /** Format: uuid */
-            recebivelId?: string | null;
+            lancamentoId?: string | null;
             tipo: string;
             divergencia: string;
             /** Format: date-time */
@@ -652,12 +652,48 @@ export interface components {
         FalhaDeEntrada: {
             mensagem: string;
         };
+        LancamentoCobrado: {
+            /** Format: uuid */
+            id: string;
+            cobrancaId: string;
+            cobrancaUrl: string;
+        };
+        LancamentoNaLista: {
+            /** Format: uuid */
+            id: string;
+            codigoDaPessoa: string;
+            nomeDaPessoa: string;
+            descricao: string;
+            /** Format: int32 */
+            competenciaAno: number;
+            /** Format: int32 */
+            competenciaMes: number;
+            /** Format: double */
+            valor: number;
+            /** Format: date */
+            vencimento: string;
+            /** @enum {string} */
+            situacao: "Aberto" | "Pago" | "Cancelado" | "Renegociado";
+            /** Format: double */
+            valorPago?: number | null;
+            /** Format: date */
+            pagoEm?: string | null;
+            origemDaBaixa: string;
+            motivoDoCancelamento: string;
+            /** Format: int32 */
+            parcelaNumero?: number | null;
+            /** Format: int32 */
+            parcelasTotal?: number | null;
+            /** Format: uuid */
+            renegociadoDeId?: string | null;
+            cobrancaUrl: string;
+        };
         /** @enum {string} */
         OrdemDeContratos: "Codigo" | "Cliente" | "Valor" | "Vencimento";
         /** @enum {string} */
-        OrdemDePessoas: "Nome" | "Codigo";
+        OrdemDeLancamentos: "Vencimento" | "Cliente" | "Competencia" | "Valor";
         /** @enum {string} */
-        OrdemDeRecebiveis: "Vencimento" | "Cliente" | "Competencia" | "Valor";
+        OrdemDePessoas: "Nome" | "Codigo";
         PaginaDeContratos: {
             itens: components["schemas"]["ContratoNaLista"][];
             /** Format: int32 */
@@ -669,17 +705,8 @@ export interface components {
             /** Format: double */
             totalMensalAtivo: number;
         };
-        PaginaDePessoas: {
-            itens: components["schemas"]["PessoaNaLista"][];
-            /** Format: int32 */
-            total: number;
-            /** Format: int32 */
-            pagina: number;
-            /** Format: int32 */
-            tamanho: number;
-        };
-        PaginaDeRecebiveis: {
-            itens: components["schemas"]["RecebivelNaLista"][];
+        PaginaDeLancamentos: {
+            itens: components["schemas"]["LancamentoNaLista"][];
             /** Format: int32 */
             total: number;
             /** Format: int32 */
@@ -693,12 +720,21 @@ export interface components {
             /** Format: double */
             totalRecebido: number;
         };
+        PaginaDePessoas: {
+            itens: components["schemas"]["PessoaNaLista"][];
+            /** Format: int32 */
+            total: number;
+            /** Format: int32 */
+            pagina: number;
+            /** Format: int32 */
+            tamanho: number;
+        };
         /** @enum {string} */
         Papel: "Cliente" | "Fornecedor" | "Vendedor" | "Colaborador";
         ParcelamentoCriado: {
             /** Format: uuid */
             parcelamentoId?: string | null;
-            parcelas: components["schemas"]["RecebivelNaLista"][];
+            parcelas: components["schemas"]["LancamentoNaLista"][];
         };
         PedidoDeEntrada: {
             email: string;
@@ -761,42 +797,6 @@ export interface components {
             descricao: string;
             sugestao: string;
         };
-        RecebivelCobrado: {
-            /** Format: uuid */
-            id: string;
-            cobrancaId: string;
-            cobrancaUrl: string;
-        };
-        RecebivelNaLista: {
-            /** Format: uuid */
-            id: string;
-            codigoDaPessoa: string;
-            nomeDaPessoa: string;
-            descricao: string;
-            /** Format: int32 */
-            competenciaAno: number;
-            /** Format: int32 */
-            competenciaMes: number;
-            /** Format: double */
-            valor: number;
-            /** Format: date */
-            vencimento: string;
-            /** @enum {string} */
-            situacao: "Aberto" | "Pago" | "Cancelado" | "Renegociado";
-            /** Format: double */
-            valorPago?: number | null;
-            /** Format: date */
-            pagoEm?: string | null;
-            origemDaBaixa: string;
-            motivoDoCancelamento: string;
-            /** Format: int32 */
-            parcelaNumero?: number | null;
-            /** Format: int32 */
-            parcelasTotal?: number | null;
-            /** Format: uuid */
-            renegociadoDeId?: string | null;
-            cobrancaUrl: string;
-        };
         RecusaNaBaixaEmLote: {
             /** Format: uuid */
             id: string;
@@ -809,7 +809,7 @@ export interface components {
             renegociacaoId: string;
             /** Format: uuid */
             origemId: string;
-            parcelas: components["schemas"]["RecebivelNaLista"][];
+            parcelas: components["schemas"]["LancamentoNaLista"][];
         };
         RespostaComProblemas: {
             problemas: components["schemas"]["Problema"][];
@@ -852,7 +852,7 @@ export interface components {
         /** @enum {string} */
         SituacaoContrato: "Ativo" | "Suspenso" | "Encerrado";
         /** @enum {string} */
-        SituacaoRecebivel: "Aberto" | "Pago" | "Cancelado" | "Renegociado";
+        SituacaoLancamento: "Aberto" | "Pago" | "Cancelado" | "Renegociado";
         /** @enum {string} */
         TipoPessoa: "Fisica" | "Juridica";
     };
@@ -1303,6 +1303,349 @@ export interface operations {
             };
         };
     };
+    CobrarLancamento: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LancamentoCobrado"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespostaComProblemas"];
+                };
+            };
+        };
+    };
+    ListarDivergenciasDeCobranca: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DivergenciaDeCobranca"][];
+                };
+            };
+        };
+    };
+    ListarLancamentos: {
+        parameters: {
+            query?: {
+                situacao?: components["schemas"]["SituacaoLancamento"];
+                ano?: number;
+                mes?: number;
+                busca?: string;
+                vencimentoDe?: string;
+                vencimentoAte?: string;
+                pagina?: number;
+                tamanho?: number;
+                ordenarPor?: "Vencimento" | "Cliente" | "Competencia" | "Valor";
+                direcao?: "Crescente" | "Decrescente";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginaDeLancamentos"];
+                };
+            };
+        };
+    };
+    CriarLancamentoAvulso: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DadosDoAvulso"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LancamentoNaLista"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespostaComProblemas"];
+                };
+            };
+        };
+    };
+    BaixarLancamento: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DadosDaBaixa"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LancamentoNaLista"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespostaComProblemas"];
+                };
+            };
+        };
+    };
+    CancelarLancamento: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DadosDoCancelamento"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LancamentoNaLista"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespostaComProblemas"];
+                };
+            };
+        };
+    };
+    EstornarLancamento: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LancamentoNaLista"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ParcelarLancamento: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DadosDoParcelamento"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ParcelamentoCriado"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespostaComProblemas"];
+                };
+            };
+        };
+    };
+    RenegociarLancamento: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DadosDaRenegociacao"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RenegociacaoCriada"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespostaComProblemas"];
+                };
+            };
+        };
+    };
+    BaixarLancamentosEmLote: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DadosDaBaixaEmLote"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResultadoDaBaixaEmLote"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespostaComProblemas"];
+                };
+            };
+        };
+    };
     ListarPessoas: {
         parameters: {
             query?: {
@@ -1495,349 +1838,6 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
-            };
-        };
-    };
-    CobrarRecebivel: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RecebivelCobrado"];
-                };
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unprocessable Content */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RespostaComProblemas"];
-                };
-            };
-        };
-    };
-    ListarDivergenciasDeCobranca: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DivergenciaDeCobranca"][];
-                };
-            };
-        };
-    };
-    ListarRecebiveis: {
-        parameters: {
-            query?: {
-                situacao?: components["schemas"]["SituacaoRecebivel"];
-                ano?: number;
-                mes?: number;
-                busca?: string;
-                vencimentoDe?: string;
-                vencimentoAte?: string;
-                pagina?: number;
-                tamanho?: number;
-                ordenarPor?: "Vencimento" | "Cliente" | "Competencia" | "Valor";
-                direcao?: "Crescente" | "Decrescente";
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PaginaDeRecebiveis"];
-                };
-            };
-        };
-    };
-    CriarRecebivelAvulso: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["DadosDoAvulso"];
-            };
-        };
-        responses: {
-            /** @description Created */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RecebivelNaLista"];
-                };
-            };
-            /** @description Unprocessable Content */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RespostaComProblemas"];
-                };
-            };
-        };
-    };
-    BaixarRecebivel: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["DadosDaBaixa"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RecebivelNaLista"];
-                };
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unprocessable Content */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RespostaComProblemas"];
-                };
-            };
-        };
-    };
-    CancelarRecebivel: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["DadosDoCancelamento"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RecebivelNaLista"];
-                };
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unprocessable Content */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RespostaComProblemas"];
-                };
-            };
-        };
-    };
-    EstornarRecebivel: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RecebivelNaLista"];
-                };
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    ParcelarRecebivel: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["DadosDoParcelamento"];
-            };
-        };
-        responses: {
-            /** @description Created */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ParcelamentoCriado"];
-                };
-            };
-            /** @description Unprocessable Content */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RespostaComProblemas"];
-                };
-            };
-        };
-    };
-    RenegociarRecebivel: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["DadosDaRenegociacao"];
-            };
-        };
-        responses: {
-            /** @description Created */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RenegociacaoCriada"];
-                };
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unprocessable Content */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RespostaComProblemas"];
-                };
-            };
-        };
-    };
-    BaixarRecebiveisEmLote: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["DadosDaBaixaEmLote"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ResultadoDaBaixaEmLote"];
-                };
-            };
-            /** @description Unprocessable Content */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RespostaComProblemas"];
-                };
             };
         };
     };

@@ -123,7 +123,7 @@ public class InativarPessoa(BancoDeTestes banco) : IDisposable
         Assert.Equal(HttpStatusCode.UnprocessableEntity, resposta.StatusCode);
 
         var problema = Assert.Single(await Problemas(resposta));
-        Assert.Equal("recebiveis", problema.Campo);
+        Assert.Equal("lancamentos", problema.Campo);
 
         /*
          * O valor em pt-BR é assertivo de propósito: se o contêiner subisse sem
@@ -159,7 +159,7 @@ public class InativarPessoa(BancoDeTestes banco) : IDisposable
             HttpStatusCode.UnprocessableEntity,
             (await http.DeleteAsync($"/pessoas/{pessoa}")).StatusCode);
 
-        var baixa = await http.PostAsJsonAsync($"/recebiveis/{cobranca}/baixar",
+        var baixa = await http.PostAsJsonAsync($"/lancamentos/{cobranca}/baixar",
             new DadosDaBaixa(400m, new DateOnly(2026, 3, 5)), Json);
         baixa.EnsureSuccessStatusCode();
 
@@ -227,10 +227,10 @@ public class InativarPessoa(BancoDeTestes banco) : IDisposable
 
     private static async Task<Guid> CriarAvulso(HttpClient http, Guid pessoa, decimal valor)
     {
-        var resposta = await http.PostAsJsonAsync("/recebiveis", new DadosDoAvulso(
+        var resposta = await http.PostAsJsonAsync("/lancamentos", new DadosDoAvulso(
             pessoa, "Serviço avulso", valor, new DateOnly(2026, 3, 10), 2026, 2), Json);
 
         resposta.EnsureSuccessStatusCode();
-        return (await resposta.Content.ReadFromJsonAsync<RecebivelNaLista>(Json))!.Id;
+        return (await resposta.Content.ReadFromJsonAsync<LancamentoNaLista>(Json))!.Id;
     }
 }

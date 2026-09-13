@@ -10,14 +10,14 @@ import { Botao, Entrada } from "@/componentes/controles";
 import { Gaveta } from "@/componentes/gaveta";
 import { formatarData, formatarValor, hojeIso } from "@/lib/dinheiro";
 
-type RecebivelNaLista = components["schemas"]["RecebivelNaLista"];
+type LancamentoNaLista = components["schemas"]["LancamentoNaLista"];
 
 /** "1 baixado" e "3 baixados": o número manda no particípio. */
 const concordar = (quantos: number, participio: string) =>
   `${quantos} ${participio}${quantos === 1 ? "" : "s"}`;
 
 type Props = {
-  selecionados: RecebivelNaLista[];
+  selecionados: LancamentoNaLista[];
   aberta: boolean;
   aoFechar: () => void;
   aoConcluir: () => void;
@@ -46,14 +46,14 @@ export function BaixaEmLote({ selecionados, aberta, aoFechar, aoConcluir }: Prop
 
   const baixar = useMutation({
     mutationFn: async () => {
-      const { data, error } = await api.POST("/recebiveis/baixar-em-lote", {
+      const { data, error } = await api.POST("/lancamentos/baixar-em-lote", {
         body: { ids: selecionados.map((item) => item.id), pagoEm },
       });
       if (error || !data) throw new Error("Não foi possível baixar a seleção.");
       return data;
     },
     onSuccess: (resultado) => {
-      clienteDeConsultas.invalidateQueries({ queryKey: ["recebiveis"] });
+      clienteDeConsultas.invalidateQueries({ queryKey: ["lancamentos"] });
       clienteDeConsultas.invalidateQueries({ queryKey: ["divergencias"] });
 
       const recusados = resultado.recusados.length;

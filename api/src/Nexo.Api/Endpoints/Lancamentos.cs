@@ -10,51 +10,51 @@ namespace Nexo.Api.Endpoints;
 /// <summary>
 /// O que o escritório tem a receber, e a baixa quando o dinheiro entra.
 /// </summary>
-public static class Recebiveis
+public static class Lancamentos
 {
-    public static IEndpointRouteBuilder MapRecebiveis(this IEndpointRouteBuilder rotas)
+    public static IEndpointRouteBuilder MapLancamentos(this IEndpointRouteBuilder rotas)
     {
-        var grupo = rotas.MapGroup("/recebiveis").WithTags("Recebíveis");
+        var grupo = rotas.MapGroup("/lancamentos").WithTags("Lançamentos");
 
         grupo.MapGet("/", Listar)
-            .WithName("ListarRecebiveis")
-            .WithSummary("Lista os recebíveis")
-            .Produces<PaginaDeRecebiveis>();
+            .WithName("ListarLancamentos")
+            .WithSummary("Lista os lançamentos")
+            .Produces<PaginaDeLancamentos>();
 
         grupo.MapPost("/", Criar)
-            .WithName("CriarRecebivelAvulso")
+            .WithName("CriarLancamentoAvulso")
             .WithSummary("Lança uma cobrança fora de contrato")
             .WithDescription("Para o que o escritório faz e não é mensalidade: declaração de imposto de renda, abertura de empresa, certidão. Fica sem contrato por trás.")
-            .Produces<RecebivelNaLista>(StatusCodes.Status201Created)
+            .Produces<LancamentoNaLista>(StatusCodes.Status201Created)
             .Produces<RespostaComProblemas>(StatusCodes.Status422UnprocessableEntity);
 
         grupo.MapPost("/{id:guid}/baixar", Baixar)
-            .WithName("BaixarRecebivel")
+            .WithName("BaixarLancamento")
             .WithSummary("Registra o recebimento")
-            .Produces<RecebivelNaLista>()
+            .Produces<LancamentoNaLista>()
             .Produces<RespostaComProblemas>(StatusCodes.Status422UnprocessableEntity)
             .Produces(StatusCodes.Status404NotFound);
 
         grupo.MapPost("/{id:guid}/cancelar", Cancelar)
-            .WithName("CancelarRecebivel")
-            .WithSummary("Cancela um recebível em aberto")
+            .WithName("CancelarLancamento")
+            .WithSummary("Cancela um lançamento em aberto")
             .WithDescription("Libera a competência para ser gerada de novo, sem apagar o histórico do que foi cancelado.")
-            .Produces<RecebivelNaLista>()
+            .Produces<LancamentoNaLista>()
             .Produces<RespostaComProblemas>(StatusCodes.Status422UnprocessableEntity)
             .Produces(StatusCodes.Status404NotFound);
 
         grupo.MapPost("/{id:guid}/estornar", Estornar)
-            .WithName("EstornarRecebivel")
+            .WithName("EstornarLancamento")
             .WithSummary("Desfaz a baixa")
             .WithDescription("Existe porque baixa errada acontece, e sem estorno a correção viraria um segundo registro inventado.")
-            .Produces<RecebivelNaLista>()
+            .Produces<LancamentoNaLista>()
             .Produces(StatusCodes.Status404NotFound);
 
         return rotas;
     }
 
     /// <summary>
-    /// Lista os recebíveis, paginados, com os totais do período.
+    /// Lista os lançamentos, paginados, com os totais do período.
     ///
     /// <para>
     /// <b>Os totais são somados no banco, sobre o conjunto inteiro — nunca
@@ -72,7 +72,7 @@ public static class Recebiveis
     private static async Task<IResult> Listar(
         NexoDbContext banco,
         CancellationToken cancelamento,
-        [FromQuery] SituacaoRecebivel? situacao = null,
+        [FromQuery] SituacaoLancamento? situacao = null,
         [FromQuery] int? ano = null,
         [FromQuery] int? mes = null,
         [FromQuery] string? busca = null,
@@ -80,14 +80,14 @@ public static class Recebiveis
         [FromQuery] DateOnly? vencimentoAte = null,
         [FromQuery] int pagina = 1,
         [FromQuery] int tamanho = 25,
-        [FromQuery] OrdemDeRecebiveis ordenarPor = OrdemDeRecebiveis.Vencimento,
+        [FromQuery] OrdemDeLancamentos ordenarPor = OrdemDeLancamentos.Vencimento,
         [FromQuery] Direcao direcao = Direcao.Crescente)
     {
         pagina = Math.Max(1, pagina);
         tamanho = Math.Clamp(tamanho, 1, 200);
 
         /* O período: o que os totais enxergam. */
-        var doPeriodo = banco.Recebiveis.AsNoTracking();
+        var doPeriodo = banco.Lancamentos.AsNoTracking();
         if (ano is { } a) doPeriodo = doPeriodo.Where(r => r.CompetenciaAno == a);
         if (mes is { } m) doPeriodo = doPeriodo.Where(r => r.CompetenciaMes == m);
 
@@ -117,12 +117,12 @@ public static class Recebiveis
         var total = await daLista.CountAsync(cancelamento);
 
         var hoje = DateOnly.FromDateTime(DateTime.Today);
-        var emAberto = doPeriodo.Where(r => r.Situacao == SituacaoRecebivel.Aberto);
+        var emAberto = doPeriodo.Where(r => r.Situacao == SituacaoLancamento.Aberto);
 
         /*
          * O molde `(decimal?)` não é enfeite: SUM de conjunto vazio devolve
          * NULL no SQL, e sem o tipo anulável o EF tenta encaixar isso num
-         * decimal e estoura. Mês sem nenhum recebível é o caso mais comum de
+         * decimal e estoura. Mês sem nenhum lançamento é o caso mais comum de
          * todos — é o mês que ainda não começou.
          */
         var totalEmAberto = await emAberto
@@ -131,33 +131,33 @@ public static class Recebiveis
         var totalVencido = await emAberto.Where(r => r.Vencimento < hoje)
             .Select(r => (decimal?)r.Valor).SumAsync(cancelamento) ?? 0m;
 
-        var totalRecebido = await doPeriodo.Where(r => r.Situacao == SituacaoRecebivel.Pago)
+        var totalRecebido = await doPeriodo.Where(r => r.Situacao == SituacaoLancamento.Pago)
             .Select(r => r.ValorPago).SumAsync(cancelamento) ?? 0m;
 
         var itens = await Ordenar(daLista, ordenarPor, direcao)
             .Skip((pagina - 1) * tamanho)
             .Take(tamanho)
-            .Select(recebivel => new RecebivelNaLista(
-                recebivel.Id,
-                recebivel.Pessoa!.Codigo,
-                recebivel.Pessoa!.Nome,
-                recebivel.Descricao,
-                recebivel.CompetenciaAno,
-                recebivel.CompetenciaMes,
-                recebivel.Valor,
-                recebivel.Vencimento,
-                recebivel.Situacao,
-                recebivel.ValorPago,
-                recebivel.PagoEm,
-                recebivel.OrigemDaBaixa,
-                recebivel.MotivoDoCancelamento,
-                recebivel.ParcelaNumero,
-                recebivel.ParcelasTotal,
-                recebivel.RenegociadoDeId,
-                recebivel.CobrancaUrl))
+            .Select(lancamento => new LancamentoNaLista(
+                lancamento.Id,
+                lancamento.Pessoa!.Codigo,
+                lancamento.Pessoa!.Nome,
+                lancamento.Descricao,
+                lancamento.CompetenciaAno,
+                lancamento.CompetenciaMes,
+                lancamento.Valor,
+                lancamento.Vencimento,
+                lancamento.Situacao,
+                lancamento.ValorPago,
+                lancamento.PagoEm,
+                lancamento.OrigemDaBaixa,
+                lancamento.MotivoDoCancelamento,
+                lancamento.ParcelaNumero,
+                lancamento.ParcelasTotal,
+                lancamento.RenegociadoDeId,
+                lancamento.CobrancaUrl))
             .ToListAsync(cancelamento);
 
-        return Results.Ok(new PaginaDeRecebiveis(
+        return Results.Ok(new PaginaDeLancamentos(
             itens, total, pagina, tamanho, totalEmAberto, totalVencido, totalRecebido));
     }
 
@@ -180,43 +180,43 @@ public static class Recebiveis
     /// mensalidade gerada de contrato sai idêntica para a carteira inteira.
     /// </para>
     /// </summary>
-    private static IOrderedQueryable<Recebivel> Ordenar(
-        IQueryable<Recebivel> consulta,
-        OrdemDeRecebiveis por,
+    private static IOrderedQueryable<Lancamento> Ordenar(
+        IQueryable<Lancamento> consulta,
+        OrdemDeLancamentos por,
         Direcao direcao)
     {
         var decrescente = direcao == Direcao.Decrescente;
 
-        IOrderedQueryable<Recebivel> ordenada = por switch
+        IOrderedQueryable<Lancamento> ordenada = por switch
         {
-            OrdemDeRecebiveis.Cliente => decrescente
-                ? consulta.OrderByDescending(recebivel => recebivel.Pessoa!.Nome)
-                : consulta.OrderBy(recebivel => recebivel.Pessoa!.Nome),
+            OrdemDeLancamentos.Cliente => decrescente
+                ? consulta.OrderByDescending(lancamento => lancamento.Pessoa!.Nome)
+                : consulta.OrderBy(lancamento => lancamento.Pessoa!.Nome),
 
-            OrdemDeRecebiveis.Valor => decrescente
-                ? consulta.OrderByDescending(recebivel => recebivel.Valor)
-                : consulta.OrderBy(recebivel => recebivel.Valor),
+            OrdemDeLancamentos.Valor => decrescente
+                ? consulta.OrderByDescending(lancamento => lancamento.Valor)
+                : consulta.OrderBy(lancamento => lancamento.Valor),
 
-            OrdemDeRecebiveis.Competencia => decrescente
-                ? consulta.OrderByDescending(recebivel => recebivel.CompetenciaAno)
-                    .ThenByDescending(recebivel => recebivel.CompetenciaMes)
-                : consulta.OrderBy(recebivel => recebivel.CompetenciaAno)
-                    .ThenBy(recebivel => recebivel.CompetenciaMes),
+            OrdemDeLancamentos.Competencia => decrescente
+                ? consulta.OrderByDescending(lancamento => lancamento.CompetenciaAno)
+                    .ThenByDescending(lancamento => lancamento.CompetenciaMes)
+                : consulta.OrderBy(lancamento => lancamento.CompetenciaAno)
+                    .ThenBy(lancamento => lancamento.CompetenciaMes),
 
             _ => decrescente
-                ? consulta.OrderByDescending(recebivel => recebivel.Vencimento)
-                    .ThenByDescending(recebivel => recebivel.Pessoa!.Codigo.Length)
-                    .ThenByDescending(recebivel => recebivel.Pessoa!.Codigo)
-                : consulta.OrderBy(recebivel => recebivel.Vencimento)
-                    .ThenBy(recebivel => recebivel.Pessoa!.Codigo.Length)
-                    .ThenBy(recebivel => recebivel.Pessoa!.Codigo),
+                ? consulta.OrderByDescending(lancamento => lancamento.Vencimento)
+                    .ThenByDescending(lancamento => lancamento.Pessoa!.Codigo.Length)
+                    .ThenByDescending(lancamento => lancamento.Pessoa!.Codigo)
+                : consulta.OrderBy(lancamento => lancamento.Vencimento)
+                    .ThenBy(lancamento => lancamento.Pessoa!.Codigo.Length)
+                    .ThenBy(lancamento => lancamento.Pessoa!.Codigo),
         };
 
-        return ordenada.ThenBy(recebivel => recebivel.Id);
+        return ordenada.ThenBy(lancamento => lancamento.Id);
     }
 
     /// <summary>
-    /// Lança um recebível sem contrato por trás.
+    /// Cria um lançamento sem contrato por trás.
     ///
     /// <para>
     /// <b>Vários avulsos podem dividir a mesma competência</b>, e isso não é
@@ -246,7 +246,7 @@ public static class Recebiveis
 
         var agora = DateTimeOffset.UtcNow;
 
-        var recebivel = new Recebivel
+        var lancamento = new Lancamento
         {
             Id = Guid.NewGuid(),
             TenantId = tenant,
@@ -257,17 +257,17 @@ public static class Recebiveis
             Descricao = dados.Descricao.Trim(),
             Valor = dados.Valor,
             Vencimento = dados.Vencimento,
-            Situacao = SituacaoRecebivel.Aberto,
+            Situacao = SituacaoLancamento.Aberto,
             CriadoEm = agora,
             AtualizadoEm = agora,
         };
 
-        banco.Recebiveis.Add(recebivel);
+        banco.Lancamentos.Add(lancamento);
         await banco.SaveChangesAsync(cancelamento);
 
-        await banco.Entry(recebivel).Reference(r => r.Pessoa).LoadAsync(cancelamento);
+        await banco.Entry(lancamento).Reference(r => r.Pessoa).LoadAsync(cancelamento);
 
-        return Results.Created($"/recebiveis/{recebivel.Id}", Detalhar(recebivel));
+        return Results.Created($"/lancamentos/{lancamento.Id}", Detalhar(lancamento));
     }
 
     internal static async Task<List<Problema>> Conferir(
@@ -346,13 +346,13 @@ public static class Recebiveis
         ILoggerFactory registros,
         CancellationToken cancelamento)
     {
-        var recebivel = await banco.Recebiveis
+        var lancamento = await banco.Lancamentos
             .Include(r => r.Pessoa)
             .FirstOrDefaultAsync(r => r.Id == id, cancelamento);
 
-        if (recebivel is null) return Results.NotFound();
+        if (lancamento is null) return Results.NotFound();
 
-        if (recebivel.Situacao == SituacaoRecebivel.Pago)
+        if (lancamento.Situacao == SituacaoLancamento.Pago)
         {
             /*
              * Recusar em vez de sobrescrever. Baixar duas vezes costuma ser
@@ -360,15 +360,15 @@ public static class Recebiveis
              * primeira baixa — que é exatamente o que alguém vai procurar
              * quando a conciliação não fechar.
              */
-            return Problema("id", "Recebível já baixado",
-                $"Este recebível foi baixado em {recebivel.PagoEm:dd/MM/yyyy}.",
+            return Problema("id", "Lançamento já baixado",
+                $"Este lançamento foi baixado em {lancamento.PagoEm:dd/MM/yyyy}.",
                 "Para corrigir o valor ou a data, estorne a baixa e registre de novo.");
         }
 
-        if (recebivel.Situacao == SituacaoRecebivel.Cancelado)
+        if (lancamento.Situacao == SituacaoLancamento.Cancelado)
         {
-            return Problema("id", "Recebível cancelado",
-                "Um recebível cancelado não pode ser baixado.",
+            return Problema("id", "Lançamento cancelado",
+                "Um lançamento cancelado não pode ser baixado.",
                 "Se a cobrança voltou a valer, gere-a novamente.");
         }
 
@@ -385,22 +385,22 @@ public static class Recebiveis
          * PSP não retira, nada é gravado aqui.
          */
         var naoRetirou = await Cobrancas.RetirarDoPsp(
-            recebivel, asaas, configuracao.Value, registros.CreateLogger("Cobranca"), cancelamento);
+            lancamento, asaas, configuracao.Value, registros.CreateLogger("Cobranca"), cancelamento);
         if (naoRetirou is not null) return naoRetirou;
 
-        recebivel.Situacao = SituacaoRecebivel.Pago;
-        recebivel.ValorPago = dados.ValorPago;
-        recebivel.PagoEm = dados.PagoEm ?? DateOnly.FromDateTime(DateTime.Today);
-        recebivel.OrigemDaBaixa = OrigensDeBaixa.Manual;
-        recebivel.AtualizadoEm = DateTimeOffset.UtcNow;
+        lancamento.Situacao = SituacaoLancamento.Pago;
+        lancamento.ValorPago = dados.ValorPago;
+        lancamento.PagoEm = dados.PagoEm ?? DateOnly.FromDateTime(DateTime.Today);
+        lancamento.OrigemDaBaixa = OrigensDeBaixa.Manual;
+        lancamento.AtualizadoEm = DateTimeOffset.UtcNow;
 
         if (await Gravar(banco, cancelamento) is { } conflito) return conflito;
 
-        return Results.Ok(Detalhar(recebivel));
+        return Results.Ok(Detalhar(lancamento));
     }
 
     /// <summary>
-    /// Cancela um recebível em aberto.
+    /// Cancela um lançamento em aberto.
     ///
     /// Cancelar libera a competência: o índice único ignora cancelados, então
     /// a mensalidade pode ser gerada de novo com o valor certo. É o caminho
@@ -416,28 +416,28 @@ public static class Recebiveis
         ILoggerFactory registros,
         CancellationToken cancelamento)
     {
-        var recebivel = await banco.Recebiveis
+        var lancamento = await banco.Lancamentos
             .Include(r => r.Pessoa)
             .FirstOrDefaultAsync(r => r.Id == id, cancelamento);
 
-        if (recebivel is null) return Results.NotFound();
+        if (lancamento is null) return Results.NotFound();
 
-        if (recebivel.Situacao == SituacaoRecebivel.Pago)
+        if (lancamento.Situacao == SituacaoLancamento.Pago)
         {
             /*
              * Cancelar o que já foi pago apagaria a entrada de dinheiro da
              * conta sem devolver nada a ninguém. Estornar primeiro obriga a
              * dizer o que aconteceu com o valor recebido.
              */
-            return Problema("id", "Recebível já baixado",
-                $"Este recebível foi baixado em {recebivel.PagoEm:dd/MM/yyyy}.",
+            return Problema("id", "Lançamento já baixado",
+                $"Este lançamento foi baixado em {lancamento.PagoEm:dd/MM/yyyy}.",
                 "Estorne a baixa antes de cancelar, para o valor recebido não sumir da conta.");
         }
 
-        if (recebivel.Situacao == SituacaoRecebivel.Cancelado)
+        if (lancamento.Situacao == SituacaoLancamento.Cancelado)
         {
-            return Problema("id", "Recebível já cancelado",
-                "Este recebível já estava cancelado.",
+            return Problema("id", "Lançamento já cancelado",
+                "Este lançamento já estava cancelado.",
                 "Para cobrar de novo, gere a mensalidade da competência.");
         }
 
@@ -456,27 +456,27 @@ public static class Recebiveis
          * nada é gravado aqui.
          */
         var naoRetirou = await Cobrancas.RetirarDoPsp(
-            recebivel, asaas, configuracao.Value, registros.CreateLogger("Cobranca"), cancelamento);
+            lancamento, asaas, configuracao.Value, registros.CreateLogger("Cobranca"), cancelamento);
         if (naoRetirou is not null) return naoRetirou;
 
-        recebivel.Situacao = SituacaoRecebivel.Cancelado;
-        recebivel.MotivoDoCancelamento = motivo;
-        recebivel.AtualizadoEm = DateTimeOffset.UtcNow;
+        lancamento.Situacao = SituacaoLancamento.Cancelado;
+        lancamento.MotivoDoCancelamento = motivo;
+        lancamento.AtualizadoEm = DateTimeOffset.UtcNow;
 
         if (await Gravar(banco, cancelamento) is { } conflito) return conflito;
 
-        return Results.Ok(Detalhar(recebivel));
+        return Results.Ok(Detalhar(lancamento));
     }
 
     private static async Task<IResult> Estornar(Guid id, NexoDbContext banco, CancellationToken cancelamento)
     {
-        var recebivel = await banco.Recebiveis
+        var lancamento = await banco.Lancamentos
             .Include(r => r.Pessoa)
             .FirstOrDefaultAsync(r => r.Id == id, cancelamento);
 
-        if (recebivel is null) return Results.NotFound();
+        if (lancamento is null) return Results.NotFound();
 
-        if (recebivel.Situacao != SituacaoRecebivel.Pago)
+        if (lancamento.Situacao != SituacaoLancamento.Pago)
         {
             /*
              * Estornar só faz sentido sobre uma baixa. Sobre um cancelado
@@ -484,28 +484,28 @@ public static class Recebiveis
              * com a mensalidade que já tivesse sido gerada no lugar dela.
              */
             return Problema("id", "Nada a estornar",
-                "Este recebível não está baixado.",
+                "Este lançamento não está baixado.",
                 "Estorno desfaz uma baixa. Para reabrir um cancelado, gere a mensalidade de novo.");
         }
 
-        recebivel.Situacao = SituacaoRecebivel.Aberto;
-        recebivel.ValorPago = null;
-        recebivel.PagoEm = null;
-        recebivel.OrigemDaBaixa = string.Empty;
-        recebivel.AtualizadoEm = DateTimeOffset.UtcNow;
+        lancamento.Situacao = SituacaoLancamento.Aberto;
+        lancamento.ValorPago = null;
+        lancamento.PagoEm = null;
+        lancamento.OrigemDaBaixa = string.Empty;
+        lancamento.AtualizadoEm = DateTimeOffset.UtcNow;
 
         if (await Gravar(banco, cancelamento) is { } conflito) return conflito;
 
-        return Results.Ok(Detalhar(recebivel));
+        return Results.Ok(Detalhar(lancamento));
     }
 
     /// <summary>
     /// Grava, e transforma conflito de concorrência em recusa legível.
     ///
     /// <para>
-    /// A situação do recebível é trava de concorrência: a gravação só passa se
+    /// A situação do lançamento é trava de concorrência: a gravação só passa se
     /// ela ainda for a que foi lida. Quando outra operação muda o mesmo
-    /// recebível no meio do caminho, como o aviso do PSP dando baixa enquanto
+    /// lançamento no meio do caminho, como o aviso do PSP dando baixa enquanto
     /// alguém cancela noutra aba, a segunda é recusada em vez de passar por
     /// cima da primeira. Sem este tratamento, a recusa sairia como erro 500.
     /// </para>
@@ -519,30 +519,30 @@ public static class Recebiveis
         }
         catch (DbUpdateConcurrencyException)
         {
-            return Problema("situacao", "O recebível mudou enquanto isto era feito",
-                "Outra operação alterou este recebível no mesmo instante, e nada foi gravado.",
+            return Problema("situacao", "O lançamento mudou enquanto isto era feito",
+                "Outra operação alterou este lançamento no mesmo instante, e nada foi gravado.",
                 "Recarregue a lista e confira a situação antes de tentar de novo.");
         }
     }
 
-    internal static RecebivelNaLista Detalhar(Recebivel recebivel) => new(
-        recebivel.Id,
-        recebivel.Pessoa!.Codigo,
-        recebivel.Pessoa!.Nome,
-        recebivel.Descricao,
-        recebivel.CompetenciaAno,
-        recebivel.CompetenciaMes,
-        recebivel.Valor,
-        recebivel.Vencimento,
-        recebivel.Situacao,
-        recebivel.ValorPago,
-        recebivel.PagoEm,
-        recebivel.OrigemDaBaixa,
-        recebivel.MotivoDoCancelamento,
-        recebivel.ParcelaNumero,
-        recebivel.ParcelasTotal,
-        recebivel.RenegociadoDeId,
-        recebivel.CobrancaUrl);
+    internal static LancamentoNaLista Detalhar(Lancamento lancamento) => new(
+        lancamento.Id,
+        lancamento.Pessoa!.Codigo,
+        lancamento.Pessoa!.Nome,
+        lancamento.Descricao,
+        lancamento.CompetenciaAno,
+        lancamento.CompetenciaMes,
+        lancamento.Valor,
+        lancamento.Vencimento,
+        lancamento.Situacao,
+        lancamento.ValorPago,
+        lancamento.PagoEm,
+        lancamento.OrigemDaBaixa,
+        lancamento.MotivoDoCancelamento,
+        lancamento.ParcelaNumero,
+        lancamento.ParcelasTotal,
+        lancamento.RenegociadoDeId,
+        lancamento.CobrancaUrl);
 
     private static IResult Problema(string campo, string titulo, string descricao, string sugestao) =>
         Results.Json(
@@ -563,7 +563,7 @@ public record DadosDoAvulso(
 public record DadosDaBaixa(decimal ValorPago, DateOnly? PagoEm);
 public record DadosDoCancelamento(string? Motivo);
 
-public record RecebivelNaLista(
+public record LancamentoNaLista(
     Guid Id,
     string CodigoDaPessoa,
     string NomeDaPessoa,
@@ -572,7 +572,7 @@ public record RecebivelNaLista(
     int CompetenciaMes,
     decimal Valor,
     DateOnly Vencimento,
-    SituacaoRecebivel Situacao,
+    SituacaoLancamento Situacao,
     decimal? ValorPago,
     DateOnly? PagoEm,
     string OrigemDaBaixa,
@@ -582,8 +582,8 @@ public record RecebivelNaLista(
     Guid? RenegociadoDeId,
     string CobrancaUrl);
 
-/// <summary>Por qual coluna a listagem de recebíveis é ordenada.</summary>
-public enum OrdemDeRecebiveis
+/// <summary>Por qual coluna a listagem de lançamentos é ordenada.</summary>
+public enum OrdemDeLancamentos
 {
     Vencimento = 1,
     Cliente = 2,
@@ -591,12 +591,12 @@ public enum OrdemDeRecebiveis
     Valor = 4,
 }
 
-/// <param name="Total">Quantos recebíveis a seleção tem, e não quantos vieram nesta página.</param>
+/// <param name="Total">Quantos lançamentos a seleção tem, e não quantos vieram nesta página.</param>
 /// <param name="TotalEmAberto">Soma do que ainda não entrou, no período — independente do filtro de situação.</param>
 /// <param name="TotalVencido">Parte do aberto cujo vencimento já passou.</param>
 /// <param name="TotalRecebido">Soma do que de fato entrou, e não do que era devido.</param>
-public record PaginaDeRecebiveis(
-    List<RecebivelNaLista> Itens,
+public record PaginaDeLancamentos(
+    List<LancamentoNaLista> Itens,
     int Total,
     int Pagina,
     int Tamanho,

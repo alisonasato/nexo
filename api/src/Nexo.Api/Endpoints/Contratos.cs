@@ -261,13 +261,13 @@ public static class Contratos
          * do índice único. É o que permite corrigir: cancela a mensalidade
          * errada e gera de novo, com o valor certo, na mesma competência.
          */
-        var jaGerados = await banco.Recebiveis.AsNoTracking()
-            .Where(recebivel =>
-                recebivel.CompetenciaAno == pedido.Ano
-                && recebivel.CompetenciaMes == pedido.Mes
-                && recebivel.ContratoId != null
-                && recebivel.Situacao != SituacaoRecebivel.Cancelado)
-            .Select(recebivel => recebivel.ContratoId!.Value)
+        var jaGerados = await banco.Lancamentos.AsNoTracking()
+            .Where(lancamento =>
+                lancamento.CompetenciaAno == pedido.Ano
+                && lancamento.CompetenciaMes == pedido.Mes
+                && lancamento.ContratoId != null
+                && lancamento.Situacao != SituacaoLancamento.Cancelado)
+            .Select(lancamento => lancamento.ContratoId!.Value)
             .ToListAsync(cancelamento);
 
         var geradas = 0;
@@ -279,7 +279,7 @@ public static class Contratos
             if (!contrato.VigenteEm(pedido.Ano, pedido.Mes)) { foraDeVigencia++; continue; }
             if (jaGerados.Contains(contrato.Id)) { ignoradas++; continue; }
 
-            banco.Recebiveis.Add(new Recebivel
+            banco.Lancamentos.Add(new Lancamento
             {
                 Id = Guid.NewGuid(),
                 TenantId = tenant,
@@ -290,7 +290,7 @@ public static class Contratos
                 Descricao = contrato.Descricao,
                 Valor = contrato.Valor,
                 Vencimento = contrato.VencimentoEm(pedido.Ano, pedido.Mes),
-                Situacao = SituacaoRecebivel.Aberto,
+                Situacao = SituacaoLancamento.Aberto,
                 CriadoEm = DateTimeOffset.UtcNow,
                 AtualizadoEm = DateTimeOffset.UtcNow,
             });

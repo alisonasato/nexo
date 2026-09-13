@@ -17,7 +17,7 @@ import {
 } from "@/lib/dinheiro";
 import { dividirEmParcelas, limitarParcelas, MAXIMO_DE_PARCELAS, somarMeses } from "@/lib/parcelas";
 
-type RecebivelNaLista = components["schemas"]["RecebivelNaLista"];
+type LancamentoNaLista = components["schemas"]["LancamentoNaLista"];
 type Problema = components["schemas"]["Problema"];
 
 function problemasDaResposta(erro: unknown): Problema[] {
@@ -33,7 +33,7 @@ const centavosDe = (digitos: string) => Number(digitos.replace(/\D/g, "") || "0"
  * Nula quando fechada. Quem abre passa uma chave com o id do título, para cada
  * renegociação começar do zero em vez de herdar o que foi digitado na anterior.
  */
-type Props = { titulo: RecebivelNaLista | null; aoFechar: () => void };
+type Props = { titulo: LancamentoNaLista | null; aoFechar: () => void };
 
 /**
  * Trocar um título em aberto por parcelas novas.
@@ -70,7 +70,7 @@ export function GavetaDeRenegociacao({ titulo, aoFechar }: Props) {
     mutationFn: async () => {
       if (!titulo) throw new Error("Nenhum título escolhido.");
 
-      const { data, error } = await api.POST("/recebiveis/{id}/renegociar", {
+      const { data, error } = await api.POST("/lancamentos/{id}/renegociar", {
         params: { path: { id: titulo.id } },
         body: {
           parcelas,
@@ -85,7 +85,7 @@ export function GavetaDeRenegociacao({ titulo, aoFechar }: Props) {
       return data!;
     },
     onSuccess: (acordo) => {
-      clienteDeConsultas.invalidateQueries({ queryKey: ["recebiveis"] });
+      clienteDeConsultas.invalidateQueries({ queryKey: ["lancamentos"] });
       avisar({
         tom: "sucesso",
         titulo:

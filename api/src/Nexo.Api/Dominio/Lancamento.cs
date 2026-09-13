@@ -1,6 +1,6 @@
 namespace Nexo.Api.Dominio;
 
-public enum SituacaoRecebivel
+public enum SituacaoLancamento
 {
     Aberto = 1,
     Pago = 2,
@@ -41,11 +41,11 @@ public enum SituacaoRecebivel
 /// O recorte "entre os não cancelados" é o que permite corrigir. Um índice
 /// cego à situação transformaria erro comum em erro permanente: valor do
 /// contrato errado, mensalidades geradas, contrato corrigido — e nada a fazer,
-/// porque a competência ficaria ocupada por um recebível errado para sempre.
+/// porque a competência ficaria ocupada por um lançamento errado para sempre.
 /// Cancelado sai da conta e libera a competência, sem sumir do histórico.
 /// </para>
 /// </summary>
-public class Recebivel
+public class Lancamento
 {
     public Guid Id { get; set; }
     public Guid TenantId { get; set; }
@@ -67,7 +67,7 @@ public class Recebivel
     public decimal Valor { get; set; }
     public DateOnly Vencimento { get; set; }
 
-    public SituacaoRecebivel Situacao { get; set; } = SituacaoRecebivel.Aberto;
+    public SituacaoLancamento Situacao { get; set; } = SituacaoLancamento.Aberto;
 
     /* ----------------------------------------------------- parcelamento */
 
@@ -96,7 +96,7 @@ public class Recebivel
     /// O identificador da cobrança no PSP. Vazio enquanto ninguém cobrou.
     ///
     /// Ter valor aqui quer dizer que existe boleto e Pix emitidos lá fora, em
-    /// nome deste recebível. É por isso que cobrar duas vezes o mesmo recebível
+    /// nome deste lançamento. É por isso que cobrar duas vezes o mesmo lançamento
     /// é recusado: a segunda emissão não substituiria a primeira, criaria uma
     /// segunda cobrança do mesmo valor, e o cliente receberia dois boletos.
     /// </summary>
@@ -142,7 +142,7 @@ public class Recebivel
     public DateTimeOffset AtualizadoEm { get; set; }
 
     public bool EstaVencido(DateOnly hoje) =>
-        Situacao == SituacaoRecebivel.Aberto && Vencimento < hoje;
+        Situacao == SituacaoLancamento.Aberto && Vencimento < hoje;
 }
 
 public static class OrigensDeBaixa

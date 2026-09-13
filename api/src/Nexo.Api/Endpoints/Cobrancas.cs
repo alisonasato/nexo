@@ -24,20 +24,20 @@ public static class Cobrancas
 {
     public static IEndpointRouteBuilder MapCobrancas(this IEndpointRouteBuilder rotas)
     {
-        rotas.MapPost("/recebiveis/{id:guid}/cobrar", Cobrar)
-            .WithTags("Recebíveis")
-            .WithName("CobrarRecebivel")
-            .WithSummary("Emite boleto e Pix para um recebível")
-            .WithDescription("Cria a cobrança no PSP e guarda o link onde o cliente escolhe entre boleto e Pix. Recusa cobrar duas vezes o mesmo recebível: a segunda emissão não substituiria a primeira, e o cliente receberia dois boletos.")
-            .Produces<RecebivelCobrado>()
+        rotas.MapPost("/lancamentos/{id:guid}/cobrar", Cobrar)
+            .WithTags("Lançamentos")
+            .WithName("CobrarLancamento")
+            .WithSummary("Emite boleto e Pix para um lançamento")
+            .WithDescription("Cria a cobrança no PSP e guarda o link onde o cliente escolhe entre boleto e Pix. Recusa cobrar duas vezes o mesmo lançamento: a segunda emissão não substituiria a primeira, e o cliente receberia dois boletos.")
+            .Produces<LancamentoCobrado>()
             .Produces<RespostaComProblemas>(StatusCodes.Status422UnprocessableEntity)
             .Produces(StatusCodes.Status404NotFound);
 
         rotas.MapGet("/cobrancas/divergencias", ListarDivergencias)
-            .WithTags("Recebíveis")
+            .WithTags("Lançamentos")
             .WithName("ListarDivergenciasDeCobranca")
             .WithSummary("Pagamentos do PSP que não puderam ser aplicados")
-            .WithDescription("Os avisos de pagamento que chegaram para recebíveis que já não estavam em aberto. Decidir entre devolver o valor e reabrir o título é trabalho de gente.")
+            .WithDescription("Os avisos de pagamento que chegaram para lançamentos que já não estavam em aberto. Decidir entre devolver o valor e reabrir o título é trabalho de gente.")
             .Produces<List<DivergenciaDeCobranca>>();
 
         /*
@@ -75,11 +75,11 @@ public static class Cobrancas
 
         if (contexto.TenantAtual is not { } tenant) return Results.Unauthorized();
 
-        var recebivel = await banco.Recebiveis
+        var lancamento = await banco.Lancamentos
             .Include(r => r.Pessoa)
             .FirstOrDefaultAsync(r => r.Id == id, cancelamento);
 
-        if (recebivel is null) return Results.NotFound();
+        if (lancamento is null) return Results.NotFound();
 
         /*
          * Já cobrado devolve o que existe, em vez de recusar.
@@ -88,22 +88,22 @@ public static class Cobrancas
          * virar uma segunda cobrança do mesmo valor. Devolver o link que já
          * existe é o que a pessoa queria das duas vezes.
          */
-        if (!string.IsNullOrEmpty(recebivel.CobrancaId))
-            return Results.Ok(new RecebivelCobrado(recebivel.Id, recebivel.CobrancaId, recebivel.CobrancaUrl));
+        if (!string.IsNullOrEmpty(lancamento.CobrancaId))
+            return Results.Ok(new LancamentoCobrado(lancamento.Id, lancamento.CobrancaId, lancamento.CobrancaUrl));
 
-        if (recebivel.Situacao != SituacaoRecebivel.Aberto)
+        if (lancamento.Situacao != SituacaoLancamento.Aberto)
         {
             return Problema("situacao", "Nada a cobrar",
-                recebivel.Situacao switch
+                lancamento.Situacao switch
                 {
-                    SituacaoRecebivel.Pago => "Este recebível já foi baixado.",
-                    SituacaoRecebivel.Renegociado => "Este recebível foi renegociado: cobre as parcelas novas.",
-                    _ => "Este recebível foi cancelado.",
+                    SituacaoLancamento.Pago => "Este lançamento já foi baixado.",
+                    SituacaoLancamento.Renegociado => "Este lançamento foi renegociado: cobre as parcelas novas.",
+                    _ => "Este lançamento foi cancelado.",
                 },
                 "Cobrança só se emite para o que está em aberto.");
         }
 
-        var pessoa = recebivel.Pessoa!;
+        var pessoa = lancamento.Pessoa!;
 
         if (string.IsNullOrWhiteSpace(pessoa.Documento))
         {
@@ -111,7 +111,7 @@ public static class Cobrancas
              * Conferido aqui, e não deixado para o PSP recusar, porque o
              * conserto é no cadastro daqui. A mensagem do PSP diria "cpfCnpj
              * inválido", que é verdade e não ajuda quem está olhando a lista
-             * de recebíveis.
+             * de lançamentos.
              */
             return Problema("documento", "Falta o CPF ou CNPJ do cliente",
                 $"{pessoa.Nome} está sem documento no cadastro.",
@@ -128,19 +128,19 @@ public static class Cobrancas
 
             var cobranca = await asaas.CriarCobranca(
                 pessoa.ClienteNoAsaas,
-                recebivel.Valor,
-                recebivel.Vencimento,
-                recebivel.Descricao,
-                Referencia.Montar(tenant, recebivel.Id),
+                lancamento.Valor,
+                lancamento.Vencimento,
+                lancamento.Descricao,
+                Referencia.Montar(tenant, lancamento.Id),
                 cancelamento);
 
-            recebivel.CobrancaId = cobranca.Id;
-            recebivel.CobrancaUrl = cobranca.InvoiceUrl;
-            recebivel.AtualizadoEm = DateTimeOffset.UtcNow;
+            lancamento.CobrancaId = cobranca.Id;
+            lancamento.CobrancaUrl = cobranca.InvoiceUrl;
+            lancamento.AtualizadoEm = DateTimeOffset.UtcNow;
 
             await banco.SaveChangesAsync(cancelamento);
 
-            return Results.Ok(new RecebivelCobrado(recebivel.Id, cobranca.Id, cobranca.InvoiceUrl));
+            return Results.Ok(new LancamentoCobrado(lancamento.Id, cobranca.Id, cobranca.InvoiceUrl));
         }
         catch (FalhaNoAsaas falha)
         {
@@ -152,14 +152,14 @@ public static class Cobrancas
     /* ----------------------------------------------------------- retirar */
 
     /// <summary>
-    /// Tira do PSP a cobrança de um recebível que vai deixar de estar em aberto
+    /// Tira do PSP a cobrança de um lançamento que vai deixar de estar em aberto
     /// por outro caminho que não o pagamento: cancelamento ou baixa à mão.
     ///
     /// <para>
     /// Devolve a falha quando o PSP não retira, e aí quem chamou precisa parar
     /// sem gravar nada. A recusa mais provável é a cobrança já ter sido
     /// paga: o cliente pagou há instantes e o aviso ainda não chegou. Cancelar
-    /// por cima faria esse aviso chegar para um recebível cancelado.
+    /// por cima faria esse aviso chegar para um lançamento cancelado.
     /// </para>
     /// <para>
     /// <b>Sem integração configurada, segue sem chamar ninguém</b>, e guarda a
@@ -170,25 +170,25 @@ public static class Cobrancas
     /// </para>
     /// </summary>
     internal static async Task<FalhaAoRetirar?> TentarRetirarDoPsp(
-        Recebivel recebivel,
+        Lancamento lancamento,
         ClienteDoAsaas asaas,
         OpcoesDoAsaas opcoes,
         ILogger registro,
         CancellationToken cancelamento)
     {
-        if (string.IsNullOrEmpty(recebivel.CobrancaId)) return null;
+        if (string.IsNullOrEmpty(lancamento.CobrancaId)) return null;
 
         if (!opcoes.Configurado)
         {
             registro.LogWarning(
-                "Recebível {Id} tem a cobrança {Cobranca} no PSP e a integração está desligada: a cobrança continua pagável lá.",
-                recebivel.Id, recebivel.CobrancaId);
+                "Lançamento {Id} tem a cobrança {Cobranca} no PSP e a integração está desligada: a cobrança continua pagável lá.",
+                lancamento.Id, lancamento.CobrancaId);
             return null;
         }
 
         try
         {
-            await asaas.ExcluirCobranca(recebivel.CobrancaId, cancelamento);
+            await asaas.ExcluirCobranca(lancamento.CobrancaId, cancelamento);
         }
         catch (FalhaNoAsaas falha)
         {
@@ -203,9 +203,9 @@ public static class Cobrancas
         }
 
         /* O link morreu com a cobrança. Deixá-lo aqui faria um estorno futuro
-           reabrir o recebível apontando para um boleto que não existe mais. */
-        recebivel.CobrancaId = string.Empty;
-        recebivel.CobrancaUrl = string.Empty;
+           reabrir o lançamento apontando para um boleto que não existe mais. */
+        lancamento.CobrancaId = string.Empty;
+        lancamento.CobrancaUrl = string.Empty;
         return null;
     }
 
@@ -216,12 +216,12 @@ public static class Cobrancas
     /// e não de uma resposta para a requisição inteira.
     /// </summary>
     internal static async Task<IResult?> RetirarDoPsp(
-        Recebivel recebivel,
+        Lancamento lancamento,
         ClienteDoAsaas asaas,
         OpcoesDoAsaas opcoes,
         ILogger registro,
         CancellationToken cancelamento) =>
-        await TentarRetirarDoPsp(recebivel, asaas, opcoes, registro, cancelamento) is { } falha
+        await TentarRetirarDoPsp(lancamento, asaas, opcoes, registro, cancelamento) is { } falha
             ? Problema("cobranca", falha.Titulo, falha.Descricao, falha.Sugestao)
             : null;
 
@@ -244,23 +244,23 @@ public static class Cobrancas
             .ToListAsync(cancelamento);
 
         var ids = eventos
-            .Where(evento => evento.RecebivelId != null)
-            .Select(evento => evento.RecebivelId!.Value)
+            .Where(evento => evento.LancamentoId != null)
+            .Select(evento => evento.LancamentoId!.Value)
             .Distinct()
             .ToList();
 
-        var recebiveis = await banco.Recebiveis.AsNoTracking()
-            .Where(recebivel => ids.Contains(recebivel.Id))
-            .Select(recebivel => new { recebivel.Id, recebivel.Descricao, recebivel.Valor, Nome = recebivel.Pessoa!.Nome })
-            .ToDictionaryAsync(recebivel => recebivel.Id, cancelamento);
+        var lancamentos = await banco.Lancamentos.AsNoTracking()
+            .Where(lancamento => ids.Contains(lancamento.Id))
+            .Select(lancamento => new { lancamento.Id, lancamento.Descricao, lancamento.Valor, Nome = lancamento.Pessoa!.Nome })
+            .ToDictionaryAsync(lancamento => lancamento.Id, cancelamento);
 
         return Results.Ok(eventos
             .Select(evento =>
             {
-                recebiveis.TryGetValue(evento.RecebivelId ?? Guid.Empty, out var recebivel);
+                lancamentos.TryGetValue(evento.LancamentoId ?? Guid.Empty, out var lancamento);
                 return new DivergenciaDeCobranca(
-                    evento.Id, evento.RecebivelId, evento.Tipo, evento.Divergencia, evento.RecebidoEm,
-                    recebivel?.Nome, recebivel?.Descricao, recebivel?.Valor);
+                    evento.Id, evento.LancamentoId, evento.Tipo, evento.Divergencia, evento.RecebidoEm,
+                    lancamento?.Nome, lancamento?.Descricao, lancamento?.Valor);
             })
             .ToList());
     }
@@ -273,11 +273,11 @@ public static class Cobrancas
     /// <para>
     /// <b>Responde 200 quase sempre, e isso é deliberado.</b> O Asaas para a
     /// fila do webhook depois de 15 falhas seguidas, e eventos parados somem em
-    /// 14 dias. Um evento que não entendemos, ou que aponta para um recebível
+    /// 14 dias. Um evento que não entendemos, ou que aponta para um lançamento
     /// que não existe mais, é permanente: repetir não conserta, e insistir
     /// derruba a fila inteira — inclusive os avisos de pagamento que
     /// importam. Erro só sai daqui quando repetir tem chance de funcionar, como
-    /// banco fora do ar ou outra operação mudando o mesmo recebível no mesmo
+    /// banco fora do ar ou outra operação mudando o mesmo lançamento no mesmo
     /// instante.
     /// </para>
     /// </summary>
@@ -303,7 +303,7 @@ public static class Cobrancas
 
         if (aviso.Payment is not { } pagamento) return Results.Ok();
 
-        if (!Referencia.Separar(pagamento.ExternalReference, out var tenant, out var recebivelId))
+        if (!Referencia.Separar(pagamento.ExternalReference, out var tenant, out var lancamentoId))
         {
             /*
              * Cobrança criada fora do Nexo — pelo painel do PSP, por exemplo.
@@ -325,36 +325,36 @@ public static class Cobrancas
             Id = aviso.Id,
             TenantId = tenant,
             Tipo = aviso.Event,
-            RecebivelId = recebivelId,
+            LancamentoId = lancamentoId,
             RecebidoEm = DateTimeOffset.UtcNow,
         };
 
         banco.EventosDeCobranca.Add(evento);
 
-        var recebivel = await banco.Recebiveis
-            .FirstOrDefaultAsync(r => r.Id == recebivelId, cancelamento);
+        var lancamento = await banco.Lancamentos
+            .FirstOrDefaultAsync(r => r.Id == lancamentoId, cancelamento);
 
-        if (recebivel is null)
+        if (lancamento is null)
         {
-            registro.LogWarning("Aviso {Evento} para recebível {Id} que não existe.", aviso.Event, recebivelId);
+            registro.LogWarning("Aviso {Evento} para lançamento {Id} que não existe.", aviso.Event, lancamentoId);
             await GravarIgnorandoRepetido(banco, cancelamento);
             return Results.Ok();
         }
 
-        var divergencia = Aplicar(aviso.Event, pagamento, recebivel);
+        var divergencia = Aplicar(aviso.Event, pagamento, lancamento);
 
         if (divergencia.Length > 0)
         {
             /*
              * O aviso não mudou nada, e isso não pode passar calado: é dinheiro
-             * que entrou para um recebível que já não esperava por ele. O evento
+             * que entrou para um lançamento que já não esperava por ele. O evento
              * fica marcado para alguém conferir. Devolver ao cliente ou reabrir
              * o título é decisão de gente, e não do webhook.
              */
             evento.Divergencia = divergencia;
             registro.LogWarning(
-                "Aviso {Evento} não aplicado ao recebível {Id}: {Divergencia}",
-                aviso.Event, recebivelId, divergencia);
+                "Aviso {Evento} não aplicado ao lançamento {Id}: {Divergencia}",
+                aviso.Event, lancamentoId, divergencia);
         }
 
         await GravarIgnorandoRepetido(banco, cancelamento);
@@ -362,7 +362,7 @@ public static class Cobrancas
     }
 
     /// <summary>
-    /// O que cada aviso faz com o recebível. Devolve a divergência, quando o
+    /// O que cada aviso faz com o lançamento. Devolve a divergência, quando o
     /// aviso trazia algo que não pôde ser aplicado.
     ///
     /// <para>
@@ -374,7 +374,7 @@ public static class Cobrancas
     /// dia em que foi pago, e não no dia seguinte.
     /// </para>
     /// <para>
-    /// <b>Estorno desfaz a baixa</b>, e não cancela o recebível: o valor volta
+    /// <b>Estorno desfaz a baixa</b>, e não cancela o lançamento: o valor volta
     /// a ser devido. Cancelar apagaria a cobrança da conta do escritório, que é
     /// o contrário do que um estorno significa.
     /// </para>
@@ -384,13 +384,13 @@ public static class Cobrancas
     /// pela data.
     /// </para>
     /// </summary>
-    private static string Aplicar(string evento, PagamentoDoAsaas pagamento, Recebivel recebivel)
+    private static string Aplicar(string evento, PagamentoDoAsaas pagamento, Lancamento lancamento)
     {
         switch (evento)
         {
             case "PAYMENT_CONFIRMED":
             case "PAYMENT_RECEIVED":
-                if (recebivel.Situacao != SituacaoRecebivel.Aberto)
+                if (lancamento.Situacao != SituacaoLancamento.Aberto)
                 {
                     /*
                      * Confirmado e depois recebido é o mesmo pagamento em dois
@@ -398,34 +398,34 @@ public static class Cobrancas
                      * chegando para quem não esperava: baixado à mão e pago de
                      * novo pelo PSP, ou cancelado e pago mesmo assim.
                      */
-                    if (recebivel.Situacao == SituacaoRecebivel.Pago
-                        && recebivel.OrigemDaBaixa == OrigensDeBaixa.Cobranca)
+                    if (lancamento.Situacao == SituacaoLancamento.Pago
+                        && lancamento.OrigemDaBaixa == OrigensDeBaixa.Cobranca)
                         return string.Empty;
 
-                    return recebivel.Situacao == SituacaoRecebivel.Pago
-                        ? "Pagamento pelo PSP para um recebível já baixado à mão."
-                        : $"Pagamento pelo PSP para um recebível {recebivel.Situacao.ToString().ToLowerInvariant()}.";
+                    return lancamento.Situacao == SituacaoLancamento.Pago
+                        ? "Pagamento pelo PSP para um lançamento já baixado à mão."
+                        : $"Pagamento pelo PSP para um lançamento {lancamento.Situacao.ToString().ToLowerInvariant()}.";
                 }
 
-                recebivel.Situacao = SituacaoRecebivel.Pago;
-                recebivel.ValorPago = pagamento.Value ?? recebivel.Valor;
-                recebivel.PagoEm = Data(pagamento.ClientPaymentDate)
+                lancamento.Situacao = SituacaoLancamento.Pago;
+                lancamento.ValorPago = pagamento.Value ?? lancamento.Valor;
+                lancamento.PagoEm = Data(pagamento.ClientPaymentDate)
                     ?? Data(pagamento.PaymentDate)
                     ?? Data(pagamento.ConfirmedDate)
                     ?? DateOnly.FromDateTime(DateTime.UtcNow);
-                recebivel.OrigemDaBaixa = OrigensDeBaixa.Cobranca;
-                recebivel.AtualizadoEm = DateTimeOffset.UtcNow;
+                lancamento.OrigemDaBaixa = OrigensDeBaixa.Cobranca;
+                lancamento.AtualizadoEm = DateTimeOffset.UtcNow;
                 return string.Empty;
 
             case "PAYMENT_REFUNDED":
             case "PAYMENT_RECEIVED_IN_CASH_UNDONE":
-                if (recebivel.Situacao != SituacaoRecebivel.Pago) return string.Empty;
+                if (lancamento.Situacao != SituacaoLancamento.Pago) return string.Empty;
 
-                recebivel.Situacao = SituacaoRecebivel.Aberto;
-                recebivel.ValorPago = null;
-                recebivel.PagoEm = null;
-                recebivel.OrigemDaBaixa = string.Empty;
-                recebivel.AtualizadoEm = DateTimeOffset.UtcNow;
+                lancamento.Situacao = SituacaoLancamento.Aberto;
+                lancamento.ValorPago = null;
+                lancamento.PagoEm = null;
+                lancamento.OrigemDaBaixa = string.Empty;
+                lancamento.AtualizadoEm = DateTimeOffset.UtcNow;
                 return string.Empty;
         }
 
@@ -442,7 +442,7 @@ public static class Cobrancas
     ///
     /// Conflito de concorrência <b>não</b> é engolido: sobe como erro, a
     /// transação inteira volta, inclusive o registro do evento, e o PSP reenvia.
-    /// Na segunda tentativa o recebível já está no estado novo.
+    /// Na segunda tentativa o lançamento já está no estado novo.
     /// </summary>
     private static async Task GravarIgnorandoRepetido(
         NexoDbContext banco,
@@ -496,7 +496,7 @@ public static class Cobrancas
 /// O campo livre que o PSP devolve intacto, e que amarra a cobrança de volta.
 ///
 /// <para>
-/// <b>Leva o tenant junto, e não só o recebível.</b> O webhook chega sem
+/// <b>Leva o tenant junto, e não só o lançamento.</b> O webhook chega sem
 /// sessão, então não há claim de onde tirar quem é o dono daquela linha — e sem
 /// tenant a RLS não devolve nada. Consultar sem isolamento para descobrir o
 /// tenant abriria um caminho privilegiado no único lugar da aplicação que
@@ -510,27 +510,27 @@ public static class Cobrancas
 /// </summary>
 public static class Referencia
 {
-    public static string Montar(Guid tenant, Guid recebivel) => $"{tenant}/{recebivel}";
+    public static string Montar(Guid tenant, Guid lancamento) => $"{tenant}/{lancamento}";
 
-    public static bool Separar(string? referencia, out Guid tenant, out Guid recebivel)
+    public static bool Separar(string? referencia, out Guid tenant, out Guid lancamento)
     {
         tenant = Guid.Empty;
-        recebivel = Guid.Empty;
+        lancamento = Guid.Empty;
 
         var partes = referencia?.Split('/');
         if (partes is not { Length: 2 }) return false;
 
-        return Guid.TryParse(partes[0], out tenant) && Guid.TryParse(partes[1], out recebivel);
+        return Guid.TryParse(partes[0], out tenant) && Guid.TryParse(partes[1], out lancamento);
     }
 }
 
-public record RecebivelCobrado(Guid Id, string CobrancaId, string CobrancaUrl);
+public record LancamentoCobrado(Guid Id, string CobrancaId, string CobrancaUrl);
 
 /// <param name="EventoId">O identificador do aviso no PSP, para achá-lo no painel de lá.</param>
-/// <param name="NomeDaPessoa">Nulo quando o recebível não existe mais.</param>
+/// <param name="NomeDaPessoa">Nulo quando o lançamento não existe mais.</param>
 public record DivergenciaDeCobranca(
     string EventoId,
-    Guid? RecebivelId,
+    Guid? LancamentoId,
     string Tipo,
     string Divergencia,
     DateTimeOffset RecebidoEm,

@@ -589,6 +589,555 @@
         }
       }
     },
+    "/lancamentos/{id}/cobrar": {
+      "post": {
+        "tags": [
+          "Lançamentos"
+        ],
+        "summary": "Emite boleto e Pix para um lançamento",
+        "description": "Cria a cobrança no PSP e guarda o link onde o cliente escolhe entre boleto e Pix. Recusa cobrar duas vezes o mesmo lançamento: a segunda emissão não substituiria a primeira, e o cliente receberia dois boletos.",
+        "operationId": "CobrarLancamento",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LancamentoCobrado"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RespostaComProblemas"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/cobrancas/divergencias": {
+      "get": {
+        "tags": [
+          "Lançamentos"
+        ],
+        "summary": "Pagamentos do PSP que não puderam ser aplicados",
+        "description": "Os avisos de pagamento que chegaram para lançamentos que já não estavam em aberto. Decidir entre devolver o valor e reabrir o título é trabalho de gente.",
+        "operationId": "ListarDivergenciasDeCobranca",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DivergenciaDeCobranca"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/lancamentos": {
+      "get": {
+        "tags": [
+          "Lançamentos"
+        ],
+        "summary": "Lista os lançamentos",
+        "operationId": "ListarLancamentos",
+        "parameters": [
+          {
+            "name": "situacao",
+            "in": "query",
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/SituacaoLancamento"
+                }
+              ]
+            }
+          },
+          {
+            "name": "ano",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "mes",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "busca",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "vencimentoDe",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "vencimentoAte",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "pagina",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 1
+            }
+          },
+          {
+            "name": "tamanho",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 25
+            }
+          },
+          {
+            "name": "ordenarPor",
+            "in": "query",
+            "schema": {
+              "enum": [
+                "Vencimento",
+                "Cliente",
+                "Competencia",
+                "Valor"
+              ],
+              "type": "string",
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/OrdemDeLancamentos"
+                }
+              ],
+              "default": 1
+            }
+          },
+          {
+            "name": "direcao",
+            "in": "query",
+            "schema": {
+              "enum": [
+                "Crescente",
+                "Decrescente"
+              ],
+              "type": "string",
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Direcao"
+                }
+              ],
+              "default": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginaDeLancamentos"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Lançamentos"
+        ],
+        "summary": "Lança uma cobrança fora de contrato",
+        "description": "Para o que o escritório faz e não é mensalidade: declaração de imposto de renda, abertura de empresa, certidão. Fica sem contrato por trás.",
+        "operationId": "CriarLancamentoAvulso",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/DadosDoAvulso"
+                  }
+                ]
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LancamentoNaLista"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RespostaComProblemas"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/lancamentos/{id}/baixar": {
+      "post": {
+        "tags": [
+          "Lançamentos"
+        ],
+        "summary": "Registra o recebimento",
+        "operationId": "BaixarLancamento",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/DadosDaBaixa"
+                  }
+                ]
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LancamentoNaLista"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RespostaComProblemas"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/lancamentos/{id}/cancelar": {
+      "post": {
+        "tags": [
+          "Lançamentos"
+        ],
+        "summary": "Cancela um lançamento em aberto",
+        "description": "Libera a competência para ser gerada de novo, sem apagar o histórico do que foi cancelado.",
+        "operationId": "CancelarLancamento",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/DadosDoCancelamento"
+                  }
+                ]
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LancamentoNaLista"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RespostaComProblemas"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/lancamentos/{id}/estornar": {
+      "post": {
+        "tags": [
+          "Lançamentos"
+        ],
+        "summary": "Desfaz a baixa",
+        "description": "Existe porque baixa errada acontece, e sem estorno a correção viraria um segundo registro inventado.",
+        "operationId": "EstornarLancamento",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LancamentoNaLista"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/lancamentos/parcelamentos": {
+      "post": {
+        "tags": [
+          "Lançamentos"
+        ],
+        "summary": "Lança um valor dividido em parcelas mensais",
+        "description": "Os centavos que sobram da divisão vão para a primeira parcela, e cada vencimento parte da primeira data. Com uma parcela só, é um lançamento avulso comum.",
+        "operationId": "ParcelarLancamento",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/DadosDoParcelamento"
+                  }
+                ]
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ParcelamentoCriado"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RespostaComProblemas"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/lancamentos/{id}/renegociar": {
+      "post": {
+        "tags": [
+          "Lançamentos"
+        ],
+        "summary": "Troca um título em aberto por parcelas novas",
+        "description": "O título original vira renegociado e continua ocupando a competência; as parcelas novas apontam para ele. Juros e multa acrescentam, desconto abate.",
+        "operationId": "RenegociarLancamento",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/DadosDaRenegociacao"
+                  }
+                ]
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RenegociacaoCriada"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RespostaComProblemas"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/lancamentos/baixar-em-lote": {
+      "post": {
+        "tags": [
+          "Lançamentos"
+        ],
+        "summary": "Registra o recebimento de vários lançamentos de uma vez",
+        "description": "Cada lançamento é baixado ou recusado por conta própria: um já pago não impede os outros. O valor recebido é o valor cobrado.",
+        "operationId": "BaixarLancamentosEmLote",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/DadosDaBaixaEmLote"
+                  }
+                ]
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultadoDaBaixaEmLote"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RespostaComProblemas"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/pessoas": {
       "get": {
         "tags": [
@@ -887,555 +1436,6 @@
           },
           "404": {
             "description": "Not Found"
-          }
-        }
-      }
-    },
-    "/recebiveis/{id}/cobrar": {
-      "post": {
-        "tags": [
-          "Recebíveis"
-        ],
-        "summary": "Emite boleto e Pix para um recebível",
-        "description": "Cria a cobrança no PSP e guarda o link onde o cliente escolhe entre boleto e Pix. Recusa cobrar duas vezes o mesmo recebível: a segunda emissão não substituiria a primeira, e o cliente receberia dois boletos.",
-        "operationId": "CobrarRecebivel",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RecebivelCobrado"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Unprocessable Content",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RespostaComProblemas"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found"
-          }
-        }
-      }
-    },
-    "/cobrancas/divergencias": {
-      "get": {
-        "tags": [
-          "Recebíveis"
-        ],
-        "summary": "Pagamentos do PSP que não puderam ser aplicados",
-        "description": "Os avisos de pagamento que chegaram para recebíveis que já não estavam em aberto. Decidir entre devolver o valor e reabrir o título é trabalho de gente.",
-        "operationId": "ListarDivergenciasDeCobranca",
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/DivergenciaDeCobranca"
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/recebiveis": {
-      "get": {
-        "tags": [
-          "Recebíveis"
-        ],
-        "summary": "Lista os recebíveis",
-        "operationId": "ListarRecebiveis",
-        "parameters": [
-          {
-            "name": "situacao",
-            "in": "query",
-            "schema": {
-              "allOf": [
-                {
-                  "$ref": "#/components/schemas/SituacaoRecebivel"
-                }
-              ]
-            }
-          },
-          {
-            "name": "ano",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "format": "int32"
-            }
-          },
-          {
-            "name": "mes",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "format": "int32"
-            }
-          },
-          {
-            "name": "busca",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "vencimentoDe",
-            "in": "query",
-            "schema": {
-              "type": "string",
-              "format": "date"
-            }
-          },
-          {
-            "name": "vencimentoAte",
-            "in": "query",
-            "schema": {
-              "type": "string",
-              "format": "date"
-            }
-          },
-          {
-            "name": "pagina",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "format": "int32",
-              "default": 1
-            }
-          },
-          {
-            "name": "tamanho",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "format": "int32",
-              "default": 25
-            }
-          },
-          {
-            "name": "ordenarPor",
-            "in": "query",
-            "schema": {
-              "enum": [
-                "Vencimento",
-                "Cliente",
-                "Competencia",
-                "Valor"
-              ],
-              "type": "string",
-              "allOf": [
-                {
-                  "$ref": "#/components/schemas/OrdemDeRecebiveis"
-                }
-              ],
-              "default": 1
-            }
-          },
-          {
-            "name": "direcao",
-            "in": "query",
-            "schema": {
-              "enum": [
-                "Crescente",
-                "Decrescente"
-              ],
-              "type": "string",
-              "allOf": [
-                {
-                  "$ref": "#/components/schemas/Direcao"
-                }
-              ],
-              "default": 1
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PaginaDeRecebiveis"
-                }
-              }
-            }
-          }
-        }
-      },
-      "post": {
-        "tags": [
-          "Recebíveis"
-        ],
-        "summary": "Lança uma cobrança fora de contrato",
-        "description": "Para o que o escritório faz e não é mensalidade: declaração de imposto de renda, abertura de empresa, certidão. Fica sem contrato por trás.",
-        "operationId": "CriarRecebivelAvulso",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "allOf": [
-                  {
-                    "$ref": "#/components/schemas/DadosDoAvulso"
-                  }
-                ]
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "201": {
-            "description": "Created",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RecebivelNaLista"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Unprocessable Content",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RespostaComProblemas"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/recebiveis/{id}/baixar": {
-      "post": {
-        "tags": [
-          "Recebíveis"
-        ],
-        "summary": "Registra o recebimento",
-        "operationId": "BaixarRecebivel",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "allOf": [
-                  {
-                    "$ref": "#/components/schemas/DadosDaBaixa"
-                  }
-                ]
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RecebivelNaLista"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Unprocessable Content",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RespostaComProblemas"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found"
-          }
-        }
-      }
-    },
-    "/recebiveis/{id}/cancelar": {
-      "post": {
-        "tags": [
-          "Recebíveis"
-        ],
-        "summary": "Cancela um recebível em aberto",
-        "description": "Libera a competência para ser gerada de novo, sem apagar o histórico do que foi cancelado.",
-        "operationId": "CancelarRecebivel",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "allOf": [
-                  {
-                    "$ref": "#/components/schemas/DadosDoCancelamento"
-                  }
-                ]
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RecebivelNaLista"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Unprocessable Content",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RespostaComProblemas"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found"
-          }
-        }
-      }
-    },
-    "/recebiveis/{id}/estornar": {
-      "post": {
-        "tags": [
-          "Recebíveis"
-        ],
-        "summary": "Desfaz a baixa",
-        "description": "Existe porque baixa errada acontece, e sem estorno a correção viraria um segundo registro inventado.",
-        "operationId": "EstornarRecebivel",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RecebivelNaLista"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found"
-          }
-        }
-      }
-    },
-    "/recebiveis/parcelamentos": {
-      "post": {
-        "tags": [
-          "Recebíveis"
-        ],
-        "summary": "Lança um valor dividido em parcelas mensais",
-        "description": "Os centavos que sobram da divisão vão para a primeira parcela, e cada vencimento parte da primeira data. Com uma parcela só, é um lançamento avulso comum.",
-        "operationId": "ParcelarRecebivel",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "allOf": [
-                  {
-                    "$ref": "#/components/schemas/DadosDoParcelamento"
-                  }
-                ]
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "201": {
-            "description": "Created",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ParcelamentoCriado"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Unprocessable Content",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RespostaComProblemas"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/recebiveis/{id}/renegociar": {
-      "post": {
-        "tags": [
-          "Recebíveis"
-        ],
-        "summary": "Troca um título em aberto por parcelas novas",
-        "description": "O título original vira renegociado e continua ocupando a competência; as parcelas novas apontam para ele. Juros e multa acrescentam, desconto abate.",
-        "operationId": "RenegociarRecebivel",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "allOf": [
-                  {
-                    "$ref": "#/components/schemas/DadosDaRenegociacao"
-                  }
-                ]
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "201": {
-            "description": "Created",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RenegociacaoCriada"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Unprocessable Content",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RespostaComProblemas"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found"
-          }
-        }
-      }
-    },
-    "/recebiveis/baixar-em-lote": {
-      "post": {
-        "tags": [
-          "Recebíveis"
-        ],
-        "summary": "Registra o recebimento de vários recebíveis de uma vez",
-        "description": "Cada recebível é baixado ou recusado por conta própria: um já pago não impede os outros. O valor recebido é o valor cobrado.",
-        "operationId": "BaixarRecebiveisEmLote",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "allOf": [
-                  {
-                    "$ref": "#/components/schemas/DadosDaBaixaEmLote"
-                  }
-                ]
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ResultadoDaBaixaEmLote"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Unprocessable Content",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RespostaComProblemas"
-                }
-              }
-            }
           }
         }
       }
@@ -1975,7 +1975,7 @@
           "eventoId": {
             "type": "string"
           },
-          "recebivelId": {
+          "lancamentoId": {
             "type": "string",
             "format": "uuid",
             "nullable": true
@@ -2127,6 +2127,124 @@
         },
         "additionalProperties": false
       },
+      "LancamentoCobrado": {
+        "required": [
+          "cobrancaId",
+          "cobrancaUrl",
+          "id"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "cobrancaId": {
+            "type": "string"
+          },
+          "cobrancaUrl": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "LancamentoNaLista": {
+        "required": [
+          "cobrancaUrl",
+          "codigoDaPessoa",
+          "competenciaAno",
+          "competenciaMes",
+          "descricao",
+          "id",
+          "motivoDoCancelamento",
+          "nomeDaPessoa",
+          "origemDaBaixa",
+          "situacao",
+          "valor",
+          "vencimento"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "codigoDaPessoa": {
+            "type": "string"
+          },
+          "nomeDaPessoa": {
+            "type": "string"
+          },
+          "descricao": {
+            "type": "string"
+          },
+          "competenciaAno": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "competenciaMes": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "valor": {
+            "type": "number",
+            "format": "double"
+          },
+          "vencimento": {
+            "type": "string",
+            "format": "date"
+          },
+          "situacao": {
+            "enum": [
+              "Aberto",
+              "Pago",
+              "Cancelado",
+              "Renegociado"
+            ],
+            "type": "string",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SituacaoLancamento"
+              }
+            ]
+          },
+          "valorPago": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "pagoEm": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "origemDaBaixa": {
+            "type": "string"
+          },
+          "motivoDoCancelamento": {
+            "type": "string"
+          },
+          "parcelaNumero": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "parcelasTotal": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "renegociadoDeId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "cobrancaUrl": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
       "OrdemDeContratos": {
         "enum": [
           "Codigo",
@@ -2136,19 +2254,19 @@
         ],
         "type": "string"
       },
-      "OrdemDePessoas": {
-        "enum": [
-          "Nome",
-          "Codigo"
-        ],
-        "type": "string"
-      },
-      "OrdemDeRecebiveis": {
+      "OrdemDeLancamentos": {
         "enum": [
           "Vencimento",
           "Cliente",
           "Competencia",
           "Valor"
+        ],
+        "type": "string"
+      },
+      "OrdemDePessoas": {
+        "enum": [
+          "Nome",
+          "Codigo"
         ],
         "type": "string"
       },
@@ -2187,6 +2305,51 @@
         },
         "additionalProperties": false
       },
+      "PaginaDeLancamentos": {
+        "required": [
+          "itens",
+          "pagina",
+          "tamanho",
+          "total",
+          "totalEmAberto",
+          "totalRecebido",
+          "totalVencido"
+        ],
+        "type": "object",
+        "properties": {
+          "itens": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LancamentoNaLista"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "pagina": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "tamanho": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalEmAberto": {
+            "type": "number",
+            "format": "double"
+          },
+          "totalVencido": {
+            "type": "number",
+            "format": "double"
+          },
+          "totalRecebido": {
+            "type": "number",
+            "format": "double"
+          }
+        },
+        "additionalProperties": false
+      },
       "PaginaDePessoas": {
         "required": [
           "itens",
@@ -2217,51 +2380,6 @@
         },
         "additionalProperties": false
       },
-      "PaginaDeRecebiveis": {
-        "required": [
-          "itens",
-          "pagina",
-          "tamanho",
-          "total",
-          "totalEmAberto",
-          "totalRecebido",
-          "totalVencido"
-        ],
-        "type": "object",
-        "properties": {
-          "itens": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/RecebivelNaLista"
-            }
-          },
-          "total": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "pagina": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "tamanho": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "totalEmAberto": {
-            "type": "number",
-            "format": "double"
-          },
-          "totalVencido": {
-            "type": "number",
-            "format": "double"
-          },
-          "totalRecebido": {
-            "type": "number",
-            "format": "double"
-          }
-        },
-        "additionalProperties": false
-      },
       "Papel": {
         "enum": [
           "Cliente",
@@ -2285,7 +2403,7 @@
           "parcelas": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/RecebivelNaLista"
+              "$ref": "#/components/schemas/LancamentoNaLista"
             }
           }
         },
@@ -2557,124 +2675,6 @@
         },
         "additionalProperties": false
       },
-      "RecebivelCobrado": {
-        "required": [
-          "cobrancaId",
-          "cobrancaUrl",
-          "id"
-        ],
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "cobrancaId": {
-            "type": "string"
-          },
-          "cobrancaUrl": {
-            "type": "string"
-          }
-        },
-        "additionalProperties": false
-      },
-      "RecebivelNaLista": {
-        "required": [
-          "cobrancaUrl",
-          "codigoDaPessoa",
-          "competenciaAno",
-          "competenciaMes",
-          "descricao",
-          "id",
-          "motivoDoCancelamento",
-          "nomeDaPessoa",
-          "origemDaBaixa",
-          "situacao",
-          "valor",
-          "vencimento"
-        ],
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "codigoDaPessoa": {
-            "type": "string"
-          },
-          "nomeDaPessoa": {
-            "type": "string"
-          },
-          "descricao": {
-            "type": "string"
-          },
-          "competenciaAno": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "competenciaMes": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "valor": {
-            "type": "number",
-            "format": "double"
-          },
-          "vencimento": {
-            "type": "string",
-            "format": "date"
-          },
-          "situacao": {
-            "enum": [
-              "Aberto",
-              "Pago",
-              "Cancelado",
-              "Renegociado"
-            ],
-            "type": "string",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/SituacaoRecebivel"
-              }
-            ]
-          },
-          "valorPago": {
-            "type": "number",
-            "format": "double",
-            "nullable": true
-          },
-          "pagoEm": {
-            "type": "string",
-            "format": "date",
-            "nullable": true
-          },
-          "origemDaBaixa": {
-            "type": "string"
-          },
-          "motivoDoCancelamento": {
-            "type": "string"
-          },
-          "parcelaNumero": {
-            "type": "integer",
-            "format": "int32",
-            "nullable": true
-          },
-          "parcelasTotal": {
-            "type": "integer",
-            "format": "int32",
-            "nullable": true
-          },
-          "renegociadoDeId": {
-            "type": "string",
-            "format": "uuid",
-            "nullable": true
-          },
-          "cobrancaUrl": {
-            "type": "string"
-          }
-        },
-        "additionalProperties": false
-      },
       "RecusaNaBaixaEmLote": {
         "required": [
           "id",
@@ -2722,7 +2722,7 @@
           "parcelas": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/RecebivelNaLista"
+              "$ref": "#/components/schemas/LancamentoNaLista"
             }
           }
         },
@@ -2870,7 +2870,7 @@
         ],
         "type": "string"
       },
-      "SituacaoRecebivel": {
+      "SituacaoLancamento": {
         "enum": [
           "Aberto",
           "Pago",

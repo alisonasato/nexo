@@ -5,7 +5,7 @@ namespace Nexo.Api.Dominio;
 ///
 /// <para>
 /// <b>Renegociar não edita título.</b> O original vira renegociado e fica como
-/// histórico do que era devido; as parcelas novas são recebíveis próprios que
+/// histórico do que era devido; as parcelas novas são lançamentos próprios que
 /// apontam para ele. Este registro guarda o que não cabe em nenhum dos dois: o
 /// que foi acrescentado, o que foi abatido e por quê.
 /// </para>
@@ -22,7 +22,7 @@ public class Renegociacao
 
     /// <summary>O título que foi substituído. Um título se renegocia uma vez só.</summary>
     public Guid OrigemId { get; set; }
-    public Recebivel? Origem { get; set; }
+    public Lancamento? Origem { get; set; }
 
     public decimal Juros { get; set; }
     public decimal Multa { get; set; }

@@ -11,7 +11,7 @@ public enum SituacaoContrato
 /// O acordo recorrente: quanto este cliente paga, todo mês, e por quê.
 ///
 /// É daqui que sai a mensalidade. Um cliente pode ter mais de um contrato — o
-/// honorário contábil e a folha, por exemplo —, e cada um gera o seu recebível,
+/// honorário contábil e a folha, por exemplo —, e cada um gera o seu lançamento,
 /// porque um pode ser suspenso sem o outro.
 /// </summary>
 public class Contrato
