@@ -615,6 +615,19 @@ dele. Gravação que só troca o carimbo de atualização não vira evento. O qu
 aconteceu antes desta versão não está na trilha, e o histórico diz isso em vez
 de parecer vazio.
 
+## Desconto, juros e multa explicam a diferença
+
+Na baixa à mão, desconto, juros e multa são opcionais e digitados em reais, e
+não calculados por taxa. Informados, o valor pago precisa fechar com valor mais
+juros mais multa menos desconto, e a baixa que não fecha é recusada. Uma baixa
+de 1.000 com 20 de juros e 1.050 pagos deixaria 30 sem explicação, que é
+justamente o número que os três campos existem para explicar.
+
+Sem nenhum dos três, o valor pago continua livre, como sempre foi: a baixa em
+lote e o aviso do PSP não os informam, e zero conta como não informado. O
+estorno desfaz a baixa e leva os três junto. Juros e multa calculados sobre o
+vencido continuam no `DEPOIS.md`, esperando a taxa.
+
 ## Ordem de execução
 
 1. ~~Repositório e contrato~~ — feito.

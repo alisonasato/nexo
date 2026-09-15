@@ -1375,7 +1375,7 @@
           "Lançamentos"
         ],
         "summary": "Registra a baixa",
-        "description": "Exige a conta onde o dinheiro entrou ou de onde saiu, e grava o movimento nela junto com a baixa.",
+        "description": "Exige a conta onde o dinheiro entrou ou de onde saiu, e grava o movimento nela junto com a baixa. Desconto, juros e multa são opcionais; informados, o valor pago precisa fechar com valor + juros + multa − desconto.",
         "operationId": "BaixarLancamento",
         "parameters": [
           {
@@ -2655,6 +2655,21 @@
             "type": "string",
             "format": "date",
             "nullable": true
+          },
+          "desconto": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "juros": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "multa": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -3770,6 +3785,21 @@
           },
           "centroDeCusto": {
             "type": "string",
+            "nullable": true
+          },
+          "desconto": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "juros": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "multa": {
+            "type": "number",
+            "format": "double",
             "nullable": true
           }
         },

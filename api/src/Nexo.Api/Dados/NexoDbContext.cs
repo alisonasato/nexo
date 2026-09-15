@@ -174,6 +174,9 @@ public class NexoDbContext(DbContextOptions<NexoDbContext> opcoes)
             lancamento.Property(r => r.MotivoDoCancelamento).HasMaxLength(200);
             lancamento.Property(r => r.Valor).HasPrecision(14, 2);
             lancamento.Property(r => r.ValorPago).HasPrecision(14, 2);
+            lancamento.Property(r => r.Desconto).HasPrecision(14, 2);
+            lancamento.Property(r => r.Juros).HasPrecision(14, 2);
+            lancamento.Property(r => r.Multa).HasPrecision(14, 2);
             lancamento.Property(r => r.CriadoEm).HasDefaultValueSql("now()");
             lancamento.Property(r => r.AtualizadoEm).HasDefaultValueSql("now()");
 
