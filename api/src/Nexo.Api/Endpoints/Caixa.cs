@@ -88,8 +88,14 @@ public static class Caixa
         var saldoNoInicio = contas.Where(conta => conta.SaldoInicialEm <= inicio).Sum(conta => conta.SaldoInicial)
             + movimentadoAntes;
 
+        /*
+         * Transferência fica fora do realizado: para o escritório nada entrou nem
+         * saiu, o dinheiro só trocou de conta. Contá-la inflaria entradas e saídas
+         * com o mesmo valor. No saldo ela se anula sozinha, e por isso segue lá.
+         */
         var realizadoPorDia = await banco.MovimentosDeConta.AsNoTracking()
-            .Where(movimento => movimento.Data >= inicio && movimento.Data <= fim)
+            .Where(movimento => movimento.Data >= inicio && movimento.Data <= fim
+                && movimento.Origem != OrigensDeMovimento.Transferencia)
             .GroupBy(movimento => movimento.Data)
             .Select(dia => new
             {

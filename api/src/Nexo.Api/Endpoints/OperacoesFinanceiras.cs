@@ -330,7 +330,7 @@ public static class OperacoesFinanceiras
         var pagoEm = dados.PagoEm ?? DateOnly.FromDateTime(DateTime.Today);
 
         /* Uma conta para o lote inteiro, conferida uma vez: se ela não serve, nenhum item serve. */
-        var (contaDaBaixa, semConta) = await ContasBancarias.ConferirContaDaBaixa(dados.ContaId, pagoEm, banco, cancelamento);
+        var (contaDaBaixa, semConta) = await ContasBancarias.ConferirContaDoMovimento(dados.ContaId, pagoEm, "contaId", "pagoEm", banco, cancelamento);
         if (semConta is not null) return Results.Json(new RespostaComProblemas([semConta]), statusCode: 422);
 
         var registro = registros.CreateLogger("Cobranca");

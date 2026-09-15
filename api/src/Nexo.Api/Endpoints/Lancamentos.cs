@@ -426,7 +426,7 @@ public static class Lancamentos
         var pagoEm = dados.PagoEm ?? DateOnly.FromDateTime(DateTime.Today);
 
         /* A conta vem antes do PSP: recusar depois de tirar a cobrança do ar deixaria o cliente sem ter como pagar. */
-        var (contaDaBaixa, semConta) = await ContasBancarias.ConferirContaDaBaixa(dados.ContaId, pagoEm, banco, cancelamento);
+        var (contaDaBaixa, semConta) = await ContasBancarias.ConferirContaDoMovimento(dados.ContaId, pagoEm, "contaId", "pagoEm", banco, cancelamento);
         if (semConta is not null) return Results.Json(new RespostaComProblemas([semConta]), statusCode: 422);
 
         /*
