@@ -473,6 +473,7 @@ app.MapContratos();
 app.MapLancamentos();
 app.MapCobrancas();
 app.MapOperacoesFinanceiras();
+app.MapContasBancarias();
 app.MapConsultas();
 
 app.Run();

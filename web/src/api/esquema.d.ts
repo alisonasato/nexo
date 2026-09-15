@@ -112,6 +112,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/contas-bancarias": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Lista as contas do escritório
+         * @description As ativas primeiro, e dentro de cada grupo pelo nome. Um escritório tem poucas contas: a lista vem inteira, sem página.
+         */
+        get: operations["ListarContasBancarias"];
+        put?: never;
+        /** Cadastra uma conta */
+        post: operations["CriarContaBancaria"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/contas-bancarias/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Altera uma conta
+         * @description Também inativa e reativa. Conta não se apaga: o dinheiro que passou por ela continua precisando dela.
+         */
+        put: operations["AlterarContaBancaria"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/contratos": {
         parameters: {
             query?: never;
@@ -467,6 +508,21 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        ContaNaLista: {
+            /** Format: uuid */
+            id: string;
+            nome: string;
+            /** @enum {string} */
+            tipo: "Corrente" | "Poupanca" | "Pagamento" | "Dinheiro";
+            banco: string;
+            agencia: string;
+            numero: string;
+            /** Format: double */
+            saldoInicial: number;
+            /** Format: date */
+            saldoInicialEm: string;
+            ativa: boolean;
+        };
         ContratoDetalhado: {
             /** Format: uuid */
             id: string;
@@ -512,6 +568,19 @@ export interface components {
             ids?: string[] | null;
             /** Format: date */
             pagoEm?: string | null;
+        };
+        DadosDaConta: {
+            nome?: string | null;
+            /** @enum {string} */
+            tipo: "Corrente" | "Poupanca" | "Pagamento" | "Dinheiro";
+            banco?: string | null;
+            agencia?: string | null;
+            numero?: string | null;
+            /** Format: double */
+            saldoInicial: number;
+            /** Format: date */
+            saldoInicialEm?: string | null;
+            ativa: boolean;
         };
         DadosDaRenegociacao: {
             /** Format: int32 */
@@ -862,6 +931,8 @@ export interface components {
         /** @enum {string} */
         SituacaoLancamento: "Aberto" | "Pago" | "Cancelado" | "Renegociado";
         /** @enum {string} */
+        TipoConta: "Corrente" | "Poupanca" | "Pagamento" | "Dinheiro";
+        /** @enum {string} */
         TipoPessoa: "Fisica" | "Juridica";
     };
     responses: never;
@@ -1091,6 +1162,101 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    ListarContasBancarias: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContaNaLista"][];
+                };
+            };
+        };
+    };
+    CriarContaBancaria: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DadosDaConta"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContaNaLista"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespostaComProblemas"];
+                };
+            };
+        };
+    };
+    AlterarContaBancaria: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DadosDaConta"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContaNaLista"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespostaComProblemas"];
+                };
             };
         };
     };
