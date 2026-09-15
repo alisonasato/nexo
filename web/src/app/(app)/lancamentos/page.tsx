@@ -34,7 +34,7 @@ import { useConsultaDaUrl } from "@/lib/estado-na-url";
 import { useSelecaoPorConsulta } from "@/lib/selecao";
 
 import { BaixaEmLote } from "./baixa-em-lote";
-import { useCategorias } from "./classificacao";
+import { useCategorias, useCentrosDeCusto } from "./classificacao";
 import { useContasParaBaixa } from "./contas";
 import { AvisoDeDivergencias } from "./divergencias";
 import { GavetaDeClassificacao } from "./gaveta-de-classificacao";
@@ -238,6 +238,10 @@ export default function ListagemDeLancamentos() {
   const busca = ler("busca") ?? "";
   const vencimentoDe = ler("vencimentoDe") ?? "";
   const vencimentoAte = ler("vencimentoAte") ?? "";
+
+  /* "sem" pede o que ficou sem classificar; um id pede aquela categoria ou centro. */
+  const categoriaFiltro = ler("categoria") ?? "";
+  const centroFiltro = ler("centro") ?? "";
   const texto = textos[natureza];
 
   const { ordenarPor, ...ordem } = useOrdenacao<OrdemDeLancamentos>({ ler, gravar }, "Vencimento");
@@ -260,7 +264,8 @@ export default function ListagemDeLancamentos() {
    * aberto, vencendo este mês" é uma pergunta que se faz dos dois lados.
    */
   const trocarNatureza = (nova: NaturezaLancamento) =>
-    gravar({ natureza: nova === "Receber" ? null : nova, pagina: null });
+    /* A categoria escolhida é de uma natureza só: do outro lado ela não existe. */
+    gravar({ natureza: nova === "Receber" ? null : nova, pagina: null, categoria: null });
 
   /* As gavetas. */
   const [lancando, definirLancando] = useState(false);
@@ -277,7 +282,7 @@ export default function ListagemDeLancamentos() {
   const [cancelando, definirCancelando] = useState<string | null>(null);
   const [motivo, definirMotivo] = useState("");
 
-  const consulta = { natureza, situacao, pagina, ordem, busca, vencimentoDe, vencimentoAte };
+  const consulta = { natureza, situacao, pagina, ordem, busca, vencimentoDe, vencimentoAte, categoriaFiltro, centroFiltro };
 
   const lancamentos = useQuery({
     queryKey: ["lancamentos", consulta],
@@ -293,6 +298,16 @@ export default function ListagemDeLancamentos() {
             ...(busca ? { busca } : {}),
             ...(vencimentoDe ? { vencimentoDe } : {}),
             ...(vencimentoAte ? { vencimentoAte } : {}),
+            ...(categoriaFiltro === "sem"
+              ? { semCategoria: true }
+              : categoriaFiltro
+                ? { categoriaId: categoriaFiltro }
+                : {}),
+            ...(centroFiltro === "sem"
+              ? { semCentroDeCusto: true }
+              : centroFiltro
+                ? { centroDeCustoId: centroFiltro }
+                : {}),
           },
         },
       });
@@ -309,6 +324,10 @@ export default function ListagemDeLancamentos() {
 
   /* O caminho de cada categoria no plano, para a lista dizer "Ocupação › Aluguel", e não só "Aluguel". */
   const caminhos = new Map((useCategorias().data ?? []).map((categoria) => [categoria.id, categoria.caminho]));
+
+  /* Para os filtros: as categorias desta aba e os centros, ativos ou não, porque o que já foi classificado continua achável. */
+  const categoriasDaNatureza = (useCategorias().data ?? []).filter((categoria) => categoria.natureza === natureza);
+  const centrosDoPlano = useCentrosDeCusto().data ?? [];
 
   /*
    * A conta da baixa lembra a última escolhida, que é quase sempre a mesma: a
@@ -711,7 +730,8 @@ export default function ListagemDeLancamentos() {
                 Estes números descrevem o período inteiro, não a página, a busca
                 nem o filtro de situação: é a pergunta que o escritório faz
                 enquanto olha uma fatia, quanto do mês ainda falta entrar ou
-                sair. O saldo das contas chega na fase 3, com as contas bancárias.
+                sair. Categoria e centro de custo recortam também os totais,
+                porque escolhem que parte do dinheiro medir.
               */}
               {[
                 { rotulo: texto.aberto, valor: resumo.totalEmAberto, tom: "text-slate-800" },
@@ -763,6 +783,43 @@ export default function ListagemDeLancamentos() {
                   onChange={(evento) => gravar({ vencimentoAte: evento.target.value, pagina: null })}
                 />
               </div>
+
+              {/* Sem plano de contas, os filtros nem aparecem: não haveria o que escolher. */}
+              {categoriasDaNatureza.length > 0 && (
+                <div className="w-full sm:w-56">
+                  <Selecao
+                    rotulo="Categoria"
+                    value={categoriaFiltro}
+                    onChange={(evento) => gravar({ categoria: evento.target.value, pagina: null })}
+                  >
+                    <option value="">Todas</option>
+                    <option value="sem">Sem categoria</option>
+                    {categoriasDaNatureza.map((categoria) => (
+                      <option key={categoria.id} value={categoria.id}>
+                        {categoria.caminho}
+                      </option>
+                    ))}
+                  </Selecao>
+                </div>
+              )}
+
+              {centrosDoPlano.length > 0 && (
+                <div className="w-full sm:w-48">
+                  <Selecao
+                    rotulo="Centro de custo"
+                    value={centroFiltro}
+                    onChange={(evento) => gravar({ centro: evento.target.value, pagina: null })}
+                  >
+                    <option value="">Todos</option>
+                    <option value="sem">Sem centro de custo</option>
+                    {centrosDoPlano.map((centro) => (
+                      <option key={centro.id} value={centro.id}>
+                        {centro.nome}
+                      </option>
+                    ))}
+                  </Selecao>
+                </div>
+              )}
             </div>
 
             <div className="flex flex-wrap items-center gap-2">

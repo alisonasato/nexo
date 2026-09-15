@@ -585,6 +585,12 @@ para inativar uma categoria não travar a troca do centro de custo de tudo o
 que foi classificado nela. As parcelas de um parcelamento e de uma
 renegociação levam a classificação de quem as originou.
 
+Na listagem, categoria e centro de custo recortam também os totais, ao
+contrário da busca e do período de vencimento. A busca acha uma linha; a
+categoria escolhe que parte do dinheiro medir, e "quanto Pessoal tem em aberto
+no mês" é a pergunta de quem a escolhe. Filtrar por uma categoria leva junto
+as que estão abaixo dela.
+
 ## Ordem de execução
 
 1. ~~Repositório e contrato~~ — feito.
