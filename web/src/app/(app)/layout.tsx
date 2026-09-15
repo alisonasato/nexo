@@ -11,6 +11,7 @@ const menu = [
   { href: "/pessoas", rotulo: "Pessoas" },
   { href: "/contratos", rotulo: "Contratos" },
   { href: "/lancamentos", rotulo: "Lançamentos" },
+  { href: "/recorrencias", rotulo: "Recorrências" },
   { href: "/contas-bancarias", rotulo: "Contas bancárias" },
   { href: "/fluxo-de-caixa", rotulo: "Fluxo de caixa" },
   { href: "/plano-de-contas", rotulo: "Plano de contas" },

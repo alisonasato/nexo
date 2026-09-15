@@ -2330,6 +2330,180 @@
         }
       }
     },
+    "/recorrencias": {
+      "get": {
+        "tags": [
+          "Recorrências"
+        ],
+        "summary": "Lista as recorrências do escritório",
+        "description": "A receber antes de a pagar; dentro de cada natureza, as ativas primeiro e pela descrição. Um escritório tem poucas: a lista vem inteira, sem página.",
+        "operationId": "ListarRecorrencias",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RecorrenciaNaLista"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Recorrências"
+        ],
+        "summary": "Cadastra uma recorrência",
+        "operationId": "CriarRecorrencia",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/DadosDaRecorrencia"
+                  }
+                ]
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecorrenciaNaLista"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RespostaComProblemas"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/recorrencias/{id}": {
+      "put": {
+        "tags": [
+          "Recorrências"
+        ],
+        "summary": "Altera uma recorrência",
+        "description": "Também inativa e reativa. A natureza não muda depois de criada. O que já foi gerado fica como está: a mudança vale para as próximas gerações.",
+        "operationId": "AlterarRecorrencia",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/DadosDaRecorrencia"
+                  }
+                ]
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecorrenciaNaLista"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RespostaComProblemas"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/recorrencias/gerar": {
+      "post": {
+        "tags": [
+          "Recorrências"
+        ],
+        "summary": "Gera os lançamentos das recorrências de uma competência",
+        "description": "Das duas naturezas de uma vez. Pode ser executado quantas vezes for preciso: o que já foi gerado é ignorado, não duplicado.",
+        "operationId": "GerarRecorrencias",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/PedidoDasRecorrencias"
+                  }
+                ]
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultadoDasRecorrencias"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RespostaComProblemas"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/saude": {
       "get": {
         "tags": [
@@ -2802,6 +2976,85 @@
             "type": "boolean"
           },
           "recebeCobrancas": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "DadosDaRecorrencia": {
+        "required": [
+          "ativa",
+          "diaDeVencimento",
+          "frequencia",
+          "natureza",
+          "pessoaId",
+          "valor"
+        ],
+        "type": "object",
+        "properties": {
+          "natureza": {
+            "enum": [
+              "Receber",
+              "Pagar"
+            ],
+            "type": "string",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/NaturezaLancamento"
+              }
+            ]
+          },
+          "pessoaId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "descricao": {
+            "type": "string",
+            "nullable": true
+          },
+          "valor": {
+            "type": "number",
+            "format": "double"
+          },
+          "frequencia": {
+            "enum": [
+              "Mensal",
+              "Trimestral",
+              "Semestral",
+              "Anual"
+            ],
+            "type": "string",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/FrequenciaDeRecorrencia"
+              }
+            ]
+          },
+          "diaDeVencimento": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "inicioEm": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "fimEm": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "categoriaId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "centroDeCustoId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "ativa": {
             "type": "boolean"
           }
         },
@@ -3637,6 +3890,15 @@
         },
         "additionalProperties": false
       },
+      "FrequenciaDeRecorrencia": {
+        "enum": [
+          "Mensal",
+          "Trimestral",
+          "Semestral",
+          "Anual"
+        ],
+        "type": "string"
+      },
       "LancamentoCobrado": {
         "required": [
           "cobrancaId",
@@ -4077,6 +4339,24 @@
         },
         "additionalProperties": false
       },
+      "PedidoDasRecorrencias": {
+        "required": [
+          "ano",
+          "mes"
+        ],
+        "type": "object",
+        "properties": {
+          "ano": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "mes": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
       "PedidoDeEntrada": {
         "required": [
           "email",
@@ -4391,6 +4671,106 @@
         },
         "additionalProperties": false
       },
+      "RecorrenciaNaLista": {
+        "required": [
+          "ativa",
+          "codigoDaPessoa",
+          "descricao",
+          "diaDeVencimento",
+          "frequencia",
+          "id",
+          "inicioEm",
+          "natureza",
+          "nomeDaPessoa",
+          "pessoaId",
+          "valor"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "natureza": {
+            "enum": [
+              "Receber",
+              "Pagar"
+            ],
+            "type": "string",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/NaturezaLancamento"
+              }
+            ]
+          },
+          "pessoaId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "codigoDaPessoa": {
+            "type": "string"
+          },
+          "nomeDaPessoa": {
+            "type": "string"
+          },
+          "descricao": {
+            "type": "string"
+          },
+          "valor": {
+            "type": "number",
+            "format": "double"
+          },
+          "frequencia": {
+            "enum": [
+              "Mensal",
+              "Trimestral",
+              "Semestral",
+              "Anual"
+            ],
+            "type": "string",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/FrequenciaDeRecorrencia"
+              }
+            ]
+          },
+          "diaDeVencimento": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "inicioEm": {
+            "type": "string",
+            "format": "date"
+          },
+          "fimEm": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "ativa": {
+            "type": "boolean"
+          },
+          "categoriaId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "categoria": {
+            "type": "string",
+            "nullable": true
+          },
+          "centroDeCustoId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "centroDeCusto": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
       "RecusaNaBaixaEmLote": {
         "required": [
           "id",
@@ -4522,6 +4902,33 @@
             "format": "int32"
           },
           "foraDeVigencia": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "recado": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ResultadoDasRecorrencias": {
+        "required": [
+          "foraDaVez",
+          "gerados",
+          "ignorados",
+          "recado"
+        ],
+        "type": "object",
+        "properties": {
+          "gerados": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "ignorados": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "foraDaVez": {
             "type": "integer",
             "format": "int32"
           },

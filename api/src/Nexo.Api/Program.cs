@@ -481,6 +481,7 @@ app.MapCaixa();
 app.MapMovimentosAvulsos();
 app.MapPlanoDeContas();
 app.MapHistorico();
+app.MapRecorrencias();
 app.MapConsultas();
 
 app.Run();
