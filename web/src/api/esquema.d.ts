@@ -587,6 +587,108 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/categorias": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Lista as categorias, em ordem de árvore
+         * @description Cada categoria vem logo depois da de cima, com o nível e o caminho inteiro. A receber antes de a pagar.
+         */
+        get: operations["ListarCategorias"];
+        put?: never;
+        /**
+         * Cria uma categoria
+         * @description Na raiz, a natureza é obrigatória. Debaixo de outra, a natureza é a dela.
+         */
+        post: operations["CriarCategoria"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/categorias/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Renomeia, move ou inativa uma categoria
+         * @description A natureza não muda, e a categoria não vai para dentro de si mesma nem passa de três níveis com o que está abaixo dela.
+         */
+        put: operations["AlterarCategoria"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/categorias/plano-sugerido": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cria o plano de contas sugerido para escritório de contabilidade
+         * @description Só num plano vazio: completar um plano que já existe misturaria duas formas de classificar.
+         */
+        post: operations["CriarPlanoSugerido"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/centros-de-custo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Lista os centros de custo
+         * @description Os ativos primeiro, e dentro de cada grupo pelo nome.
+         */
+        get: operations["ListarCentrosDeCusto"];
+        put?: never;
+        /** Cria um centro de custo */
+        post: operations["CriarCentroDeCusto"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/centros-de-custo/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Renomeia, inativa ou reativa um centro de custo */
+        put: operations["AlterarCentroDeCusto"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/saude": {
         parameters: {
             query?: never;
@@ -613,6 +715,26 @@ export interface components {
     schemas: {
         /** @enum {string} */
         AgrupamentoDoFluxo: "Dia" | "Mes";
+        CategoriaNaLista: {
+            /** Format: uuid */
+            id: string;
+            nome: string;
+            /** @enum {string} */
+            natureza: "Receber" | "Pagar";
+            /** Format: uuid */
+            paiId?: string | null;
+            /** Format: int32 */
+            nivel: number;
+            caminho: string;
+            ativa: boolean;
+            temFilhas: boolean;
+        };
+        CentroNaLista: {
+            /** Format: uuid */
+            id: string;
+            nome: string;
+            ativo: boolean;
+        };
         ContaNaLista: {
             /** Format: uuid */
             id: string;
@@ -681,6 +803,14 @@ export interface components {
             ids?: string[] | null;
             /** Format: date */
             pagoEm?: string | null;
+        };
+        DadosDaCategoria: {
+            nome?: string | null;
+            /** @enum {string} */
+            natureza: "Receber" | "Pagar";
+            /** Format: uuid */
+            paiId?: string | null;
+            ativa: boolean;
         };
         DadosDaConta: {
             nome?: string | null;
@@ -786,6 +916,10 @@ export interface components {
         };
         DadosDoCancelamento: {
             motivo?: string | null;
+        };
+        DadosDoCentro: {
+            nome?: string | null;
+            ativo: boolean;
         };
         DadosDoMovimentoAvulso: {
             /** @enum {string} */
@@ -2430,6 +2564,225 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    ListarCategorias: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CategoriaNaLista"][];
+                };
+            };
+        };
+    };
+    CriarCategoria: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DadosDaCategoria"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CategoriaNaLista"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespostaComProblemas"];
+                };
+            };
+        };
+    };
+    AlterarCategoria: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DadosDaCategoria"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CategoriaNaLista"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespostaComProblemas"];
+                };
+            };
+        };
+    };
+    CriarPlanoSugerido: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CategoriaNaLista"][];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespostaComProblemas"];
+                };
+            };
+        };
+    };
+    ListarCentrosDeCusto: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CentroNaLista"][];
+                };
+            };
+        };
+    };
+    CriarCentroDeCusto: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DadosDoCentro"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CentroNaLista"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespostaComProblemas"];
+                };
+            };
+        };
+    };
+    AlterarCentroDeCusto: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DadosDoCentro"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CentroNaLista"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespostaComProblemas"];
+                };
             };
         };
     };
