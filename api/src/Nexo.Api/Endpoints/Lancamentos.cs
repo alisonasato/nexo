@@ -93,6 +93,10 @@ public static class Lancamentos
         [FromQuery] string? busca = null,
         [FromQuery] DateOnly? vencimentoDe = null,
         [FromQuery] DateOnly? vencimentoAte = null,
+        [FromQuery] Guid? categoriaId = null,
+        [FromQuery] bool semCategoria = false,
+        [FromQuery] Guid? centroDeCustoId = null,
+        [FromQuery] bool semCentroDeCusto = false,
         [FromQuery] int pagina = 1,
         [FromQuery] int tamanho = 25,
         [FromQuery] OrdemDeLancamentos ordenarPor = OrdemDeLancamentos.Vencimento,
@@ -105,6 +109,31 @@ public static class Lancamentos
         var doPeriodo = banco.Lancamentos.AsNoTracking().Where(r => r.Natureza == natureza);
         if (ano is { } a) doPeriodo = doPeriodo.Where(r => r.CompetenciaAno == a);
         if (mes is { } m) doPeriodo = doPeriodo.Where(r => r.CompetenciaMes == m);
+
+        /*
+         * Categoria e centro de custo recortam também os totais, ao contrário da
+         * busca. A busca acha uma linha; a categoria escolhe que parte do dinheiro
+         * medir, e "quanto Pessoal tem em aberto no mês" é a pergunta de quem a
+         * escolhe. A categoria leva junto as que estão abaixo dela.
+         */
+        if (semCategoria)
+        {
+            doPeriodo = doPeriodo.Where(r => r.CategoriaId == null);
+        }
+        else if (categoriaId is { } categoria)
+        {
+            var galho = await GalhoDaCategoria(categoria, banco, cancelamento);
+            doPeriodo = doPeriodo.Where(r => r.CategoriaId != null && galho.Contains(r.CategoriaId.Value));
+        }
+
+        if (semCentroDeCusto)
+        {
+            doPeriodo = doPeriodo.Where(r => r.CentroDeCustoId == null);
+        }
+        else if (centroDeCustoId is { } centro)
+        {
+            doPeriodo = doPeriodo.Where(r => r.CentroDeCustoId == centro);
+        }
 
         /* A fatia: o que a lista mostra. */
         var daLista = situacao is { } filtro ? doPeriodo.Where(r => r.Situacao == filtro) : doPeriodo;
@@ -184,6 +213,35 @@ public static class Lancamentos
 
         return Results.Ok(new PaginaDeLancamentos(
             itens, total, pagina, tamanho, totalEmAberto, totalVencido, totalPago));
+    }
+
+    /// <summary>
+    /// A categoria e todas as que estão abaixo dela.
+    ///
+    /// Um plano de contas tem dezenas de linhas, e percorrer a árvore aqui é mais
+    /// claro que uma consulta recursiva. Categoria de outro escritório não é
+    /// encontrada pela política de isolamento, e o galho fica só com o id pedido,
+    /// que não casa com lançamento nenhum.
+    /// </summary>
+    private static async Task<List<Guid>> GalhoDaCategoria(
+        Guid raiz,
+        NexoDbContext banco,
+        CancellationToken cancelamento)
+    {
+        var todas = await banco.Categorias.AsNoTracking()
+            .Select(categoria => new { categoria.Id, categoria.PaiId })
+            .ToListAsync(cancelamento);
+
+        var galho = new List<Guid> { raiz };
+
+        /* Três níveis no máximo; o teto protege de um ciclo que só existiria mexendo no banco à mão. */
+        for (var indice = 0; indice < galho.Count && galho.Count <= todas.Count + 1; indice++)
+        {
+            var acima = galho[indice];
+            galho.AddRange(todas.Where(categoria => categoria.PaiId == acima).Select(categoria => categoria.Id));
+        }
+
+        return galho;
     }
 
     /// <summary>

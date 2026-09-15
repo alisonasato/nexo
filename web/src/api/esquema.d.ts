@@ -2136,6 +2136,10 @@ export interface operations {
                 busca?: string;
                 vencimentoDe?: string;
                 vencimentoAte?: string;
+                categoriaId?: string;
+                semCategoria?: boolean;
+                centroDeCustoId?: string;
+                semCentroDeCusto?: boolean;
                 pagina?: number;
                 tamanho?: number;
                 ordenarPor?: "Vencimento" | "Pessoa" | "Competencia" | "Valor";
