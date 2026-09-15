@@ -111,6 +111,18 @@ public static class Cobrancas
                 "Cobrança só se emite para o que está em aberto.");
         }
 
+        /*
+         * Sem conta marcada para receber, o aviso de pagamento não teria onde
+         * baixar e viraria divergência. Recusar aqui evita emitir um boleto que
+         * já nasce sem destino.
+         */
+        if (!await banco.ContasBancarias.AnyAsync(conta => conta.RecebeCobrancas && conta.Ativa, cancelamento))
+        {
+            return Problema("contaId", "Nenhuma conta recebe as cobranças",
+                "Não há conta marcada para receber o que o PSP cobrar.",
+                "Em Contas bancárias, marque a conta do PSP como a que recebe as cobranças.");
+        }
+
         var pessoa = lancamento.Pessoa!;
 
         if (string.IsNullOrWhiteSpace(pessoa.Documento))
@@ -349,7 +361,7 @@ public static class Cobrancas
             return Results.Ok();
         }
 
-        var divergencia = Aplicar(aviso.Event, pagamento, lancamento);
+        var divergencia = await Aplicar(aviso.Event, pagamento, lancamento, banco, cancelamento);
 
         if (divergencia.Length > 0)
         {
@@ -392,7 +404,12 @@ public static class Cobrancas
     /// pela data.
     /// </para>
     /// </summary>
-    private static string Aplicar(string evento, PagamentoDoAsaas pagamento, Lancamento lancamento)
+    private static async Task<string> Aplicar(
+        string evento,
+        PagamentoDoAsaas pagamento,
+        Lancamento lancamento,
+        NexoDbContext banco,
+        CancellationToken cancelamento)
     {
         switch (evento)
         {
@@ -415,19 +432,68 @@ public static class Cobrancas
                         : $"Pagamento pelo PSP para um lançamento {lancamento.Situacao.ToString().ToLowerInvariant()}.";
                 }
 
-                lancamento.Situacao = SituacaoLancamento.Pago;
-                lancamento.ValorPago = pagamento.Value ?? lancamento.Valor;
-                lancamento.PagoEm = Data(pagamento.ClientPaymentDate)
+                var pagoEm = Data(pagamento.ClientPaymentDate)
                     ?? Data(pagamento.PaymentDate)
                     ?? Data(pagamento.ConfirmedDate)
                     ?? DateOnly.FromDateTime(DateTime.UtcNow);
+
+                /*
+                 * O dinheiro entra na conta marcada para receber as cobranças.
+                 * Sem ela, ou com ela começando depois do pagamento, o movimento
+                 * não tem onde caber: a baixa fica para alguém dar à mão,
+                 * escolhendo a conta, e o aviso fica marcado para isso não
+                 * passar calado.
+                 */
+                var contaDoPsp = await banco.ContasBancarias.AsNoTracking()
+                    .FirstOrDefaultAsync(conta => conta.RecebeCobrancas && conta.Ativa, cancelamento);
+
+                if (contaDoPsp is null)
+                    return "Pagamento pelo PSP sem conta marcada para receber as cobranças: marque a conta e dê a baixa à mão.";
+
+                if (pagoEm < contaDoPsp.SaldoInicialEm)
+                    return $"Pagamento pelo PSP de {pagoEm:dd/MM/yyyy}, antes do saldo inicial da conta {contaDoPsp.Nome}: confira e dê a baixa à mão.";
+
+                lancamento.Situacao = SituacaoLancamento.Pago;
+                lancamento.ValorPago = pagamento.Value ?? lancamento.Valor;
+                lancamento.PagoEm = pagoEm;
                 lancamento.OrigemDaBaixa = OrigensDeBaixa.Cobranca;
                 lancamento.AtualizadoEm = DateTimeOffset.UtcNow;
+
+                banco.MovimentosDeConta.Add(
+                    MovimentoDeConta.DaBaixa(lancamento, contaDoPsp.Id, lancamento.ValorPago.Value, pagoEm));
                 return string.Empty;
 
             case "PAYMENT_REFUNDED":
             case "PAYMENT_RECEIVED_IN_CASH_UNDONE":
                 if (lancamento.Situacao != SituacaoLancamento.Pago) return string.Empty;
+
+                var baixa = await banco.MovimentosDeConta.FirstOrDefaultAsync(
+                    m => m.LancamentoId == lancamento.Id && m.Origem == OrigensDeMovimento.Baixa, cancelamento);
+
+                if (baixa is not null)
+                {
+                    /*
+                     * O dinheiro entrou de fato e voltou para o cliente, e o
+                     * extrato do PSP mostra as duas linhas. A entrada fica, marcada
+                     * como estornada, e a devolução sai ao lado dela: apagar a
+                     * entrada deixaria o extrato daqui com uma linha a menos que o
+                     * de lá. Baixa de antes das contas não tem movimento a compensar.
+                     */
+                    baixa.Origem = OrigensDeMovimento.BaixaEstornada;
+
+                    banco.MovimentosDeConta.Add(new MovimentoDeConta
+                    {
+                        Id = Guid.NewGuid(),
+                        TenantId = baixa.TenantId,
+                        ContaId = baixa.ContaId,
+                        LancamentoId = lancamento.Id,
+                        Data = DateOnly.FromDateTime(DateTime.Today),
+                        Valor = -baixa.Valor,
+                        Descricao = baixa.Descricao,
+                        Origem = OrigensDeMovimento.EstornoDoPsp,
+                        CriadoEm = DateTimeOffset.UtcNow,
+                    });
+                }
 
                 lancamento.Situacao = SituacaoLancamento.Aberto;
                 lancamento.ValorPago = null;

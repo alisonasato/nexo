@@ -28,13 +28,12 @@ function descreverConta(conta: ContaNaLista): string {
  *
  * <p>
  * <b>Cartões, e não tabela.</b> Um escritório tem três ou quatro contas, e a
- * pergunta desta tela é quais existem e com que saldo começaram. Tabela serve à
+ * pergunta desta tela é quais existem e quanto cada uma tem. Tabela serve à
  * lista que se ordena e se recorta; esta cabe inteira na tela.
  * </p>
  * <p>
- * O saldo que aparece é o inicial, com o dia em que valia. O saldo de hoje
- * nasce quando as baixas passarem a dizer em que conta o dinheiro entrou ou
- * saiu.
+ * O saldo que aparece é o inicial mais os movimentos, somado na API. A tela
+ * não soma nada: é a mesma regra de que total nenhum vem da página.
  * </p>
  */
 export default function ListagemDeContasBancarias() {
@@ -50,6 +49,7 @@ export default function ListagemDeContasBancarias() {
   });
 
   const lista = contas.data ?? [];
+  const nenhumaRecebe = lista.length > 0 && !lista.some((conta) => conta.recebeCobrancas);
 
   return (
     <>
@@ -75,12 +75,20 @@ export default function ListagemDeContasBancarias() {
           </p>
         )}
 
+        {/* Sem conta marcada, a cobrança pelo PSP é recusada: melhor saber aqui do que na hora de cobrar. */}
+        {nenhumaRecebe && (
+          <p className="rounded-[--radius-controle] border border-amber-300 bg-amber-50 px-4 py-3 text-amber-900">
+            Nenhuma conta está marcada para receber as cobranças do PSP, e por isso não dá para emitir
+            cobrança. Altere a conta do PSP e marque essa opção.
+          </p>
+        )}
+
         {contas.data && lista.length === 0 && (
           <div className="rounded-[--radius-cartao] border border-dashed border-borda-forte bg-superficie px-6 py-12 text-center">
             <p className="font-medium text-slate-700">Nenhuma conta cadastrada.</p>
             <p className="mt-1 text-slate-600">
               Cadastre as contas que o escritório usa, com o saldo de um dia que dê para conferir no
-              extrato.
+              extrato. A baixa pede a conta onde o dinheiro entrou ou saiu.
             </p>
           </div>
         )}
@@ -101,24 +109,33 @@ export default function ListagemDeContasBancarias() {
                       <p className="text-sm text-slate-600">{descreverConta(conta)}</p>
                     </div>
 
-                    {!conta.ativa && (
-                      <span className="shrink-0 rounded-full bg-slate-200 px-2 py-0.5 text-xs font-semibold text-slate-700">
-                        Inativa
-                      </span>
-                    )}
+                    <div className="flex shrink-0 flex-col items-end gap-1">
+                      {!conta.ativa && (
+                        <span className="rounded-full bg-slate-200 px-2 py-0.5 text-xs font-semibold text-slate-700">
+                          Inativa
+                        </span>
+                      )}
+                      {conta.recebeCobrancas && (
+                        <span className="rounded-full bg-marca-50 px-2 py-0.5 text-xs font-semibold text-marca-800">
+                          Recebe as cobranças
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   <div>
-                    <p className="text-xs font-semibold tracking-wide text-slate-500 uppercase">Saldo inicial</p>
+                    <p className="text-xs font-semibold tracking-wide text-slate-500 uppercase">Saldo</p>
                     <p
                       className={
                         "numeros-tabulares text-2xl font-semibold " +
-                        (conta.saldoInicial < 0 ? "text-red-700" : "text-slate-800")
+                        (conta.saldoAtual < 0 ? "text-red-700" : "text-slate-800")
                       }
                     >
-                      {formatarValor(conta.saldoInicial)}
+                      {formatarValor(conta.saldoAtual)}
                     </p>
-                    <p className="text-sm text-slate-500">no começo de {formatarData(conta.saldoInicialEm)}</p>
+                    <p className="text-sm text-slate-500">
+                      Começou com {formatarValor(conta.saldoInicial)} em {formatarData(conta.saldoInicialEm)}
+                    </p>
                   </div>
 
                   <div className="mt-auto">

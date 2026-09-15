@@ -244,8 +244,8 @@
         "tags": [
           "Contas bancárias"
         ],
-        "summary": "Lista as contas do escritório",
-        "description": "As ativas primeiro, e dentro de cada grupo pelo nome. Um escritório tem poucas contas: a lista vem inteira, sem página.",
+        "summary": "Lista as contas do escritório, com o saldo",
+        "description": "As ativas primeiro, e dentro de cada grupo pelo nome. O saldo atual é o inicial mais os movimentos, somado no banco. Um escritório tem poucas contas: a lista vem inteira, sem página.",
         "operationId": "ListarContasBancarias",
         "responses": {
           "200": {
@@ -313,7 +313,7 @@
           "Contas bancárias"
         ],
         "summary": "Altera uma conta",
-        "description": "Também inativa e reativa. Conta não se apaga: o dinheiro que passou por ela continua precisando dela.",
+        "description": "Também inativa, reativa e marca a conta que recebe as cobranças do PSP. Conta não se apaga, e o saldo inicial não muda depois do primeiro movimento.",
         "operationId": "AlterarContaBancaria",
         "parameters": [
           {
@@ -982,6 +982,7 @@
           "Lançamentos"
         ],
         "summary": "Registra a baixa",
+        "description": "Exige a conta onde o dinheiro entrou ou de onde saiu, e grava o movimento nela junto com a baixa.",
         "operationId": "BaixarLancamento",
         "parameters": [
           {
@@ -1618,8 +1619,11 @@
           "id",
           "nome",
           "numero",
+          "recebeCobrancas",
+          "saldoAtual",
           "saldoInicial",
           "saldoInicialEm",
+          "temMovimentos",
           "tipo"
         ],
         "type": "object",
@@ -1662,7 +1666,17 @@
             "type": "string",
             "format": "date"
           },
+          "saldoAtual": {
+            "type": "number",
+            "format": "double"
+          },
           "ativa": {
+            "type": "boolean"
+          },
+          "recebeCobrancas": {
+            "type": "boolean"
+          },
+          "temMovimentos": {
             "type": "boolean"
           }
         },
@@ -1792,10 +1806,15 @@
       },
       "DadosDaBaixa": {
         "required": [
+          "contaId",
           "valorPago"
         ],
         "type": "object",
         "properties": {
+          "contaId": {
+            "type": "string",
+            "format": "uuid"
+          },
           "valorPago": {
             "type": "number",
             "format": "double"
@@ -1809,8 +1828,15 @@
         "additionalProperties": false
       },
       "DadosDaBaixaEmLote": {
+        "required": [
+          "contaId"
+        ],
         "type": "object",
         "properties": {
+          "contaId": {
+            "type": "string",
+            "format": "uuid"
+          },
           "ids": {
             "type": "array",
             "items": {
@@ -1830,6 +1856,7 @@
       "DadosDaConta": {
         "required": [
           "ativa",
+          "recebeCobrancas",
           "saldoInicial",
           "tipo"
         ],
@@ -1875,6 +1902,9 @@
             "nullable": true
           },
           "ativa": {
+            "type": "boolean"
+          },
+          "recebeCobrancas": {
             "type": "boolean"
           }
         },
@@ -2536,6 +2566,10 @@
           },
           "cobrancaUrl": {
             "type": "string"
+          },
+          "contaDaBaixa": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false

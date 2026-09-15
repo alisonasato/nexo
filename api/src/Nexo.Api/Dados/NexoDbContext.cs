@@ -17,6 +17,7 @@ public class NexoDbContext(DbContextOptions<NexoDbContext> opcoes)
     public DbSet<EventoDeCobranca> EventosDeCobranca => Set<EventoDeCobranca>();
     public DbSet<Renegociacao> Renegociacoes => Set<Renegociacao>();
     public DbSet<ContaBancaria> ContasBancarias => Set<ContaBancaria>();
+    public DbSet<MovimentoDeConta> MovimentosDeConta => Set<MovimentoDeConta>();
 
     protected override void OnModelCreating(ModelBuilder modelo)
     {
@@ -290,6 +291,42 @@ public class NexoDbContext(DbContextOptions<NexoDbContext> opcoes)
 
             /* O nome é como a conta se escolhe na tela: dois iguais obrigariam a adivinhar. */
             conta.HasIndex(c => new { c.TenantId, c.Nome }).IsUnique();
+
+            /* Uma conta só recebe as cobranças do PSP: com duas, o aviso de pagamento não saberia onde baixar. */
+            conta.HasIndex(c => c.TenantId).IsUnique().HasFilter("recebe_cobrancas");
+        });
+
+        modelo.Entity<MovimentoDeConta>(movimento =>
+        {
+            movimento.HasKey(m => m.Id);
+            movimento.Property(m => m.Valor).HasPrecision(14, 2);
+            movimento.Property(m => m.Descricao).HasMaxLength(200);
+            movimento.Property(m => m.Origem).HasMaxLength(30);
+            movimento.Property(m => m.CriadoEm).HasDefaultValueSql("now()");
+
+            /* O saldo e o extrato leem por conta e por data. */
+            movimento.HasIndex(m => new { m.TenantId, m.ContaId, m.Data });
+
+            /*
+             * Uma baixa viva, um movimento. Se duas gravações da mesma baixa
+             * passassem, o saldo contaria o mesmo dinheiro duas vezes; quem
+             * recusa a segunda é o banco. A baixa que o PSP estornou muda de
+             * origem e sai deste índice, para o pagamento seguinte ter onde entrar.
+             */
+            movimento.HasIndex(m => m.LancamentoId)
+                .IsUnique()
+                .HasFilter("lancamento_id IS NOT NULL AND origem = 'baixa'");
+
+            /* Restrict: conta e lançamento com dinheiro passado por eles não somem de baixo do movimento. */
+            movimento.HasOne(m => m.Conta)
+                .WithMany()
+                .HasForeignKey(m => m.ContaId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            movimento.HasOne<Lancamento>()
+                .WithMany()
+                .HasForeignKey(m => m.LancamentoId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         modelo.Entity<Usuario>(usuario =>

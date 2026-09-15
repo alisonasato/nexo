@@ -120,8 +120,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Lista as contas do escritório
-         * @description As ativas primeiro, e dentro de cada grupo pelo nome. Um escritório tem poucas contas: a lista vem inteira, sem página.
+         * Lista as contas do escritório, com o saldo
+         * @description As ativas primeiro, e dentro de cada grupo pelo nome. O saldo atual é o inicial mais os movimentos, somado no banco. Um escritório tem poucas contas: a lista vem inteira, sem página.
          */
         get: operations["ListarContasBancarias"];
         put?: never;
@@ -143,7 +143,7 @@ export interface paths {
         get?: never;
         /**
          * Altera uma conta
-         * @description Também inativa e reativa. Conta não se apaga: o dinheiro que passou por ela continua precisando dela.
+         * @description Também inativa, reativa e marca a conta que recebe as cobranças do PSP. Conta não se apaga, e o saldo inicial não muda depois do primeiro movimento.
          */
         put: operations["AlterarContaBancaria"];
         post?: never;
@@ -316,7 +316,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Registra a baixa */
+        /**
+         * Registra a baixa
+         * @description Exige a conta onde o dinheiro entrou ou de onde saiu, e grava o movimento nela junto com a baixa.
+         */
         post: operations["BaixarLancamento"];
         delete?: never;
         options?: never;
@@ -521,7 +524,11 @@ export interface components {
             saldoInicial: number;
             /** Format: date */
             saldoInicialEm: string;
+            /** Format: double */
+            saldoAtual: number;
             ativa: boolean;
+            recebeCobrancas: boolean;
+            temMovimentos: boolean;
         };
         ContratoDetalhado: {
             /** Format: uuid */
@@ -559,12 +566,16 @@ export interface components {
             situacao: "Ativo" | "Suspenso" | "Encerrado";
         };
         DadosDaBaixa: {
+            /** Format: uuid */
+            contaId: string;
             /** Format: double */
             valorPago: number;
             /** Format: date */
             pagoEm?: string | null;
         };
         DadosDaBaixaEmLote: {
+            /** Format: uuid */
+            contaId: string;
             ids?: string[] | null;
             /** Format: date */
             pagoEm?: string | null;
@@ -581,6 +592,7 @@ export interface components {
             /** Format: date */
             saldoInicialEm?: string | null;
             ativa: boolean;
+            recebeCobrancas: boolean;
         };
         DadosDaRenegociacao: {
             /** Format: int32 */
@@ -762,6 +774,7 @@ export interface components {
             /** Format: uuid */
             renegociadoDeId?: string | null;
             cobrancaUrl: string;
+            contaDaBaixa?: string | null;
         };
         /** @enum {string} */
         NaturezaLancamento: "Receber" | "Pagar";

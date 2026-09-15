@@ -119,7 +119,7 @@ public static class OperacoesFinanceiras
         await banco.SaveChangesAsync(cancelamento);
 
         return Results.Json(
-            new ParcelamentoCriado(emGrupo ? grupo : null, novos.Select(Lancamentos.Detalhar).ToList()),
+            new ParcelamentoCriado(emGrupo ? grupo : null, novos.Select(item => Lancamentos.Detalhar(item)).ToList()),
             statusCode: StatusCodes.Status201Created);
     }
 
@@ -286,7 +286,7 @@ public static class OperacoesFinanceiras
         }
 
         return Results.Json(
-            new RenegociacaoCriada(renegociacao.Id, original.Id, parcelas.Select(Lancamentos.Detalhar).ToList()),
+            new RenegociacaoCriada(renegociacao.Id, original.Id, parcelas.Select(item => Lancamentos.Detalhar(item)).ToList()),
             statusCode: StatusCodes.Status201Created);
     }
 
@@ -328,6 +328,11 @@ public static class OperacoesFinanceiras
         }
 
         var pagoEm = dados.PagoEm ?? DateOnly.FromDateTime(DateTime.Today);
+
+        /* Uma conta para o lote inteiro, conferida uma vez: se ela não serve, nenhum item serve. */
+        var (contaDaBaixa, semConta) = await ContasBancarias.ConferirContaDaBaixa(dados.ContaId, pagoEm, banco, cancelamento);
+        if (semConta is not null) return Results.Json(new RespostaComProblemas([semConta]), statusCode: 422);
+
         var registro = registros.CreateLogger("Cobranca");
         var recusados = new List<RecusaNaBaixaEmLote>();
         var baixados = 0;
@@ -370,6 +375,8 @@ public static class OperacoesFinanceiras
             lancamento.PagoEm = pagoEm;
             lancamento.OrigemDaBaixa = OrigensDeBaixa.Lote;
             lancamento.AtualizadoEm = DateTimeOffset.UtcNow;
+
+            banco.MovimentosDeConta.Add(MovimentoDeConta.DaBaixa(lancamento, contaDaBaixa!.Id, lancamento.Valor, pagoEm));
 
             try
             {
@@ -445,8 +452,9 @@ public record DadosDaRenegociacao(
 
 public record RenegociacaoCriada(Guid RenegociacaoId, Guid OrigemId, List<LancamentoNaLista> Parcelas);
 
-/// <param name="PagoEm">Quando o dinheiro entrou. Vazio é hoje.</param>
-public record DadosDaBaixaEmLote(List<Guid>? Ids, DateOnly? PagoEm);
+/// <param name="ContaId">A conta de todos os itens: um lote é a conferência de um extrato só.</param>
+/// <param name="PagoEm">Quando o dinheiro entrou ou saiu. Vazio é hoje.</param>
+public record DadosDaBaixaEmLote(Guid ContaId, List<Guid>? Ids, DateOnly? PagoEm);
 
 public record RecusaNaBaixaEmLote(Guid Id, string Motivo);
 

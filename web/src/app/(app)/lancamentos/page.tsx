@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
@@ -7,7 +8,7 @@ import { api } from "@/api/cliente";
 import type { components } from "@/api/esquema";
 import { useAvisos } from "@/componentes/avisos";
 import { BarraDeSelecao } from "@/componentes/barra-de-selecao";
-import { Botao, Entrada, EntradaMascarada } from "@/componentes/controles";
+import { Botao, Entrada, EntradaMascarada, Selecao } from "@/componentes/controles";
 import {
   IconeDeBusca,
   IconeDeCancelar,
@@ -32,6 +33,7 @@ import { useConsultaDaUrl } from "@/lib/estado-na-url";
 import { useSelecaoPorConsulta } from "@/lib/selecao";
 
 import { BaixaEmLote } from "./baixa-em-lote";
+import { useContasParaBaixa } from "./contas";
 import { AvisoDeDivergencias } from "./divergencias";
 import { GavetaDeLancamento } from "./gaveta-de-lancamento";
 import { GavetaDeRenegociacao } from "./gaveta-de-renegociacao";
@@ -266,6 +268,7 @@ export default function ListagemDeLancamentos() {
   const [baixando, definirBaixando] = useState<string | null>(null);
   const [valorDigitado, definirValorDigitado] = useState("");
   const [dataDaBaixa, definirDataDaBaixa] = useState(hojeIso());
+  const [contaDaBaixa, definirContaDaBaixa] = useState("");
   const [falha, definirFalha] = useState<string | null>(null);
   const [cancelando, definirCancelando] = useState<string | null>(null);
   const [motivo, definirMotivo] = useState("");
@@ -300,16 +303,27 @@ export default function ListagemDeLancamentos() {
 
   const selecao = useSelecaoPorConsulta(JSON.stringify(consulta));
 
+  /*
+   * A conta da baixa lembra a última escolhida, que é quase sempre a mesma: a
+   * do extrato que se está conferindo. Se ela saiu da lista, vale a primeira.
+   */
+  const contasParaBaixa = useContasParaBaixa().data ?? [];
+  const contaEscolhida = contasParaBaixa.some((conta) => conta.id === contaDaBaixa)
+    ? contaDaBaixa
+    : (contasParaBaixa[0]?.id ?? "");
+
   const invalidar = () => {
     clienteDeConsultas.invalidateQueries({ queryKey: ["lancamentos"] });
     clienteDeConsultas.invalidateQueries({ queryKey: ["divergencias"] });
+    /* A baixa e o estorno mudam o saldo da conta. */
+    clienteDeConsultas.invalidateQueries({ queryKey: ["contas-bancarias"] });
   };
 
   const baixar = useMutation({
     mutationFn: async (id: string) => {
       const { data, error } = await api.POST("/lancamentos/{id}/baixar", {
         params: { path: { id } },
-        body: { valorPago: valorDosDigitos(valorDigitado), pagoEm: dataDaBaixa },
+        body: { contaId: contaEscolhida, valorPago: valorDosDigitos(valorDigitado), pagoEm: dataDaBaixa },
       });
       if (error) throw error;
       return data;
@@ -490,7 +504,30 @@ export default function ListagemDeLancamentos() {
                 onChange={(evento) => definirDataDaBaixa(evento.target.value)}
               />
             </div>
+            <div className="w-44">
+              <Selecao
+                rotulo="Conta"
+                value={contaEscolhida}
+                onChange={(evento) => definirContaDaBaixa(evento.target.value)}
+              >
+                {contasParaBaixa.map((conta) => (
+                  <option key={conta.id} value={conta.id}>
+                    {conta.nome}
+                  </option>
+                ))}
+              </Selecao>
+            </div>
           </div>
+
+          {contasParaBaixa.length === 0 && (
+            <p className="text-xs text-slate-600 md:max-w-xs md:text-right">
+              Nenhuma conta ativa para receber a baixa.{" "}
+              <Link href="/contas-bancarias" className="font-semibold underline underline-offset-2">
+                Cadastre uma conta
+              </Link>
+              .
+            </p>
+          )}
 
           <div className="flex gap-2 md:justify-end">
             <Botao
@@ -507,7 +544,7 @@ export default function ListagemDeLancamentos() {
             <Botao
               type="button"
               className={compacto}
-              disabled={baixar.isPending}
+              disabled={baixar.isPending || !contaEscolhida}
               onClick={() => baixar.mutate(item.id)}
             >
               {baixar.isPending ? "Registrando…" : "Confirmar"}
@@ -600,7 +637,8 @@ export default function ListagemDeLancamentos() {
   function detalheDaBaixa(item: LancamentoNaLista) {
     if (!item.pagoEm) return null;
     const origem = origens[item.origemDaBaixa];
-    return `${formatarData(item.pagoEm)}${origem ? ` · ${origem}` : ""}`;
+    const conta = item.contaDaBaixa ? ` · ${item.contaDaBaixa}` : "";
+    return `${formatarData(item.pagoEm)}${origem ? ` · ${origem}` : ""}${conta}`;
   }
 
   return (

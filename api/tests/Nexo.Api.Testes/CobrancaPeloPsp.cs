@@ -335,7 +335,7 @@ public class CobrancaPeloPsp : IDisposable
         await http.PostAsync($"/lancamentos/{lancamento}/cobrar", null);
 
         var resposta = await http.PostAsJsonAsync($"/lancamentos/{lancamento}/baixar",
-            new DadosDaBaixa(450m, new DateOnly(2026, 3, 8)), Json);
+            new DadosDaBaixa(await ContasBancariasDeTeste.Criar(http), 450m, new DateOnly(2026, 3, 8)), Json);
         resposta.EnsureSuccessStatusCode();
 
         /* Quem baixa à mão diz que o dinheiro entrou por fora. A cobrança que
@@ -466,12 +466,82 @@ public class CobrancaPeloPsp : IDisposable
         Assert.Equal(SituacaoLancamento.Pago, await SituacaoDe(conta.TenantId, lancamento));
     }
 
+    /* ----------------------------------------------- conta das cobranças */
+
+    [Fact]
+    public async Task Cobrar_sem_conta_que_receba_as_cobrancas_e_recusado()
+    {
+        var conta = await Contas.Criar(_banco, _aplicacao);
+        var http = await Contas.Entrar(_aplicacao, conta);
+        var lancamento = await CriarLancamento(http);
+
+        var resposta = await http.PostAsync($"/lancamentos/{lancamento}/cobrar", null);
+
+        /* Um boleto emitido sem conta para receber nasceria sem destino: o pagamento viraria divergência. */
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, resposta.StatusCode);
+        Assert.Equal(0, _psp.CobrancasCriadas);
+    }
+
+    [Fact]
+    public async Task Pagamento_pelo_psp_entra_na_conta_das_cobrancas_e_o_estorno_compensa()
+    {
+        var (http, conta) = await Entrar();
+        var lancamento = await CriarLancamento(http);
+        await http.PostAsync($"/lancamentos/{lancamento}/cobrar", null);
+
+        await Avisar(Aviso("evt_1", "PAYMENT_RECEIVED", conta.TenantId, lancamento, 450m));
+        Assert.Equal(450m, (await ContaDasCobrancas(http)).SaldoAtual);
+
+        await Avisar(Aviso("evt_2", "PAYMENT_REFUNDED", conta.TenantId, lancamento, 450m));
+        Assert.Equal(0m, (await ContaDasCobrancas(http)).SaldoAtual);
+
+        /*
+         * O dinheiro entrou e voltou, e o extrato do PSP mostra as duas linhas.
+         * Aqui também: a entrada fica, estornada, e a devolução ao lado.
+         */
+        await using var contexto = _banco.Criar(conta.TenantId);
+        var origens = await contexto.MovimentosDeConta.AsNoTracking()
+            .Where(movimento => movimento.LancamentoId == lancamento)
+            .Select(movimento => movimento.Origem)
+            .OrderBy(origem => origem)
+            .ToListAsync();
+
+        Assert.Equal([OrigensDeMovimento.BaixaEstornada, OrigensDeMovimento.EstornoDoPsp], origens);
+    }
+
+    [Fact]
+    public async Task Sem_conta_marcada_o_pagamento_vira_divergencia_em_vez_de_baixa()
+    {
+        var (http, conta) = await Entrar();
+        var lancamento = await CriarLancamento(http);
+        await http.PostAsync($"/lancamentos/{lancamento}/cobrar", null);
+
+        /* Alguém tira a marca da conta depois de a cobrança ter saído. */
+        await using (var contexto = _banco.Criar(conta.TenantId))
+        {
+            await contexto.ContasBancarias.ExecuteUpdateAsync(
+                ajuste => ajuste.SetProperty(c => c.RecebeCobrancas, false));
+        }
+
+        var resposta = await Avisar(Aviso("evt_sem_conta", "PAYMENT_RECEIVED", conta.TenantId, lancamento, 450m));
+        resposta.EnsureSuccessStatusCode();
+
+        Assert.Equal(SituacaoLancamento.Aberto, await SituacaoDe(conta.TenantId, lancamento));
+
+        await using var leitura = _banco.Criar(conta.TenantId);
+        var evento = await leitura.EventosDeCobranca.AsNoTracking().SingleAsync(e => e.Id == "evt_sem_conta");
+        Assert.Contains("conta marcada", evento.Divergencia);
+    }
+
     /* --------------------------------------------------------- apoio */
 
+    /// <summary>Entra já com uma conta bancária marcada para receber as cobranças, sem a qual não se cobra.</summary>
     private async Task<(HttpClient, ContaDeTestes)> Entrar()
     {
         var conta = await Contas.Criar(_banco, _aplicacao);
-        return (await Contas.Entrar(_aplicacao, conta), conta);
+        var http = await Contas.Entrar(_aplicacao, conta);
+        await ContasBancariasDeTeste.Criar(http, recebeCobrancas: true);
+        return (http, conta);
     }
 
     private async Task<HttpResponseMessage> Avisar(object aviso)
@@ -504,6 +574,10 @@ public class CobrancaPeloPsp : IDisposable
 
     private async Task<SituacaoLancamento> SituacaoDe(Guid tenant, Guid id) =>
         (await Buscar(tenant, id)).Situacao;
+
+    private static async Task<ContaNaLista> ContaDasCobrancas(HttpClient http) =>
+        (await http.GetFromJsonAsync<List<ContaNaLista>>("/contas-bancarias", Json))!
+            .Single(conta => conta.RecebeCobrancas);
 
     private static async Task<Guid> CriarPessoa(HttpClient http, string documento)
     {

@@ -56,6 +56,12 @@ public class ContaBancaria
     /// </summary>
     public bool Ativa { get; set; } = true;
 
+    /// <summary>
+    /// A conta onde entra o que o PSP cobra. Só uma por escritório: com duas, o
+    /// aviso de pagamento não teria como escolher onde o dinheiro entrou.
+    /// </summary>
+    public bool RecebeCobrancas { get; set; }
+
     public DateTimeOffset CriadoEm { get; set; }
     public DateTimeOffset AtualizadoEm { get; set; }
 }

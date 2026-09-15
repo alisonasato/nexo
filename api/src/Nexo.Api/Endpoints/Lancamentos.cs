@@ -31,6 +31,7 @@ public static class Lancamentos
         grupo.MapPost("/{id:guid}/baixar", Baixar)
             .WithName("BaixarLancamento")
             .WithSummary("Registra a baixa")
+            .WithDescription("Exige a conta onde o dinheiro entrou ou de onde saiu, e grava o movimento nela junto com a baixa.")
             .Produces<LancamentoNaLista>()
             .Produces<RespostaComProblemas>(StatusCodes.Status422UnprocessableEntity)
             .Produces(StatusCodes.Status404NotFound);
@@ -161,7 +162,12 @@ public static class Lancamentos
                 lancamento.ParcelaNumero,
                 lancamento.ParcelasTotal,
                 lancamento.RenegociadoDeId,
-                lancamento.CobrancaUrl))
+                lancamento.CobrancaUrl,
+                banco.MovimentosDeConta
+                    .Where(movimento => movimento.LancamentoId == lancamento.Id
+                        && movimento.Origem == OrigensDeMovimento.Baixa)
+                    .Select(movimento => movimento.Conta!.Nome)
+                    .FirstOrDefault()))
             .ToListAsync(cancelamento);
 
         return Results.Ok(new PaginaDeLancamentos(
@@ -417,6 +423,12 @@ public static class Lancamentos
                     "Informe quanto entrou de fato — pode ser diferente do valor cobrado.");
         }
 
+        var pagoEm = dados.PagoEm ?? DateOnly.FromDateTime(DateTime.Today);
+
+        /* A conta vem antes do PSP: recusar depois de tirar a cobrança do ar deixaria o cliente sem ter como pagar. */
+        var (contaDaBaixa, semConta) = await ContasBancarias.ConferirContaDaBaixa(dados.ContaId, pagoEm, banco, cancelamento);
+        if (semConta is not null) return Results.Json(new RespostaComProblemas([semConta]), statusCode: 422);
+
         /*
          * Baixar à mão diz que o dinheiro entrou por fora. A cobrança do PSP sai
          * do ar antes, senão vira um segundo pagamento esperando acontecer. Se o
@@ -428,13 +440,16 @@ public static class Lancamentos
 
         lancamento.Situacao = SituacaoLancamento.Pago;
         lancamento.ValorPago = dados.ValorPago;
-        lancamento.PagoEm = dados.PagoEm ?? DateOnly.FromDateTime(DateTime.Today);
+        lancamento.PagoEm = pagoEm;
         lancamento.OrigemDaBaixa = OrigensDeBaixa.Manual;
         lancamento.AtualizadoEm = DateTimeOffset.UtcNow;
 
+        /* Na mesma gravação da baixa: se a trava de concorrência recusar, o movimento não entra sozinho. */
+        banco.MovimentosDeConta.Add(MovimentoDeConta.DaBaixa(lancamento, contaDaBaixa!.Id, dados.ValorPago, pagoEm));
+
         if (await Gravar(banco, cancelamento) is { } conflito) return conflito;
 
-        return Results.Ok(Detalhar(lancamento));
+        return Results.Ok(Detalhar(lancamento, contaDaBaixa.Nome));
     }
 
     /// <summary>
@@ -526,6 +541,16 @@ public static class Lancamentos
                 "Estorno desfaz uma baixa. Para reabrir um cancelado, gere a mensalidade de novo.");
         }
 
+        /*
+         * O movimento da baixa sai junto, na mesma gravação. Estorno feito aqui
+         * corrige um registro que não devia existir, e o extrato do banco nunca
+         * teve aquele dinheiro: um movimento contrário deixaria duas linhas que
+         * o de lá não tem. Baixa de antes das contas não tem movimento.
+         */
+        var movimento = await banco.MovimentosDeConta.FirstOrDefaultAsync(
+            m => m.LancamentoId == lancamento.Id && m.Origem == OrigensDeMovimento.Baixa, cancelamento);
+        if (movimento is not null) banco.MovimentosDeConta.Remove(movimento);
+
         lancamento.Situacao = SituacaoLancamento.Aberto;
         lancamento.ValorPago = null;
         lancamento.PagoEm = null;
@@ -563,7 +588,8 @@ public static class Lancamentos
         }
     }
 
-    internal static LancamentoNaLista Detalhar(Lancamento lancamento) => new(
+    /// <param name="contaDaBaixa">O nome da conta, quando quem chama acabou de baixar e já o tem.</param>
+    internal static LancamentoNaLista Detalhar(Lancamento lancamento, string? contaDaBaixa = null) => new(
         lancamento.Id,
         lancamento.Natureza,
         lancamento.Pessoa!.Codigo,
@@ -581,7 +607,8 @@ public static class Lancamentos
         lancamento.ParcelaNumero,
         lancamento.ParcelasTotal,
         lancamento.RenegociadoDeId,
-        lancamento.CobrancaUrl);
+        lancamento.CobrancaUrl,
+        contaDaBaixa);
 
     private static IResult Problema(string campo, string titulo, string descricao, string sugestao) =>
         Results.Json(
@@ -601,9 +628,11 @@ public record DadosDoAvulso(
     int CompetenciaAno,
     int CompetenciaMes);
 
-public record DadosDaBaixa(decimal ValorPago, DateOnly? PagoEm);
+/// <param name="ContaId">Obrigatória: a conta onde o dinheiro entrou ou de onde saiu.</param>
+public record DadosDaBaixa(Guid ContaId, decimal ValorPago, DateOnly? PagoEm);
 public record DadosDoCancelamento(string? Motivo);
 
+/// <param name="ContaDaBaixa">A conta onde a baixa entrou ou de onde saiu. Nula em aberto e nas baixas de antes das contas.</param>
 public record LancamentoNaLista(
     Guid Id,
     NaturezaLancamento Natureza,
@@ -622,7 +651,8 @@ public record LancamentoNaLista(
     int? ParcelaNumero,
     int? ParcelasTotal,
     Guid? RenegociadoDeId,
-    string CobrancaUrl);
+    string CobrancaUrl,
+    string? ContaDaBaixa);
 
 /// <summary>Por qual coluna a listagem de lançamentos é ordenada.</summary>
 public enum OrdemDeLancamentos
