@@ -264,9 +264,15 @@ public static class PlanoDeContas
             return problemas;
         }
 
-        if (pai is not null && pai.Natureza != natureza)
+        /*
+         * Compara com a natureza de quem está sendo gravada, e não com a
+         * variável acima: ela já herdou a da categoria de cima, e compará-la com
+         * a própria de cima nunca acusaria diferença. Ao criar, vale a pedida;
+         * ao mover, a que a categoria já tem.
+         */
+        if (pai is not null && (atual?.Natureza ?? pedida) is { } propria && propria != pai.Natureza)
         {
-            problemas.Add(new Problema(atual is null && pedida is not null ? "natureza" : "paiId",
+            problemas.Add(new Problema(atual is null ? "natureza" : "paiId",
                 "Natureza diferente da categoria de cima",
                 $"“{pai.Nome}” é {Rotulo(pai.Natureza)}, e tudo abaixo dela também é.",
                 "Escolha uma categoria de cima com a mesma natureza, ou deixe esta na raiz."));
