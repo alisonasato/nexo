@@ -13,6 +13,7 @@ const menu = [
   { href: "/lancamentos", rotulo: "Lançamentos" },
   { href: "/contas-bancarias", rotulo: "Contas bancárias" },
   { href: "/fluxo-de-caixa", rotulo: "Fluxo de caixa" },
+  { href: "/plano-de-contas", rotulo: "Plano de contas" },
 ];
 
 /**

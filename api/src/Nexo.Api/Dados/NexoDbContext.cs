@@ -18,6 +18,8 @@ public class NexoDbContext(DbContextOptions<NexoDbContext> opcoes)
     public DbSet<Renegociacao> Renegociacoes => Set<Renegociacao>();
     public DbSet<ContaBancaria> ContasBancarias => Set<ContaBancaria>();
     public DbSet<MovimentoDeConta> MovimentosDeConta => Set<MovimentoDeConta>();
+    public DbSet<Categoria> Categorias => Set<Categoria>();
+    public DbSet<CentroDeCusto> CentrosDeCusto => Set<CentroDeCusto>();
 
     protected override void OnModelCreating(ModelBuilder modelo)
     {
@@ -330,6 +332,34 @@ public class NexoDbContext(DbContextOptions<NexoDbContext> opcoes)
                 .WithMany()
                 .HasForeignKey(m => m.LancamentoId)
                 .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelo.Entity<Categoria>(categoria =>
+        {
+            categoria.HasKey(c => c.Id);
+            categoria.Property(c => c.Nome).HasMaxLength(60);
+            categoria.Property(c => c.CriadoEm).HasDefaultValueSql("now()");
+            categoria.Property(c => c.AtualizadoEm).HasDefaultValueSql("now()");
+
+            /* A árvore se monta lendo as filhas de cada uma. */
+            categoria.HasIndex(c => new { c.TenantId, c.PaiId });
+
+            /* Restrict: a de cima não some de baixo das filhas. Categoria não se apaga, inativa. */
+            categoria.HasOne<Categoria>()
+                .WithMany()
+                .HasForeignKey(c => c.PaiId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelo.Entity<CentroDeCusto>(centro =>
+        {
+            centro.HasKey(c => c.Id);
+            centro.Property(c => c.Nome).HasMaxLength(60);
+            centro.Property(c => c.CriadoEm).HasDefaultValueSql("now()");
+            centro.Property(c => c.AtualizadoEm).HasDefaultValueSql("now()");
+
+            /* O nome é como o centro se escolhe na tela: dois iguais obrigariam a adivinhar. */
+            centro.HasIndex(c => new { c.TenantId, c.Nome }).IsUnique();
         });
 
         modelo.Entity<Usuario>(usuario =>

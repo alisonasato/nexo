@@ -476,6 +476,7 @@ app.MapOperacoesFinanceiras();
 app.MapContasBancarias();
 app.MapCaixa();
 app.MapMovimentosAvulsos();
+app.MapPlanoDeContas();
 app.MapConsultas();
 
 app.Run();

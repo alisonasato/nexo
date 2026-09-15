@@ -558,6 +558,26 @@ Movimento de baixa não se apaga por ali. Apagá-lo deixaria o lançamento pago
 sem dinheiro nenhum entrando; quem o desfaz é o estorno, que reabre o
 lançamento junto.
 
+## O plano de contas tem três níveis, e a natureza vem do topo
+
+As categorias formam uma árvore de até três níveis: grupo, categoria e
+subcategoria. É o fundo que um escritório pequeno usa; mais que isso,
+classificar vira trabalho que ninguém faz no dia a dia, e o dinheiro cai na
+primeira categoria da lista. Mover uma categoria leva o galho junto, e o galho
+inteiro precisa caber.
+
+A natureza se escolhe na raiz e desce para as filhas, e não muda depois de
+criada. Uma despesa debaixo de uma receita faria o total de despesas somar
+receita, e trocar a natureza de uma categoria usada mudaria de lado tudo o que
+foi classificado nela.
+
+O centro de custo é uma lista à parte, e não um nível a mais da árvore. A
+categoria diz o que o dinheiro foi; o centro, de quem ele é. Como nível da
+árvore, cada categoria precisaria existir uma vez por unidade.
+
+O plano sugerido só entra num plano vazio. Completar um plano que já existe
+misturaria duas formas de classificar a mesma coisa.
+
 ## Ordem de execução
 
 1. ~~Repositório e contrato~~ — feito.

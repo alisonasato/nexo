@@ -1869,6 +1869,297 @@
         }
       }
     },
+    "/categorias": {
+      "get": {
+        "tags": [
+          "Plano de contas"
+        ],
+        "summary": "Lista as categorias, em ordem de árvore",
+        "description": "Cada categoria vem logo depois da de cima, com o nível e o caminho inteiro. A receber antes de a pagar.",
+        "operationId": "ListarCategorias",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CategoriaNaLista"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Plano de contas"
+        ],
+        "summary": "Cria uma categoria",
+        "description": "Na raiz, a natureza é obrigatória. Debaixo de outra, a natureza é a dela.",
+        "operationId": "CriarCategoria",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/DadosDaCategoria"
+                  }
+                ]
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CategoriaNaLista"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RespostaComProblemas"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/categorias/{id}": {
+      "put": {
+        "tags": [
+          "Plano de contas"
+        ],
+        "summary": "Renomeia, move ou inativa uma categoria",
+        "description": "A natureza não muda, e a categoria não vai para dentro de si mesma nem passa de três níveis com o que está abaixo dela.",
+        "operationId": "AlterarCategoria",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/DadosDaCategoria"
+                  }
+                ]
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CategoriaNaLista"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RespostaComProblemas"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/categorias/plano-sugerido": {
+      "post": {
+        "tags": [
+          "Plano de contas"
+        ],
+        "summary": "Cria o plano de contas sugerido para escritório de contabilidade",
+        "description": "Só num plano vazio: completar um plano que já existe misturaria duas formas de classificar.",
+        "operationId": "CriarPlanoSugerido",
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CategoriaNaLista"
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RespostaComProblemas"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/centros-de-custo": {
+      "get": {
+        "tags": [
+          "Plano de contas"
+        ],
+        "summary": "Lista os centros de custo",
+        "description": "Os ativos primeiro, e dentro de cada grupo pelo nome.",
+        "operationId": "ListarCentrosDeCusto",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CentroNaLista"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Plano de contas"
+        ],
+        "summary": "Cria um centro de custo",
+        "operationId": "CriarCentroDeCusto",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/DadosDoCentro"
+                  }
+                ]
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CentroNaLista"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RespostaComProblemas"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/centros-de-custo/{id}": {
+      "put": {
+        "tags": [
+          "Plano de contas"
+        ],
+        "summary": "Renomeia, inativa ou reativa um centro de custo",
+        "operationId": "AlterarCentroDeCusto",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/DadosDoCentro"
+                  }
+                ]
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CentroNaLista"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RespostaComProblemas"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
     "/saude": {
       "get": {
         "tags": [
@@ -1900,6 +2191,79 @@
           "Mes"
         ],
         "type": "string"
+      },
+      "CategoriaNaLista": {
+        "required": [
+          "ativa",
+          "caminho",
+          "id",
+          "natureza",
+          "nivel",
+          "nome",
+          "temFilhas"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "nome": {
+            "type": "string"
+          },
+          "natureza": {
+            "enum": [
+              "Receber",
+              "Pagar"
+            ],
+            "type": "string",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/NaturezaLancamento"
+              }
+            ]
+          },
+          "paiId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "nivel": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "caminho": {
+            "type": "string"
+          },
+          "ativa": {
+            "type": "boolean"
+          },
+          "temFilhas": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "CentroNaLista": {
+        "required": [
+          "ativo",
+          "id",
+          "nome"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "nome": {
+            "type": "string"
+          },
+          "ativo": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
       },
       "ContaNaLista": {
         "required": [
@@ -2139,6 +2503,40 @@
             "type": "string",
             "format": "date",
             "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "DadosDaCategoria": {
+        "required": [
+          "ativa",
+          "natureza"
+        ],
+        "type": "object",
+        "properties": {
+          "nome": {
+            "type": "string",
+            "nullable": true
+          },
+          "natureza": {
+            "enum": [
+              "Receber",
+              "Pagar"
+            ],
+            "type": "string",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/NaturezaLancamento"
+              }
+            ]
+          },
+          "paiId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "ativa": {
+            "type": "boolean"
           }
         },
         "additionalProperties": false
@@ -2531,6 +2929,22 @@
           "motivo": {
             "type": "string",
             "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "DadosDoCentro": {
+        "required": [
+          "ativo"
+        ],
+        "type": "object",
+        "properties": {
+          "nome": {
+            "type": "string",
+            "nullable": true
+          },
+          "ativo": {
+            "type": "boolean"
           }
         },
         "additionalProperties": false

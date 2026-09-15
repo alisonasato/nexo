@@ -101,7 +101,18 @@ Saldo é **derivado** de saldo inicial mais movimentos, nunca um número editáv
 ### Fase 4 — Plano de contas e centro de custo
 
 Categorias em árvore, por natureza, e centros de custo. Entram como campos
-opcionais do lançamento e como filtros da tela.
+opcionais do lançamento e como filtros da tela. Sai em três PRs:
+
+1. **Os cadastros.** Categorias em árvore de até três níveis, com a natureza
+   escolhida na raiz e herdada pelas filhas, e centros de custo numa lista
+   plana. Nada se apaga, inativa. Nome único entre irmãs e entre centros. Um
+   plano vazio pode começar pelo plano sugerido para escritório de
+   contabilidade.
+2. **O lançamento classificado.** Categoria e centro de custo opcionais ao
+   lançar, parcelar e renegociar, e a classificação de um lançamento que já
+   existe.
+3. **Os filtros.** Categoria e centro de custo no recorte da tela de
+   lançamentos; filtrar por uma categoria inclui as que estão abaixo dela.
 
 ### Fase 5 — Auditoria e ajustes
 
