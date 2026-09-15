@@ -129,7 +129,9 @@ três PRs:
    à mão. Informados, o valor pago precisa fechar com valor + juros + multa −
    desconto; sem nenhum, continua livre. O estorno leva os três junto.
 3. **Recorrência genérica.** Lançamentos que se repetem sem contrato por trás,
-   como o aluguel do escritório.
+   como o aluguel do escritório. Cadastro próprio, a receber e a pagar, mensal,
+   trimestral, semestral ou anual a partir do mês de início. Gera sob demanda,
+   por competência, com a mesma trava dos contratos contra gerar duas vezes.
 
 ## O modelo a que o módulo chega
 
@@ -146,6 +148,7 @@ interface Lancamento {
   natureza: Natureza;                                           // fase 2
   pessoaId: string;             // cliente ao receber, fornecedor ao pagar
   contratoId?: string;          // quando veio de recorrência de contrato
+  recorrenciaId?: string;       // de recorrência sem contrato  // fase 5
   descricao: string;
   competencia: { ano: number; mes: number };
   vencimento: string;           // data ISO
@@ -207,6 +210,21 @@ interface Categoria {                                           // fase 4
   nome: string;
   natureza: Natureza;
   paiId?: string;
+}
+
+interface Recorrencia {                                         // fase 5
+  id: string;
+  natureza: Natureza;
+  pessoaId: string;
+  descricao: string;
+  valor: number;                // de cada lançamento gerado
+  frequencia: "Mensal" | "Trimestral" | "Semestral" | "Anual";
+  diaDeVencimento: number;      // no último dia, nos meses curtos
+  inicioEm: string;             // o mês dele é a primeira competência
+  fimEm?: string;
+  ativa: boolean;
+  categoriaId?: string;
+  centroDeCustoId?: string;
 }
 
 interface EventoDeAuditoria {                                   // fase 5

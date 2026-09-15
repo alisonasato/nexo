@@ -91,6 +91,12 @@ public class Lancamento
     public Guid? ContratoId { get; set; }
     public Contrato? Contrato { get; set; }
 
+    /// <summary>
+    /// A recorrência que gerou este lançamento, quando foi uma. Nunca junto com
+    /// contrato: o que vem de contrato é mensalidade de cliente.
+    /// </summary>
+    public Guid? RecorrenciaId { get; set; }
+
     public int CompetenciaAno { get; set; }
     public int CompetenciaMes { get; set; }
 

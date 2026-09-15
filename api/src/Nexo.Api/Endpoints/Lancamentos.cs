@@ -475,11 +475,25 @@ public static class Lancamentos
     /// </para>
     /// </summary>
     /// <param name="atual">O lançamento sendo reclassificado; nulo ao lançar.</param>
-    internal static async Task<List<Problema>> ConferirClassificacao(
+    internal static Task<List<Problema>> ConferirClassificacao(
         NaturezaLancamento natureza,
         Guid? categoriaId,
         Guid? centroDeCustoId,
         Lancamento? atual,
+        NexoDbContext banco,
+        CancellationToken cancelamento) =>
+        ConferirClassificacao(natureza, categoriaId, centroDeCustoId,
+            atual?.CategoriaId, atual?.CentroDeCustoId, banco, cancelamento);
+
+    /// <summary>A mesma conferência, para quem não é lançamento, como a recorrência.</summary>
+    /// <param name="categoriaAtual">A categoria já gravada, que passa mesmo inativa.</param>
+    /// <param name="centroAtual">O centro de custo já gravado, que passa mesmo inativo.</param>
+    internal static async Task<List<Problema>> ConferirClassificacao(
+        NaturezaLancamento natureza,
+        Guid? categoriaId,
+        Guid? centroDeCustoId,
+        Guid? categoriaAtual,
+        Guid? centroAtual,
         NexoDbContext banco,
         CancellationToken cancelamento)
     {
@@ -502,7 +516,7 @@ public static class Lancamentos
                     $"“{categoria.Nome}” é {Rotulo(categoria.Natureza)}, e o lançamento é {Rotulo(natureza)}.",
                     "Escolha uma categoria da mesma natureza do lançamento."));
             }
-            else if (!categoria.Ativa && categoria.Id != atual?.CategoriaId)
+            else if (!categoria.Ativa && categoria.Id != categoriaAtual)
             {
                 problemas.Add(new Problema("categoriaId", "Categoria inativa",
                     $"A categoria “{categoria.Nome}” está inativa.",
@@ -521,7 +535,7 @@ public static class Lancamentos
                     "O centro de custo informado não existe neste escritório.",
                     "Escolha um centro de custo da lista."));
             }
-            else if (!centro.Ativo && centro.Id != atual?.CentroDeCustoId)
+            else if (!centro.Ativo && centro.Id != centroAtual)
             {
                 problemas.Add(new Problema("centroDeCustoId", "Centro de custo inativo",
                     $"O centro de custo “{centro.Nome}” está inativo.",
