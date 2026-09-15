@@ -125,8 +125,9 @@ três PRs:
    bancária deixa um evento com quem fez, quando e os campos que mudaram, na
    mesma transação. A trilha só recebe eventos novos. O histórico abre pelo menu
    de qualquer lançamento, cancelado inclusive, e pelo extrato da conta.
-2. **Desconto, juros e multa na baixa.** Informados à mão, separados do valor
-   pago.
+2. **Desconto, juros e multa na baixa.** Opcionais, digitados em reais na baixa
+   à mão. Informados, o valor pago precisa fechar com valor + juros + multa −
+   desconto; sem nenhum, continua livre. O estorno leva os três junto.
 3. **Recorrência genérica.** Lançamentos que se repetem sem contrato por trás,
    como o aluguel do escritório.
 

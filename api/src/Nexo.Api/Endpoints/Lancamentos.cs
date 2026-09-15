@@ -31,7 +31,7 @@ public static class Lancamentos
         grupo.MapPost("/{id:guid}/baixar", Baixar)
             .WithName("BaixarLancamento")
             .WithSummary("Registra a baixa")
-            .WithDescription("Exige a conta onde o dinheiro entrou ou de onde saiu, e grava o movimento nela junto com a baixa.")
+            .WithDescription("Exige a conta onde o dinheiro entrou ou de onde saiu, e grava o movimento nela junto com a baixa. Desconto, juros e multa são opcionais; informados, o valor pago precisa fechar com valor + juros + multa − desconto.")
             .Produces<LancamentoNaLista>()
             .Produces<RespostaComProblemas>(StatusCodes.Status422UnprocessableEntity)
             .Produces(StatusCodes.Status404NotFound);
@@ -208,7 +208,10 @@ public static class Lancamentos
                 lancamento.CategoriaId,
                 lancamento.Categoria!.Nome,
                 lancamento.CentroDeCustoId,
-                lancamento.CentroDeCusto!.Nome))
+                lancamento.CentroDeCusto!.Nome,
+                lancamento.Desconto,
+                lancamento.Juros,
+                lancamento.Multa))
             .ToListAsync(cancelamento);
 
         return Results.Ok(new PaginaDeLancamentos(
@@ -578,6 +581,8 @@ public static class Lancamentos
                     "Informe quanto entrou de fato — pode ser diferente do valor cobrado.");
         }
 
+        if (ConferirAcrescimos(lancamento, dados) is { } naoFecha) return naoFecha;
+
         var pagoEm = dados.PagoEm ?? DateOnly.FromDateTime(DateTime.Today);
 
         /* A conta vem antes do PSP: recusar depois de tirar a cobrança do ar deixaria o cliente sem ter como pagar. */
@@ -597,6 +602,9 @@ public static class Lancamentos
         lancamento.ValorPago = dados.ValorPago;
         lancamento.PagoEm = pagoEm;
         lancamento.OrigemDaBaixa = OrigensDeBaixa.Manual;
+        lancamento.Desconto = Positivo(dados.Desconto);
+        lancamento.Juros = Positivo(dados.Juros);
+        lancamento.Multa = Positivo(dados.Multa);
         lancamento.AtualizadoEm = DateTimeOffset.UtcNow;
 
         /* Na mesma gravação da baixa: se a trava de concorrência recusar, o movimento não entra sozinho. */
@@ -710,6 +718,9 @@ public static class Lancamentos
         lancamento.ValorPago = null;
         lancamento.PagoEm = null;
         lancamento.OrigemDaBaixa = string.Empty;
+        lancamento.Desconto = null;
+        lancamento.Juros = null;
+        lancamento.Multa = null;
         lancamento.AtualizadoEm = DateTimeOffset.UtcNow;
 
         if (await Gravar(banco, cancelamento) is { } conflito) return conflito;
@@ -785,6 +796,52 @@ public static class Lancamentos
         }
     }
 
+    /// <summary>
+    /// Desconto, juros e multa, quando informados, explicam a diferença entre o
+    /// valor e o valor pago, e por isso precisam fechar com ela.
+    ///
+    /// <para>
+    /// <b>Sem nenhum dos três, o valor pago continua livre</b>, como sempre foi:
+    /// a baixa em lote e o aviso do PSP não os informam, e zero conta como não
+    /// informado. Com algum, a conta precisa fechar. Uma baixa de 1.000 com 20 de
+    /// juros e 1.050 pagos deixaria 30 sem explicação, que é justamente o número
+    /// que os três campos existem para explicar.
+    /// </para>
+    /// </summary>
+    private static IResult? ConferirAcrescimos(Lancamento lancamento, DadosDaBaixa dados)
+    {
+        foreach (var (campo, valor) in new[] { ("desconto", dados.Desconto), ("juros", dados.Juros), ("multa", dados.Multa) })
+        {
+            if (valor < 0)
+            {
+                return Problema(campo, "Valor inválido",
+                    "Desconto, juros e multa não podem ser negativos.",
+                    "Use o desconto para abater, e juros e multa para acrescentar.");
+            }
+        }
+
+        var juros = Positivo(dados.Juros);
+        var multa = Positivo(dados.Multa);
+        var desconto = Positivo(dados.Desconto);
+
+        if (juros is null && multa is null && desconto is null) return null;
+
+        var esperado = decimal.Round(
+            lancamento.Valor + (juros ?? 0m) + (multa ?? 0m) - (desconto ?? 0m), 2, MidpointRounding.AwayFromZero);
+
+        if (decimal.Round(dados.ValorPago, 2, MidpointRounding.AwayFromZero) == esperado) return null;
+
+        static string Reais(decimal quanto) => "R$ " + quanto.ToString("N2", OperacoesFinanceiras.Real);
+
+        return Problema("valorPago", "O valor não fecha",
+            $"{Reais(lancamento.Valor)} + juros de {Reais(juros ?? 0m)} + multa de {Reais(multa ?? 0m)} − desconto de {Reais(desconto ?? 0m)} dá {Reais(esperado)}, e o valor informado foi {Reais(dados.ValorPago)}.",
+            "Corrija o valor ou os acréscimos. Se a diferença não tem explicação, deixe desconto, juros e multa em branco.");
+    }
+
+    /// <summary>Zero e vazio são o mesmo: não houve.</summary>
+    private static decimal? Positivo(decimal? valor) =>
+        valor is > 0 ? decimal.Round(valor.Value, 2, MidpointRounding.AwayFromZero) : null;
+
     /// <param name="contaDaBaixa">O nome da conta, quando quem chama acabou de baixar e já o tem.</param>
     internal static LancamentoNaLista Detalhar(Lancamento lancamento, string? contaDaBaixa = null) => new(
         lancamento.Id,
@@ -809,7 +866,10 @@ public static class Lancamentos
         lancamento.CategoriaId,
         lancamento.Categoria?.Nome,
         lancamento.CentroDeCustoId,
-        lancamento.CentroDeCusto?.Nome);
+        lancamento.CentroDeCusto?.Nome,
+        lancamento.Desconto,
+        lancamento.Juros,
+        lancamento.Multa);
 
     private static IResult Problema(string campo, string titulo, string descricao, string sugestao) =>
         Results.Json(
@@ -834,7 +894,16 @@ public record DadosDoAvulso(
     Guid? CentroDeCustoId = null);
 
 /// <param name="ContaId">Obrigatória: a conta onde o dinheiro entrou ou de onde saiu.</param>
-public record DadosDaBaixa(Guid ContaId, decimal ValorPago, DateOnly? PagoEm);
+/// <param name="Desconto">Opcional, em reais. Com desconto, juros ou multa, o valor pago precisa fechar com valor + juros + multa − desconto. Zero é o mesmo que não informar.</param>
+/// <param name="Juros">Opcional, em reais, e não taxa.</param>
+/// <param name="Multa">Opcional, em reais, e não taxa.</param>
+public record DadosDaBaixa(
+    Guid ContaId,
+    decimal ValorPago,
+    DateOnly? PagoEm,
+    decimal? Desconto = null,
+    decimal? Juros = null,
+    decimal? Multa = null);
 public record DadosDoCancelamento(string? Motivo);
 
 /// <param name="CategoriaId">Vazia tira a categoria.</param>
@@ -842,6 +911,7 @@ public record DadosDoCancelamento(string? Motivo);
 public record DadosDaClassificacao(Guid? CategoriaId, Guid? CentroDeCustoId);
 
 /// <param name="ContaDaBaixa">A conta onde a baixa entrou ou de onde saiu. Nula em aberto e nas baixas de antes das contas.</param>
+/// <param name="Desconto">Desconto, juros e multa da baixa, quando informados: dizem por que o valor pago difere do valor.</param>
 public record LancamentoNaLista(
     Guid Id,
     NaturezaLancamento Natureza,
@@ -865,7 +935,10 @@ public record LancamentoNaLista(
     Guid? CategoriaId,
     string? Categoria,
     Guid? CentroDeCustoId,
-    string? CentroDeCusto);
+    string? CentroDeCusto,
+    decimal? Desconto,
+    decimal? Juros,
+    decimal? Multa);
 
 /// <summary>Por qual coluna a listagem de lançamentos é ordenada.</summary>
 public enum OrdemDeLancamentos

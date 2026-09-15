@@ -280,6 +280,12 @@ export default function ListagemDeLancamentos() {
   const [baixando, definirBaixando] = useState<string | null>(null);
   const [valorDigitado, definirValorDigitado] = useState("");
   const [dataDaBaixa, definirDataDaBaixa] = useState(hojeIso());
+
+  /* Desconto, juros e multa ficam atrás de um botão: a maior parte das baixas não tem nenhum. */
+  const [comAcrescimos, definirComAcrescimos] = useState(false);
+  const [descontoDigitado, definirDescontoDigitado] = useState("");
+  const [jurosDigitado, definirJurosDigitado] = useState("");
+  const [multaDigitada, definirMultaDigitada] = useState("");
   const [contaDaBaixa, definirContaDaBaixa] = useState("");
   const [falha, definirFalha] = useState<string | null>(null);
   const [cancelando, definirCancelando] = useState<string | null>(null);
@@ -352,7 +358,15 @@ export default function ListagemDeLancamentos() {
     mutationFn: async (id: string) => {
       const { data, error } = await api.POST("/lancamentos/{id}/baixar", {
         params: { path: { id } },
-        body: { contaId: contaEscolhida, valorPago: valorDosDigitos(valorDigitado), pagoEm: dataDaBaixa },
+        body: {
+          contaId: contaEscolhida,
+          valorPago: valorDosDigitos(valorDigitado),
+          pagoEm: dataDaBaixa,
+          /* Vazio vai como nulo: sem nenhum dos três, o valor pago continua livre. */
+          desconto: valorDosDigitos(descontoDigitado) || null,
+          juros: valorDosDigitos(jurosDigitado) || null,
+          multa: valorDosDigitos(multaDigitada) || null,
+        },
       });
       if (error) throw error;
       return data;
@@ -445,6 +459,30 @@ export default function ListagemDeLancamentos() {
    * digitado. Passar tudo isso para fora seria uma lista de propriedades maior
    * que o componente.
    */
+  /* Com desconto, juros ou multa, o valor pago precisa fechar com eles: a conta já vem feita no campo. */
+  function mudarAcrescimos(item: LancamentoNaLista, mudanca: { desconto?: string; juros?: string; multa?: string }) {
+    const desconto = mudanca.desconto ?? descontoDigitado;
+    const juros = mudanca.juros ?? jurosDigitado;
+    const multa = mudanca.multa ?? multaDigitada;
+
+    definirDescontoDigitado(desconto);
+    definirJurosDigitado(juros);
+    definirMultaDigitada(multa);
+
+    const total = item.valor + valorDosDigitos(juros) + valorDosDigitos(multa) - valorDosDigitos(desconto);
+    if (total > 0) definirValorDigitado(digitosDoValor(total));
+  }
+
+  /* Desconto, juros e multa dizem por que o pago difere do valor; sem eles, a diferença fica sem nome. */
+  function acrescimosDe(item: LancamentoNaLista) {
+    const partes = [
+      item.juros ? `${formatarValor(item.juros)} de juros` : null,
+      item.multa ? `${formatarValor(item.multa)} de multa` : null,
+      item.desconto ? `${formatarValor(item.desconto)} de desconto` : null,
+    ].filter(Boolean);
+    return partes.length > 0 ? `com ${partes.join(", ")}` : null;
+  }
+
   /* Todo lançamento tem histórico, em qualquer situação: é no cancelado que se pergunta quem cancelou. */
   function acaoDeHistorico(item: LancamentoNaLista): AcaoDeLinha {
     return {
@@ -581,6 +619,53 @@ export default function ListagemDeLancamentos() {
             </div>
           </div>
 
+          <div className="flex flex-col items-stretch gap-2 md:items-end">
+            <button
+              type="button"
+              aria-expanded={comAcrescimos}
+              className="inline-flex min-h-11 items-center self-start text-xs font-semibold text-marca-700 underline-offset-2 hover:underline md:min-h-0 md:self-end"
+              onClick={() => {
+                /* Fechar desfaz: o valor volta ao do lançamento, sem acréscimo esquecido escondido. */
+                if (comAcrescimos) mudarAcrescimos(item, { desconto: "", juros: "", multa: "" });
+                definirComAcrescimos(!comAcrescimos);
+              }}
+            >
+              {comAcrescimos ? "Sem desconto, juros ou multa" : "Desconto, juros ou multa"}
+            </button>
+
+            {comAcrescimos && (
+              <div className="flex flex-wrap items-end gap-2 md:justify-end">
+                <div className="w-28">
+                  <EntradaMascarada
+                    rotulo="Juros"
+                    className="text-right"
+                    digitos={jurosDigitado}
+                    mascara={mascararDinheiro}
+                    aoMudar={(digitos) => mudarAcrescimos(item, { juros: digitos })}
+                  />
+                </div>
+                <div className="w-28">
+                  <EntradaMascarada
+                    rotulo="Multa"
+                    className="text-right"
+                    digitos={multaDigitada}
+                    mascara={mascararDinheiro}
+                    aoMudar={(digitos) => mudarAcrescimos(item, { multa: digitos })}
+                  />
+                </div>
+                <div className="w-28">
+                  <EntradaMascarada
+                    rotulo="Desconto"
+                    className="text-right"
+                    digitos={descontoDigitado}
+                    mascara={mascararDinheiro}
+                    aoMudar={(digitos) => mudarAcrescimos(item, { desconto: digitos })}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
           {contasParaBaixa.length === 0 && (
             <p className="text-xs text-slate-600 md:max-w-xs md:text-right">
               Nenhuma conta ativa para receber a baixa.{" "}
@@ -698,6 +783,10 @@ export default function ListagemDeLancamentos() {
             /* O valor do lançamento já vem preenchido: é o caso comum. */
             definirValorDigitado(digitosDoValor(item.valor));
             definirDataDaBaixa(hojeIso());
+            definirComAcrescimos(false);
+            definirDescontoDigitado("");
+            definirJurosDigitado("");
+            definirMultaDigitada("");
           }}
         >
           Baixar
@@ -953,6 +1042,9 @@ export default function ListagemDeLancamentos() {
                                     {textos[item.natureza].baixadoNaFrase} {formatarValor(item.valorPago)}
                                   </span>
                                 )}
+                                {acrescimosDe(item) && (
+                                  <span className="block text-xs font-normal text-slate-600">{acrescimosDe(item)}</span>
+                                )}
                               </dd>
 
                               {item.pagoEm && (
@@ -1069,6 +1161,9 @@ export default function ListagemDeLancamentos() {
                               <span className="block text-emerald-700">
                                 {textos[item.natureza].baixadoNaFrase} {formatarValor(item.valorPago)}
                               </span>
+                            )}
+                            {acrescimosDe(item) && (
+                              <span className="block text-xs font-normal text-slate-600">{acrescimosDe(item)}</span>
                             )}
                           </td>
                           <td className="px-4 py-3">

@@ -458,7 +458,7 @@ export interface paths {
         put?: never;
         /**
          * Registra a baixa
-         * @description Exige a conta onde o dinheiro entrou ou de onde saiu, e grava o movimento nela junto com a baixa.
+         * @description Exige a conta onde o dinheiro entrou ou de onde saiu, e grava o movimento nela junto com a baixa. Desconto, juros e multa são opcionais; informados, o valor pago precisa fechar com valor + juros + multa − desconto.
          */
         post: operations["BaixarLancamento"];
         delete?: never;
@@ -858,6 +858,12 @@ export interface components {
             valorPago: number;
             /** Format: date */
             pagoEm?: string | null;
+            /** Format: double */
+            desconto?: number | null;
+            /** Format: double */
+            juros?: number | null;
+            /** Format: double */
+            multa?: number | null;
         };
         DadosDaBaixaEmLote: {
             /** Format: uuid */
@@ -1169,6 +1175,12 @@ export interface components {
             /** Format: uuid */
             centroDeCustoId?: string | null;
             centroDeCusto?: string | null;
+            /** Format: double */
+            desconto?: number | null;
+            /** Format: double */
+            juros?: number | null;
+            /** Format: double */
+            multa?: number | null;
         };
         MovimentoGravado: {
             /** Format: uuid */

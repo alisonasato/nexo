@@ -502,6 +502,9 @@ public static class Cobrancas
                 lancamento.ValorPago = null;
                 lancamento.PagoEm = null;
                 lancamento.OrigemDaBaixa = string.Empty;
+                lancamento.Desconto = null;
+                lancamento.Juros = null;
+                lancamento.Multa = null;
                 lancamento.AtualizadoEm = DateTimeOffset.UtcNow;
                 return string.Empty;
         }

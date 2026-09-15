@@ -162,6 +162,25 @@ public class Lancamento
     /// </summary>
     public decimal? ValorPago { get; set; }
 
+    /// <summary>
+    /// O que a baixa abateu do valor, em reais: desconto de pontualidade,
+    /// abatimento combinado. Nulo quando não houve.
+    ///
+    /// <para>
+    /// <b>Desconto, juros e multa explicam a diferença.</b> São valores
+    /// digitados, e não taxas. Quando algum é informado, o valor pago precisa
+    /// fechar com valor mais juros mais multa menos desconto; sem nenhum, o valor
+    /// pago continua livre, como na baixa em lote e no aviso do PSP.
+    /// </para>
+    /// </summary>
+    public decimal? Desconto { get; set; }
+
+    /// <summary>Os juros de atraso cobrados na baixa, em reais. Nulo quando não houve.</summary>
+    public decimal? Juros { get; set; }
+
+    /// <summary>A multa de atraso cobrada na baixa, em reais. Nula quando não houve.</summary>
+    public decimal? Multa { get; set; }
+
     /// <summary>Data em que o dinheiro entrou, não a data em que foi registrado.</summary>
     public DateOnly? PagoEm { get; set; }
 
