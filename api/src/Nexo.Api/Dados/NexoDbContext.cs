@@ -20,6 +20,7 @@ public class NexoDbContext(DbContextOptions<NexoDbContext> opcoes)
     public DbSet<MovimentoDeConta> MovimentosDeConta => Set<MovimentoDeConta>();
     public DbSet<Categoria> Categorias => Set<Categoria>();
     public DbSet<CentroDeCusto> CentrosDeCusto => Set<CentroDeCusto>();
+    public DbSet<EventoDeAuditoria> EventosDeAuditoria => Set<EventoDeAuditoria>();
 
     protected override void OnModelCreating(ModelBuilder modelo)
     {
@@ -375,6 +376,23 @@ public class NexoDbContext(DbContextOptions<NexoDbContext> opcoes)
 
             /* O nome é como o centro se escolhe na tela: dois iguais obrigariam a adivinhar. */
             centro.HasIndex(c => new { c.TenantId, c.Nome }).IsUnique();
+        });
+
+        modelo.Entity<EventoDeAuditoria>(evento =>
+        {
+            evento.HasKey(e => e.Id);
+            evento.Property(e => e.Mudancas).HasColumnType("jsonb");
+            evento.Property(e => e.Autor).HasMaxLength(200);
+
+            /*
+             * Sem chave estrangeira nenhuma, de propósito: a trilha conta também o
+             * que deixou de existir, como o movimento apagado pelo estorno. Quem
+             * recusa alterar e apagar evento é um gatilho, escrito na migração.
+             */
+
+            /* O histórico lê por lançamento ou por conta, na ordem em que aconteceu. */
+            evento.HasIndex(e => new { e.TenantId, e.LancamentoId, e.Em });
+            evento.HasIndex(e => new { e.TenantId, e.ContaId, e.Em });
         });
 
         modelo.Entity<Usuario>(usuario =>

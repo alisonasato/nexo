@@ -591,6 +591,30 @@ categoria escolhe que parte do dinheiro medir, e "quanto Pessoal tem em aberto
 no mês" é a pergunta de quem a escolhe. Filtrar por uma categoria leva junto
 as que estão abaixo dela.
 
+## A trilha de auditoria só cresce, e se escreve sozinha
+
+Toda gravação em lançamento, movimento e conta bancária deixa um evento: quem
+fez, quando, e cada campo que mudou, com o valor de antes e o de depois. O
+evento entra na mesma transação da mudança. A trilha não conta o que não
+aconteceu, e não fica para trás do que aconteceu.
+
+Quem escreve é um interceptor do EF, e não cada endpoint. São mais de uma dúzia
+de lugares que mexem em dinheiro, e um registro escrito à mão falharia por não
+estar lá no próximo. O que foge do SaveChanges, como o ExecuteUpdate que tira a
+marca do PSP da conta anterior, escreve o próprio evento.
+
+A trilha só recebe eventos novos: um gatilho no banco recusa alterar e apagar,
+venha de onde vier. Uma trilha que se deixa reescrever responde "quem deu essa
+baixa" com o que alguém quis que ela respondesse. Apagar de verdade, como numa
+exclusão pedida pela LGPD, é gesto de quem administra o banco.
+
+Quem assina é a pessoa da sessão: guardada pelo e-mail, mostrada pelo nome de
+hoje. O aviso do PSP assina "Asaas". O plano de contas fica de fora, porque não
+mexe em dinheiro, e a classificação de um lançamento já aparece no histórico
+dele. Gravação que só troca o carimbo de atualização não vira evento. O que
+aconteceu antes desta versão não está na trilha, e o histórico diz isso em vez
+de parecer vazio.
+
 ## Ordem de execução
 
 1. ~~Repositório e contrato~~ — feito.

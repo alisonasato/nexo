@@ -11,25 +11,15 @@ import { Botao, Entrada } from "@/componentes/controles";
 import { formatarData, formatarValor } from "@/lib/dinheiro";
 import { useConsultaDaUrl } from "@/lib/estado-na-url";
 
+import { GavetaDeHistorico } from "../../lancamentos/gaveta-de-historico";
 import { GavetaDeMovimento } from "./gaveta-de-movimento";
 import { GavetaDeTransferencia } from "./gaveta-de-transferencia";
+import { origens } from "./origens";
 
 type MovimentoNoExtrato = components["schemas"]["MovimentoNoExtrato"];
 type Problema = components["schemas"]["Problema"];
 
 const compacto = "min-h-11 px-4 text-xs md:min-h-0 md:px-3 md:py-1";
-
-/* Como cada origem se lê no extrato: é a primeira pergunta de quem concilia. */
-const origens: Record<string, string> = {
-  baixa: "Baixa",
-  "baixa-estornada": "Baixa estornada pelo PSP",
-  "estorno-psp": "Devolução pelo PSP",
-  tarifa: "Tarifa",
-  rendimento: "Rendimento",
-  "entrada-avulsa": "Outra entrada",
-  "saida-avulsa": "Outra saída",
-  transferencia: "Transferência",
-};
 
 function descreverFalha(erro: unknown, padrao: string): string {
   const problemas =
@@ -63,7 +53,7 @@ export function ExtratoDaConta({ id }: { id: string }) {
   const de = ler("de") ?? "";
   const ate = ler("ate") ?? "";
 
-  const [gaveta, definirGaveta] = useState<"movimento" | "transferencia" | null>(null);
+  const [gaveta, definirGaveta] = useState<"movimento" | "transferencia" | "historico" | null>(null);
   const [apagando, definirApagando] = useState<string | null>(null);
 
   const invalidar = () => {
@@ -164,6 +154,9 @@ export function ExtratoDaConta({ id }: { id: string }) {
         </div>
 
         <div className="flex flex-wrap gap-2">
+          <Botao aparencia="secundario" type="button" onClick={() => definirGaveta("historico")}>
+            Histórico
+          </Botao>
           <Botao aparencia="secundario" type="button" onClick={() => definirGaveta("transferencia")}>
             Transferir
           </Botao>
@@ -341,6 +334,14 @@ export function ExtratoDaConta({ id }: { id: string }) {
         aberta={gaveta === "transferencia"}
         aoFechar={() => definirGaveta(null)}
         aoGravar={invalidar}
+      />
+
+      <GavetaDeHistorico
+        key={gaveta === "historico" ? "historico-aberto" : "historico-fechado"}
+        alvo={gaveta === "historico" ? { tipo: "conta", id } : null}
+        titulo="Histórico da conta"
+        descricao={resultado?.nome}
+        aoFechar={() => definirGaveta(null)}
       />
     </>
   );

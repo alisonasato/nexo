@@ -533,6 +533,25 @@ public class CobrancaPeloPsp : IDisposable
         Assert.Contains("conta marcada", evento.Divergencia);
     }
 
+    /* ---------------------------------------------------------- trilha */
+
+    [Fact]
+    public async Task A_baixa_do_aviso_fica_no_historico_em_nome_do_psp()
+    {
+        var (http, conta) = await Entrar();
+        var lancamento = await CriarLancamento(http);
+        (await http.PostAsync($"/lancamentos/{lancamento}/cobrar", null)).EnsureSuccessStatusCode();
+
+        await Avisar(Aviso("evt_trilha", "PAYMENT_RECEIVED", conta.TenantId, lancamento, 450m));
+
+        var historico = (await http.GetFromJsonAsync<List<EventoNoHistorico>>(
+            $"/lancamentos/{lancamento}/historico", Json))!;
+
+        /* Quem emitiu a cobrança foi a pessoa; quem deu a baixa foi o aviso, e não ela. */
+        Assert.Equal("Pessoa de teste", Assert.Single(historico, evento => evento.Resumo == "Cobrança emitida").Autor);
+        Assert.Equal("Asaas", Assert.Single(historico, evento => evento.Resumo == "Baixa").Autor);
+    }
+
     /* --------------------------------------------------------- apoio */
 
     /// <summary>Entra já com uma conta bancária marcada para receber as cobranças, sem a qual não se cobra.</summary>

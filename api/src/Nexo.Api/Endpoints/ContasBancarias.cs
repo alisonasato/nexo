@@ -309,9 +309,31 @@ public static class ContasBancarias
 
             if (conta.RecebeCobrancas)
             {
+                var desmarcadas = await banco.ContasBancarias.AsNoTracking()
+                    .Where(outra => outra.Id != conta.Id && outra.RecebeCobrancas)
+                    .Select(outra => new { outra.Id, outra.TenantId })
+                    .ToListAsync(cancelamento);
+
                 await banco.ContasBancarias
                     .Where(outra => outra.Id != conta.Id && outra.RecebeCobrancas)
                     .ExecuteUpdateAsync(ajuste => ajuste.SetProperty(outra => outra.RecebeCobrancas, false), cancelamento);
+
+                /*
+                 * O ExecuteUpdate vai direto ao banco, por fora do SaveChanges, e a
+                 * trilha de auditoria não o veria. O evento da conta que perdeu a
+                 * marca é escrito aqui, e entra na gravação logo abaixo, na mesma
+                 * transação; quem assina é o interceptor.
+                 */
+                banco.EventosDeAuditoria.AddRange(desmarcadas.Select(outra => new EventoDeAuditoria
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = outra.TenantId,
+                    Entidade = EntidadeAuditada.ContaBancaria,
+                    EntidadeId = outra.Id,
+                    ContaId = outra.Id,
+                    Acao = AcaoDeAuditoria.Alterado,
+                    Mudancas = EventoDeAuditoria.Escrever([new MudancaDeCampo("recebeCobrancas", "true", "false")]),
+                }));
             }
 
             if (await Gravar(banco, cancelamento) is { } recusa) return recusa;

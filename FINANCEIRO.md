@@ -118,7 +118,17 @@ opcionais do lançamento e como filtros da tela. Sai em três PRs:
 
 Trilha de quem fez o quê e quando, descontos, juros e multa separados na baixa,
 e recorrência genérica além dos contratos. Juros e multa **automáticos** sobre o
-vencido dependem da taxa, que ainda é decisão em aberto no `DEPOIS.md`.
+vencido dependem da taxa, que ainda é decisão em aberto no `DEPOIS.md`. Sai em
+três PRs:
+
+1. **A trilha de auditoria.** Toda gravação em lançamento, movimento e conta
+   bancária deixa um evento com quem fez, quando e os campos que mudaram, na
+   mesma transação. A trilha só recebe eventos novos. O histórico abre pelo menu
+   de qualquer lançamento, cancelado inclusive, e pelo extrato da conta.
+2. **Desconto, juros e multa na baixa.** Informados à mão, separados do valor
+   pago.
+3. **Recorrência genérica.** Lançamentos que se repetem sem contrato por trás,
+   como o aluguel do escritório.
 
 ## O modelo a que o módulo chega
 
@@ -163,8 +173,7 @@ interface Lancamento {
 
   criadoEm: string;
   atualizadoEm: string;
-  criadoPor?: string;                                           // fase 5
-  atualizadoPor?: string;                                       // fase 5
+  // quem criou e quem mexeu: na trilha de auditoria           // fase 5
 }
 
 interface Renegociacao {                                        // fase 1
@@ -201,11 +210,14 @@ interface Categoria {                                           // fase 4
 
 interface EventoDeAuditoria {                                   // fase 5
   id: string;
-  lancamentoId: string;
-  acao: string;
-  antes: unknown;
-  depois: unknown;
-  usuarioId: string;
+  entidade: "Lancamento" | "MovimentoDeConta" | "ContaBancaria";
+  entidadeId: string;
+  lancamentoId?: string;        // o próprio, ou o da baixa do movimento
+  contaId?: string;             // a própria, ou a do movimento
+  acao: "Criado" | "Alterado" | "Apagado";
+  mudancas: { campo: string; antes?: string; depois?: string }[];
+  usuarioId?: string;           // vazio no aviso do PSP
+  autor: string;                // e-mail da sessão, "Asaas" ou "Sistema"
   em: string;
 }
 ```
@@ -218,6 +230,8 @@ As regras que o modelo carrega, e que valem em todas as fases:
   índice único, que só libera cancelados: sem isso, gerar mensalidades cobraria
   de novo um mês já renegociado.
 - **Nada se apaga.** Cancelar exige motivo e mantém a linha.
+- **Toda mudança deixa rastro.** Quem fez, quando e o que mudou ficam na trilha
+  de auditoria, que só recebe eventos novos.
 - **Parcelas somam exatamente o total.** Os centavos que sobram da divisão vão
   para a primeira parcela, e o vencimento de cada uma parte da primeira data,
   não da parcela anterior: 31 de janeiro vira 28 de fevereiro e 31 de março, e
