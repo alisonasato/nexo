@@ -183,3 +183,13 @@ export function IconeDeCancelar({ className }: Props) {
     </Traco>
   );
 }
+
+/** Uma etiqueta: o que o lançamento foi. */
+export function IconeDeClassificar({ className }: Props) {
+  return (
+    <Traco className={className}>
+      <path d="M3 12V4a1 1 0 0 1 1-1h8l9 9-9 9-9-9z" />
+      <circle cx="7.5" cy="7.5" r="1.5" />
+    </Traco>
+  );
+}

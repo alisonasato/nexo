@@ -224,6 +224,21 @@ public class NexoDbContext(DbContextOptions<NexoDbContext> opcoes)
                 .WithMany()
                 .HasForeignKey(r => r.ContratoId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            /* Restrict: categoria e centro não se apagam, e o lançamento não fica apontando para o nada. */
+            lancamento.HasOne(r => r.Categoria)
+                .WithMany()
+                .HasForeignKey(r => r.CategoriaId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            lancamento.HasOne(r => r.CentroDeCusto)
+                .WithMany()
+                .HasForeignKey(r => r.CentroDeCustoId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            /* O filtro da tela lê por categoria e por centro, dentro do escritório. */
+            lancamento.HasIndex(r => new { r.TenantId, r.CategoriaId });
+            lancamento.HasIndex(r => new { r.TenantId, r.CentroDeCustoId });
         });
 
         modelo.Entity<Renegociacao>(renegociacao =>

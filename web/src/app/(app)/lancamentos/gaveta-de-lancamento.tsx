@@ -18,6 +18,8 @@ import {
 } from "@/lib/dinheiro";
 import { dividirEmParcelas, limitarParcelas, MAXIMO_DE_PARCELAS } from "@/lib/parcelas";
 
+import { useCategorias, useCentrosDeCusto } from "./classificacao";
+
 type NaturezaLancamento = components["schemas"]["NaturezaLancamento"];
 type Problema = components["schemas"]["Problema"];
 
@@ -83,6 +85,12 @@ export function GavetaDeLancamento({ natureza, aberta, aoFechar }: Props) {
   const [ano, definirAno] = useState(competencia.ano);
   const [mes, definirMes] = useState(competencia.mes);
   const [problemas, definirProblemas] = useState<Problema[]>([]);
+  const [categoria, definirCategoria] = useState("");
+  const [centro, definirCentro] = useState("");
+
+  /* Só o que a API aceitaria: categorias ativas desta natureza, centros ativos. */
+  const categorias = (useCategorias().data ?? []).filter((item) => item.ativa && item.natureza === natureza);
+  const centros = (useCentrosDeCusto().data ?? []).filter((item) => item.ativo);
 
   const pessoas = useQuery({
     queryKey: ["pessoas", lado.papel],
@@ -120,6 +128,8 @@ export function GavetaDeLancamento({ natureza, aberta, aoFechar }: Props) {
           primeiroVencimento,
           competenciaAno: ano,
           competenciaMes: mes,
+          categoriaId: categoria || null,
+          centroDeCustoId: centro || null,
         },
       });
       if (error) throw error;
@@ -250,6 +260,29 @@ export function GavetaDeLancamento({ natureza, aberta, aoFechar }: Props) {
             ajuda="O mês do serviço, não o do vencimento."
           />
         </div>
+
+        {/* Classificar é opcional: sem plano de contas, os campos nem aparecem. */}
+        {categorias.length > 0 && (
+          <Selecao rotulo="Categoria" value={categoria} onChange={(evento) => definirCategoria(evento.target.value)}>
+            <option value="">Sem categoria</option>
+            {categorias.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.caminho}
+              </option>
+            ))}
+          </Selecao>
+        )}
+
+        {centros.length > 0 && (
+          <Selecao rotulo="Centro de custo" value={centro} onChange={(evento) => definirCentro(evento.target.value)}>
+            <option value="">Sem centro de custo</option>
+            {centros.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.nome}
+              </option>
+            ))}
+          </Selecao>
+        )}
 
         {parcelas > 1 && previa.length > 0 && (
           <div className="rounded-[--radius-controle] border border-borda">

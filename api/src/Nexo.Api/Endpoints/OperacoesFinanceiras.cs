@@ -77,7 +77,7 @@ public static class OperacoesFinanceiras
            afrouxa nada. */
         var problemas = await Lancamentos.Conferir(
             new DadosDoAvulso(dados.Natureza, dados.PessoaId, dados.Descricao, total, dados.PrimeiroVencimento,
-                dados.CompetenciaAno, dados.CompetenciaMes),
+                dados.CompetenciaAno, dados.CompetenciaMes, dados.CategoriaId, dados.CentroDeCustoId),
             banco, cancelamento);
 
         problemas.AddRange(ConferirParcelas(total, dados.Parcelas));
@@ -87,6 +87,14 @@ public static class OperacoesFinanceiras
 
         var pessoa = await banco.Pessoas.FirstAsync(p => p.Id == dados.PessoaId, cancelamento);
         var agora = DateTimeOffset.UtcNow;
+
+        /* Carregados para a resposta já trazer os nomes; a conferência acima garantiu que existem. */
+        var categoria = dados.CategoriaId is { } idDaCategoria
+            ? await banco.Categorias.FirstAsync(item => item.Id == idDaCategoria, cancelamento)
+            : null;
+        var centro = dados.CentroDeCustoId is { } idDoCentro
+            ? await banco.CentrosDeCusto.FirstAsync(item => item.Id == idDoCentro, cancelamento)
+            : null;
 
         /* Com uma parcela só não há grupo: "1 de 1" é ruído na tela. */
         var emGrupo = dados.Parcelas > 1;
@@ -110,6 +118,10 @@ public static class OperacoesFinanceiras
                 ParcelamentoId = emGrupo ? grupo : null,
                 ParcelaNumero = emGrupo ? parcela.Numero : null,
                 ParcelasTotal = emGrupo ? dados.Parcelas : null,
+                CategoriaId = categoria?.Id,
+                Categoria = categoria,
+                CentroDeCustoId = centro?.Id,
+                CentroDeCusto = centro,
                 CriadoEm = agora,
                 AtualizadoEm = agora,
             })
@@ -148,6 +160,8 @@ public static class OperacoesFinanceiras
     {
         var original = await banco.Lancamentos
             .Include(r => r.Pessoa)
+            .Include(r => r.Categoria)
+            .Include(r => r.CentroDeCusto)
             .FirstOrDefaultAsync(r => r.Id == id, cancelamento);
 
         if (original is null) return Results.NotFound();
@@ -257,6 +271,12 @@ public static class OperacoesFinanceiras
                 ParcelaNumero = emGrupo ? parcela.Numero : null,
                 ParcelasTotal = emGrupo ? dados.Parcelas : null,
                 RenegociadoDeId = original.Id,
+
+                /* O acordo muda prazo e valor, e não o que o dinheiro é: a classificação segue a do título. */
+                CategoriaId = original.CategoriaId,
+                Categoria = original.Categoria,
+                CentroDeCustoId = original.CentroDeCustoId,
+                CentroDeCusto = original.CentroDeCusto,
                 CriadoEm = agora,
                 AtualizadoEm = agora,
             })
@@ -434,7 +454,9 @@ public record DadosDoParcelamento(
     int Parcelas,
     DateOnly PrimeiroVencimento,
     int CompetenciaAno,
-    int CompetenciaMes);
+    int CompetenciaMes,
+    Guid? CategoriaId = null,
+    Guid? CentroDeCustoId = null);
 
 /// <param name="ParcelamentoId">Nulo quando foi lançada uma parcela só.</param>
 public record ParcelamentoCriado(Guid? ParcelamentoId, List<LancamentoNaLista> Parcelas);

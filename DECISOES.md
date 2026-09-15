@@ -578,6 +578,13 @@ categoria diz o que o dinheiro foi; o centro, de quem ele é. Como nível da
 O plano sugerido só entra num plano vazio. Completar um plano que já existe
 misturaria duas formas de classificar a mesma coisa.
 
+Classificar um lançamento vale em qualquer situação, pago inclusive: não mexe
+em dinheiro, e é no pago que o relatório do mês procura. A categoria precisa
+ter a natureza do lançamento. O que já era do lançamento passa mesmo inativo,
+para inativar uma categoria não travar a troca do centro de custo de tudo o
+que foi classificado nela. As parcelas de um parcelamento e de uma
+renegociação levam a classificação de quem as originou.
+
 ## Ordem de execução
 
 1. ~~Repositório e contrato~~ — feito.

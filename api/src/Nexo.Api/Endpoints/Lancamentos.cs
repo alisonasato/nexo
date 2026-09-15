@@ -51,6 +51,14 @@ public static class Lancamentos
             .Produces<LancamentoNaLista>()
             .Produces(StatusCodes.Status404NotFound);
 
+        grupo.MapPut("/{id:guid}/classificacao", Classificar)
+            .WithName("ClassificarLancamento")
+            .WithSummary("Dá categoria e centro de custo a um lançamento que já existe")
+            .WithDescription("Vale em qualquer situação: classificar não mexe em dinheiro. Vazio tira a classificação.")
+            .Produces<LancamentoNaLista>()
+            .Produces<RespostaComProblemas>(StatusCodes.Status422UnprocessableEntity)
+            .Produces(StatusCodes.Status404NotFound);
+
         return rotas;
     }
 
@@ -167,7 +175,11 @@ public static class Lancamentos
                     .Where(movimento => movimento.LancamentoId == lancamento.Id
                         && movimento.Origem == OrigensDeMovimento.Baixa)
                     .Select(movimento => movimento.Conta!.Nome)
-                    .FirstOrDefault()))
+                    .FirstOrDefault(),
+                lancamento.CategoriaId,
+                lancamento.Categoria!.Nome,
+                lancamento.CentroDeCustoId,
+                lancamento.CentroDeCusto!.Nome))
             .ToListAsync(cancelamento);
 
         return Results.Ok(new PaginaDeLancamentos(
@@ -271,6 +283,8 @@ public static class Lancamentos
             Descricao = dados.Descricao.Trim(),
             Valor = dados.Valor,
             Vencimento = dados.Vencimento,
+            CategoriaId = dados.CategoriaId,
+            CentroDeCustoId = dados.CentroDeCustoId,
             Situacao = SituacaoLancamento.Aberto,
             CriadoEm = agora,
             AtualizadoEm = agora,
@@ -280,6 +294,8 @@ public static class Lancamentos
         await banco.SaveChangesAsync(cancelamento);
 
         await banco.Entry(lancamento).Reference(r => r.Pessoa).LoadAsync(cancelamento);
+        await banco.Entry(lancamento).Reference(r => r.Categoria).LoadAsync(cancelamento);
+        await banco.Entry(lancamento).Reference(r => r.CentroDeCusto).LoadAsync(cancelamento);
 
         return Results.Created($"/lancamentos/{lancamento.Id}", Detalhar(lancamento));
     }
@@ -374,8 +390,89 @@ public static class Lancamentos
                 "Informe um ano entre 2000 e 2100."));
         }
 
+        if (comNatureza)
+        {
+            problemas.AddRange(await ConferirClassificacao(
+                dados.Natureza, dados.CategoriaId, dados.CentroDeCustoId, atual: null, banco, cancelamento));
+        }
+
         return problemas;
     }
+
+    /// <summary>
+    /// A categoria e o centro de custo de um lançamento: deste escritório,
+    /// ativos, e a categoria da mesma natureza do lançamento.
+    ///
+    /// <para>
+    /// <b>Natureza igual à do lançamento.</b> Uma receita classificada numa
+    /// categoria a pagar faria o total de despesas somar receita, sem erro nenhum.
+    /// </para>
+    /// <para>
+    /// <b>O que já era do lançamento passa, mesmo inativo.</b> Inativar uma
+    /// categoria não pode travar a troca do centro de custo de tudo o que foi
+    /// classificado nela.
+    /// </para>
+    /// </summary>
+    /// <param name="atual">O lançamento sendo reclassificado; nulo ao lançar.</param>
+    internal static async Task<List<Problema>> ConferirClassificacao(
+        NaturezaLancamento natureza,
+        Guid? categoriaId,
+        Guid? centroDeCustoId,
+        Lancamento? atual,
+        NexoDbContext banco,
+        CancellationToken cancelamento)
+    {
+        var problemas = new List<Problema>();
+
+        if (categoriaId is { } idDaCategoria)
+        {
+            var categoria = await banco.Categorias.AsNoTracking()
+                .FirstOrDefaultAsync(categoria => categoria.Id == idDaCategoria, cancelamento);
+
+            if (categoria is null)
+            {
+                problemas.Add(new Problema("categoriaId", "Categoria não encontrada",
+                    "A categoria informada não existe neste escritório.",
+                    "Escolha uma categoria do plano de contas."));
+            }
+            else if (categoria.Natureza != natureza)
+            {
+                problemas.Add(new Problema("categoriaId", "Categoria de outra natureza",
+                    $"“{categoria.Nome}” é {Rotulo(categoria.Natureza)}, e o lançamento é {Rotulo(natureza)}.",
+                    "Escolha uma categoria da mesma natureza do lançamento."));
+            }
+            else if (!categoria.Ativa && categoria.Id != atual?.CategoriaId)
+            {
+                problemas.Add(new Problema("categoriaId", "Categoria inativa",
+                    $"A categoria “{categoria.Nome}” está inativa.",
+                    "Escolha outra, ou reative esta no plano de contas."));
+            }
+        }
+
+        if (centroDeCustoId is { } idDoCentro)
+        {
+            var centro = await banco.CentrosDeCusto.AsNoTracking()
+                .FirstOrDefaultAsync(centro => centro.Id == idDoCentro, cancelamento);
+
+            if (centro is null)
+            {
+                problemas.Add(new Problema("centroDeCustoId", "Centro de custo não encontrado",
+                    "O centro de custo informado não existe neste escritório.",
+                    "Escolha um centro de custo da lista."));
+            }
+            else if (!centro.Ativo && centro.Id != atual?.CentroDeCustoId)
+            {
+                problemas.Add(new Problema("centroDeCustoId", "Centro de custo inativo",
+                    $"O centro de custo “{centro.Nome}” está inativo.",
+                    "Escolha outro, ou reative este no plano de contas."));
+            }
+        }
+
+        return problemas;
+    }
+
+    private static string Rotulo(NaturezaLancamento natureza) =>
+        natureza == NaturezaLancamento.Pagar ? "a pagar" : "a receber";
 
     private static async Task<IResult> Baixar(
         Guid id,
@@ -563,6 +660,48 @@ public static class Lancamentos
     }
 
     /// <summary>
+    /// Classifica um lançamento que já existe.
+    ///
+    /// <para>
+    /// <b>Vale em qualquer situação.</b> Classificar não mexe em dinheiro, e o
+    /// lançamento pago precisa de categoria tanto quanto o aberto: é nele que o
+    /// relatório do mês procura. Vazio tira a classificação.
+    /// </para>
+    /// </summary>
+    private static async Task<IResult> Classificar(
+        Guid id,
+        [FromBody] DadosDaClassificacao dados,
+        NexoDbContext banco,
+        CancellationToken cancelamento)
+    {
+        var lancamento = await banco.Lancamentos
+            .Include(r => r.Pessoa)
+            .FirstOrDefaultAsync(r => r.Id == id, cancelamento);
+
+        if (lancamento is null) return Results.NotFound();
+
+        var problemas = await ConferirClassificacao(
+            lancamento.Natureza, dados.CategoriaId, dados.CentroDeCustoId, lancamento, banco, cancelamento);
+        if (problemas.Count > 0) return Results.Json(new RespostaComProblemas(problemas), statusCode: 422);
+
+        lancamento.CategoriaId = dados.CategoriaId;
+        lancamento.CentroDeCustoId = dados.CentroDeCustoId;
+        lancamento.AtualizadoEm = DateTimeOffset.UtcNow;
+
+        if (await Gravar(banco, cancelamento) is { } conflito) return conflito;
+
+        await banco.Entry(lancamento).Reference(r => r.Categoria).LoadAsync(cancelamento);
+        await banco.Entry(lancamento).Reference(r => r.CentroDeCusto).LoadAsync(cancelamento);
+
+        var contaDaBaixa = await banco.MovimentosDeConta.AsNoTracking()
+            .Where(movimento => movimento.LancamentoId == id && movimento.Origem == OrigensDeMovimento.Baixa)
+            .Select(movimento => movimento.Conta!.Nome)
+            .FirstOrDefaultAsync(cancelamento);
+
+        return Results.Ok(Detalhar(lancamento, contaDaBaixa));
+    }
+
+    /// <summary>
     /// Grava, e transforma conflito de concorrência em recusa legível.
     ///
     /// <para>
@@ -608,7 +747,11 @@ public static class Lancamentos
         lancamento.ParcelasTotal,
         lancamento.RenegociadoDeId,
         lancamento.CobrancaUrl,
-        contaDaBaixa);
+        contaDaBaixa,
+        lancamento.CategoriaId,
+        lancamento.Categoria?.Nome,
+        lancamento.CentroDeCustoId,
+        lancamento.CentroDeCusto?.Nome);
 
     private static IResult Problema(string campo, string titulo, string descricao, string sugestao) =>
         Results.Json(
@@ -619,6 +762,8 @@ public static class Lancamentos
 /// <param name="Natureza">Obrigatória: a receber ou a pagar. Decide também o papel que a pessoa precisa ter.</param>
 /// <param name="CompetenciaAno">O ano a que o serviço se refere, não o do vencimento.</param>
 /// <param name="CompetenciaMes">O mês a que o serviço se refere, de 1 a 12.</param>
+/// <param name="CategoriaId">Opcional. Da mesma natureza do lançamento, e ativa.</param>
+/// <param name="CentroDeCustoId">Opcional. Ativo.</param>
 public record DadosDoAvulso(
     NaturezaLancamento Natureza,
     Guid PessoaId,
@@ -626,11 +771,17 @@ public record DadosDoAvulso(
     decimal Valor,
     DateOnly Vencimento,
     int CompetenciaAno,
-    int CompetenciaMes);
+    int CompetenciaMes,
+    Guid? CategoriaId = null,
+    Guid? CentroDeCustoId = null);
 
 /// <param name="ContaId">Obrigatória: a conta onde o dinheiro entrou ou de onde saiu.</param>
 public record DadosDaBaixa(Guid ContaId, decimal ValorPago, DateOnly? PagoEm);
 public record DadosDoCancelamento(string? Motivo);
+
+/// <param name="CategoriaId">Vazia tira a categoria.</param>
+/// <param name="CentroDeCustoId">Vazio tira o centro de custo.</param>
+public record DadosDaClassificacao(Guid? CategoriaId, Guid? CentroDeCustoId);
 
 /// <param name="ContaDaBaixa">A conta onde a baixa entrou ou de onde saiu. Nula em aberto e nas baixas de antes das contas.</param>
 public record LancamentoNaLista(
@@ -652,7 +803,11 @@ public record LancamentoNaLista(
     int? ParcelasTotal,
     Guid? RenegociadoDeId,
     string CobrancaUrl,
-    string? ContaDaBaixa);
+    string? ContaDaBaixa,
+    Guid? CategoriaId,
+    string? Categoria,
+    Guid? CentroDeCustoId,
+    string? CentroDeCusto);
 
 /// <summary>Por qual coluna a listagem de lançamentos é ordenada.</summary>
 public enum OrdemDeLancamentos
