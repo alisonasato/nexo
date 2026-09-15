@@ -239,6 +239,45 @@
         }
       }
     },
+    "/contas-bancarias/{id}/historico": {
+      "get": {
+        "tags": [
+          "Contas bancárias"
+        ],
+        "summary": "Quem fez o quê na conta, e quando",
+        "description": "Do mais antigo ao mais novo. Traz as mudanças no cadastro, como o saldo inicial e a marca de receber as cobranças, e todo movimento que entrou ou saiu dela, inclusive os apagados.",
+        "operationId": "HistoricoDaContaBancaria",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EventoNoHistorico"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
     "/contas-bancarias": {
       "get": {
         "tags": [
@@ -1067,6 +1106,45 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/lancamentos/{id}/historico": {
+      "get": {
+        "tags": [
+          "Lançamentos"
+        ],
+        "summary": "Quem fez o quê no lançamento, e quando",
+        "description": "Do mais antigo ao mais novo. Traz também os movimentos que as baixas gravaram na conta, inclusive os que o estorno apagou.",
+        "operationId": "HistoricoDoLancamento",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EventoNoHistorico"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
           }
         }
       }
@@ -2277,6 +2355,14 @@
   },
   "components": {
     "schemas": {
+      "AcaoDeAuditoria": {
+        "enum": [
+          "Criado",
+          "Alterado",
+          "Apagado"
+        ],
+        "type": "string"
+      },
       "AgrupamentoDoFluxo": {
         "enum": [
           "Dia",
@@ -3328,6 +3414,75 @@
         },
         "additionalProperties": false
       },
+      "EntidadeAuditada": {
+        "enum": [
+          "Lancamento",
+          "MovimentoDeConta",
+          "ContaBancaria"
+        ],
+        "type": "string"
+      },
+      "EventoNoHistorico": {
+        "required": [
+          "acao",
+          "autor",
+          "em",
+          "entidade",
+          "id",
+          "mudancas",
+          "resumo"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "em": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "autor": {
+            "type": "string"
+          },
+          "entidade": {
+            "enum": [
+              "Lancamento",
+              "MovimentoDeConta",
+              "ContaBancaria"
+            ],
+            "type": "string",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/EntidadeAuditada"
+              }
+            ]
+          },
+          "acao": {
+            "enum": [
+              "Criado",
+              "Alterado",
+              "Apagado"
+            ],
+            "type": "string",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AcaoDeAuditoria"
+              }
+            ]
+          },
+          "resumo": {
+            "type": "string"
+          },
+          "mudancas": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MudancaDeCampo"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
       "ExtratoDaConta": {
         "required": [
           "ate",
@@ -3697,6 +3852,26 @@
           },
           "podeApagar": {
             "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "MudancaDeCampo": {
+        "required": [
+          "campo"
+        ],
+        "type": "object",
+        "properties": {
+          "campo": {
+            "type": "string"
+          },
+          "antes": {
+            "type": "string",
+            "nullable": true
+          },
+          "depois": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false

@@ -340,6 +340,9 @@ public static class Cobrancas
          */
         ContextoDeTenantHttp.Fixar(http, tenant);
 
+        /* Não há pessoa com sessão aqui: o que este aviso mudar fica na trilha em nome do PSP. */
+        InterceptorDeAuditoria.FixarAutor(http, "Asaas");
+
         var evento = new EventoDeCobranca
         {
             Id = aviso.Id,

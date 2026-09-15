@@ -193,3 +193,14 @@ export function IconeDeClassificar({ className }: Props) {
     </Traco>
   );
 }
+
+/** Um relógio andando para trás: o que aconteceu antes. */
+export function IconeDeHistorico({ className }: Props) {
+  return (
+    <Traco className={className}>
+      <path d="M3 12a9 9 0 1 0 2.6-6.4L3 8" />
+      <path d="M3 3v5h5" />
+      <path d="M12 7v5l3 2" />
+    </Traco>
+  );
+}

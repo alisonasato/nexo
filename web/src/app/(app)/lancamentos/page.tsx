@@ -15,6 +15,7 @@ import {
   IconeDeClassificar,
   IconeDeCobranca,
   IconeDeCopiar,
+  IconeDeHistorico,
   IconeDeRenegociar,
 } from "@/componentes/icones";
 import { MenuDeAcoes, type AcaoDeLinha } from "@/componentes/menu-de-acoes";
@@ -38,6 +39,7 @@ import { useCategorias, useCentrosDeCusto } from "./classificacao";
 import { useContasParaBaixa } from "./contas";
 import { AvisoDeDivergencias } from "./divergencias";
 import { GavetaDeClassificacao } from "./gaveta-de-classificacao";
+import { GavetaDeHistorico } from "./gaveta-de-historico";
 import { GavetaDeLancamento } from "./gaveta-de-lancamento";
 import { GavetaDeRenegociacao } from "./gaveta-de-renegociacao";
 
@@ -271,6 +273,7 @@ export default function ListagemDeLancamentos() {
   const [lancando, definirLancando] = useState(false);
   const [renegociando, definirRenegociando] = useState<LancamentoNaLista | null>(null);
   const [classificando, definirClassificando] = useState<LancamentoNaLista | null>(null);
+  const [historicoAberto, definirHistoricoAberto] = useState<LancamentoNaLista | null>(null);
   const [baixandoEmLote, definirBaixandoEmLote] = useState(false);
 
   /* Os formulários que abrem dentro da própria linha. */
@@ -442,10 +445,26 @@ export default function ListagemDeLancamentos() {
    * digitado. Passar tudo isso para fora seria uma lista de propriedades maior
    * que o componente.
    */
+  /* Todo lançamento tem histórico, em qualquer situação: é no cancelado que se pergunta quem cancelou. */
+  function acaoDeHistorico(item: LancamentoNaLista): AcaoDeLinha {
+    return {
+      tipo: "botao",
+      rotulo: "Histórico",
+      icone: <IconeDeHistorico className="size-4" />,
+      executar: () => {
+        definirHistoricoAberto(item);
+      },
+    };
+  }
+
   function acoes(item: LancamentoNaLista) {
-    /* Cancelado e renegociado já não se movem: nas parcelas novas é que se age. */
+    /* Cancelado e renegociado já não se movem: nas parcelas novas é que se age. Resta ver o que aconteceu. */
     if (item.situacao === "Cancelado" || item.situacao === "Renegociado") {
-      return <span className="text-xs text-slate-400">—</span>;
+      return (
+        <div className="flex items-center gap-1 md:justify-end">
+          <MenuDeAcoes rotulo={`${item.nomeDaPessoa}, ${item.descricao}`} acoes={[acaoDeHistorico(item)]} />
+        </div>
+      );
     }
 
     if (cancelando === item.id) {
@@ -518,6 +537,7 @@ export default function ListagemDeLancamentos() {
                   definirClassificando(item);
                 },
               },
+              acaoDeHistorico(item),
             ]}
           />
         </div>
@@ -652,6 +672,8 @@ export default function ListagemDeLancamentos() {
         definirRenegociando(item);
       },
     });
+
+    menu.push(acaoDeHistorico(item));
 
     menu.push({
       tipo: "botao",
@@ -1097,6 +1119,14 @@ export default function ListagemDeLancamentos() {
         key={classificando?.id ?? "nenhum"}
         lancamento={classificando}
         aoFechar={() => definirClassificando(null)}
+      />
+
+      <GavetaDeHistorico
+        key={historicoAberto?.id ?? "nenhum"}
+        alvo={historicoAberto ? { tipo: "lancamento", id: historicoAberto.id } : null}
+        titulo="Histórico"
+        descricao={historicoAberto ? `${historicoAberto.nomeDaPessoa} · ${historicoAberto.descricao}` : undefined}
+        aoFechar={() => definirHistoricoAberto(null)}
       />
 
       <GavetaDeRenegociacao
