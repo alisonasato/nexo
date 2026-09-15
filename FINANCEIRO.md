@@ -81,11 +81,15 @@ Saldo é **derivado** de saldo inicial mais movimentos, nunca um número editáv
    dinheiro entrou de fato. Baixa com data anterior ao saldo inicial da conta
    é recusada, porque aquele dinheiro já está dentro do saldo inicial. As
    baixas de antes desta fase ficam sem movimento, e o saldo inicial já as
-   contém. A baixa que chega pelo PSP vai para a conta marcada para receber as cobranças, e cobrar
-   exige que ela exista; se a marca sumir depois, o aviso vira divergência em
-   vez de baixa. O saldo inicial não muda depois do primeiro movimento.
-3. **O fluxo de caixa.** O projetado, dos lançamentos em aberto pelo
-   vencimento, contra o realizado, dos movimentos, com o saldo acumulado.
+   contém. A baixa que chega pelo PSP vai para a conta marcada para receber as
+   cobranças, e cobrar exige que ela exista; se a marca sumir depois, o aviso
+   vira divergência em vez de baixa. O saldo inicial não muda depois do
+   primeiro movimento.
+3. **O fluxo de caixa.** O realizado, dos movimentos, contra o projetado, dos
+   lançamentos em aberto que vencem de hoje em diante, por dia ou por mês e
+   com o saldo acumulado. O que está em atraso aparece à parte e fora do
+   saldo projetado, e o saldo inicial de uma conta entra no dia em que ela
+   começa.
 4. **Transferências e movimentos avulsos.** Dinheiro que muda de conta, tarifa,
    rendimento: o que o extrato tem e não é lançamento. Sem isso o saldo nunca
    bate com o banco.
