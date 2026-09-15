@@ -12,6 +12,7 @@ import { Botao, Entrada, EntradaMascarada, Selecao } from "@/componentes/control
 import {
   IconeDeBusca,
   IconeDeCancelar,
+  IconeDeClassificar,
   IconeDeCobranca,
   IconeDeCopiar,
   IconeDeRenegociar,
@@ -33,8 +34,10 @@ import { useConsultaDaUrl } from "@/lib/estado-na-url";
 import { useSelecaoPorConsulta } from "@/lib/selecao";
 
 import { BaixaEmLote } from "./baixa-em-lote";
+import { useCategorias } from "./classificacao";
 import { useContasParaBaixa } from "./contas";
 import { AvisoDeDivergencias } from "./divergencias";
+import { GavetaDeClassificacao } from "./gaveta-de-classificacao";
 import { GavetaDeLancamento } from "./gaveta-de-lancamento";
 import { GavetaDeRenegociacao } from "./gaveta-de-renegociacao";
 
@@ -262,6 +265,7 @@ export default function ListagemDeLancamentos() {
   /* As gavetas. */
   const [lancando, definirLancando] = useState(false);
   const [renegociando, definirRenegociando] = useState<LancamentoNaLista | null>(null);
+  const [classificando, definirClassificando] = useState<LancamentoNaLista | null>(null);
   const [baixandoEmLote, definirBaixandoEmLote] = useState(false);
 
   /* Os formulários que abrem dentro da própria linha. */
@@ -302,6 +306,9 @@ export default function ListagemDeLancamentos() {
   });
 
   const selecao = useSelecaoPorConsulta(JSON.stringify(consulta));
+
+  /* O caminho de cada categoria no plano, para a lista dizer "Ocupação › Aluguel", e não só "Aluguel". */
+  const caminhos = new Map((useCategorias().data ?? []).map((categoria) => [categoria.id, categoria.caminho]));
 
   /*
    * A conta da baixa lembra a última escolhida, que é quase sempre a mesma: a
@@ -470,15 +477,31 @@ export default function ListagemDeLancamentos() {
 
     if (item.situacao === "Pago") {
       return (
-        <Botao
-          aparencia="secundario"
-          type="button"
-          className={compacto}
-          disabled={estornar.isPending}
-          onClick={() => estornar.mutate(item.id)}
-        >
-          Estornar
-        </Botao>
+        <div className="flex items-center gap-1 md:justify-end">
+          <Botao
+            aparencia="secundario"
+            type="button"
+            className={compacto}
+            disabled={estornar.isPending}
+            onClick={() => estornar.mutate(item.id)}
+          >
+            Estornar
+          </Botao>
+          {/* O pago também se classifica: é nele que o relatório do mês procura. */}
+          <MenuDeAcoes
+            rotulo={`${item.nomeDaPessoa}, ${item.descricao}`}
+            acoes={[
+              {
+                tipo: "botao",
+                rotulo: "Classificar",
+                icone: <IconeDeClassificar className="size-4" />,
+                executar: () => {
+                  definirClassificando(item);
+                },
+              },
+            ]}
+          />
+        </div>
       );
     }
 
@@ -595,6 +618,15 @@ export default function ListagemDeLancamentos() {
 
     menu.push({
       tipo: "botao",
+      rotulo: "Classificar",
+      icone: <IconeDeClassificar className="size-4" />,
+      executar: () => {
+        definirClassificando(item);
+      },
+    });
+
+    menu.push({
+      tipo: "botao",
       rotulo: "Renegociar",
       icone: <IconeDeRenegociar className="size-4" />,
       executar: () => {
@@ -632,6 +664,11 @@ export default function ListagemDeLancamentos() {
         <MenuDeAcoes rotulo={`${item.nomeDaPessoa}, ${item.descricao}`} acoes={menu} />
       </div>
     );
+  }
+
+  function classificacaoDe(item: LancamentoNaLista) {
+    const categoria = item.categoriaId ? (caminhos.get(item.categoriaId) ?? item.categoria) : null;
+    return [categoria, item.centroDeCusto].filter(Boolean).join(" · ");
   }
 
   function detalheDaBaixa(item: LancamentoNaLista) {
@@ -813,6 +850,9 @@ export default function ListagemDeLancamentos() {
                               {item.descricao}
                               {rotuloDaParcela(item)}
                             </p>
+                            {classificacaoDe(item) && (
+                              <p className="text-xs text-slate-500">{classificacaoDe(item)}</p>
+                            )}
 
                             <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
                               <dt className="text-xs tracking-wide text-slate-400 uppercase">Competência</dt>
@@ -933,6 +973,9 @@ export default function ListagemDeLancamentos() {
                               {item.descricao}
                               {rotuloDaParcela(item)}
                             </span>
+                            {classificacaoDe(item) && (
+                              <span className="block text-xs text-slate-500">{classificacaoDe(item)}</span>
+                            )}
                           </td>
                           <td className="px-4 py-3 text-slate-700">
                             {formatarCompetencia(item.competenciaAno, item.competenciaMes)}
@@ -992,6 +1035,12 @@ export default function ListagemDeLancamentos() {
 
       {/* A chave é a natureza: trocar de aba começa um lançamento do zero. */}
       <GavetaDeLancamento key={natureza} natureza={natureza} aberta={lancando} aoFechar={() => definirLancando(false)} />
+
+      <GavetaDeClassificacao
+        key={classificando?.id ?? "nenhum"}
+        lancamento={classificando}
+        aoFechar={() => definirClassificando(null)}
+      />
 
       <GavetaDeRenegociacao
         key={renegociando?.id ?? "nenhum"}

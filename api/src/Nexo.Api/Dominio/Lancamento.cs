@@ -123,6 +123,16 @@ public class Lancamento
     /// </summary>
     public Guid? RenegociadoDeId { get; set; }
 
+    /* ---------------------------------------------------- classificação */
+
+    /// <summary>O que o dinheiro foi, no plano de contas. Opcional: lançamento sem categoria continua valendo.</summary>
+    public Guid? CategoriaId { get; set; }
+    public Categoria? Categoria { get; set; }
+
+    /// <summary>De quem o dinheiro é dentro do escritório. Opcional.</summary>
+    public Guid? CentroDeCustoId { get; set; }
+    public CentroDeCusto? CentroDeCusto { get; set; }
+
     /* --------------------------------------------------------- cobrança */
 
     /// <summary>

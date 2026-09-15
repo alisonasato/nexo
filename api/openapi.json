@@ -1415,6 +1415,66 @@
         }
       }
     },
+    "/lancamentos/{id}/classificacao": {
+      "put": {
+        "tags": [
+          "Lançamentos"
+        ],
+        "summary": "Dá categoria e centro de custo a um lançamento que já existe",
+        "description": "Vale em qualquer situação: classificar não mexe em dinheiro. Vazio tira a classificação.",
+        "operationId": "ClassificarLancamento",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/DadosDaClassificacao"
+                  }
+                ]
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LancamentoNaLista"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RespostaComProblemas"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
     "/lancamentos/parcelamentos": {
       "post": {
         "tags": [
@@ -2541,6 +2601,22 @@
         },
         "additionalProperties": false
       },
+      "DadosDaClassificacao": {
+        "type": "object",
+        "properties": {
+          "categoriaId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "centroDeCustoId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
       "DadosDaConta": {
         "required": [
           "ativa",
@@ -2919,6 +2995,16 @@
           "competenciaMes": {
             "type": "integer",
             "format": "int32"
+          },
+          "categoriaId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "centroDeCustoId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -3037,6 +3123,16 @@
           "competenciaMes": {
             "type": "integer",
             "format": "int32"
+          },
+          "categoriaId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "centroDeCustoId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -3468,6 +3564,24 @@
             "type": "string"
           },
           "contaDaBaixa": {
+            "type": "string",
+            "nullable": true
+          },
+          "categoriaId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "categoria": {
+            "type": "string",
+            "nullable": true
+          },
+          "centroDeCustoId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "centroDeCusto": {
             "type": "string",
             "nullable": true
           }
