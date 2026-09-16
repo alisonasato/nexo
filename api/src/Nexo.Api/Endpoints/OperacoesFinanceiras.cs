@@ -29,7 +29,7 @@ public static class OperacoesFinanceiras
     /// </summary>
     private const int MaximoPorLote = 100;
 
-    private static readonly CultureInfo Real = CultureInfo.GetCultureInfo("pt-BR");
+    internal static readonly CultureInfo Real = CultureInfo.GetCultureInfo("pt-BR");
 
     public static IEndpointRouteBuilder MapOperacoesFinanceiras(this IEndpointRouteBuilder rotas)
     {
