@@ -126,9 +126,9 @@ e não atrapalha.
 
 ## Aberto pelo módulo financeiro
 
-- Relatório do financeiro: fechamento por categoria e centro de custo,
-  comparação entre meses, exportação. Hoje os totais da listagem respondem o
-  mês que está na tela, e nada além disso.
+- ~~Relatório do financeiro~~ — feito. Fechamento por categoria, mês a mês,
+  por competência ou por caixa, com recorte por centro de custo e exportação
+  em CSV.
 - Conciliação por arquivo do banco (OFX). Hoje o extrato de cada conta serve
   para conferir à mão, linha por linha.
 - Gerar as recorrências por rotina agendada, quando houver agendador. Hoje

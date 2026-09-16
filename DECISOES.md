@@ -647,6 +647,29 @@ um segundo lançamento da mesma recorrência na mesma competência; o cancelado
 sai da conta, para a correção poder gerar de novo. O lançamento leva a
 classificação da recorrência, menos a categoria ou o centro inativados depois.
 
+## O relatório diz de que regime está falando
+
+O fechamento por categoria sai nos dois regimes, e a tela diz qual está
+mostrando. Competência responde de que mês é o serviço, pago ou não, que é
+como escritório de contabilidade fecha o mês. Caixa responde em que mês o
+dinheiro se moveu, pelo valor que de fato entrou ou saiu. O mesmo honorário de
+março, pago em abril, cai em meses diferentes nos dois — e um número sem a
+pergunta ao lado não significa nada.
+
+Cancelado e renegociado ficam de fora dos dois. O título renegociado continua
+no banco, e as parcelas que o substituem também: contar os dois somaria o
+mesmo dinheiro duas vezes, justamente no mês em que alguém renegociou.
+
+Movimento de conta não entra. Tarifa, rendimento e aporte não têm categoria
+nem lançamento por trás; quem responde por eles é o extrato e o fluxo de
+caixa. Somá-los aqui jogaria dinheiro numa linha "sem categoria" que ninguém
+consegue resolver.
+
+Na árvore, cada categoria mostra o que é dela mais o que caiu nas de baixo, e
+o total do grupo soma só as de cima. Somar todas as linhas contaria o mesmo
+dinheiro uma vez por nível. Categoria sem valor no período não vira linha: um
+plano sugerido inteiro, zerado, esconderia as poucas que têm dinheiro.
+
 ## Ordem de execução
 
 1. ~~Repositório e contrato~~ — feito.

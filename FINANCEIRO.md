@@ -293,8 +293,6 @@ vermelho para vencido, âmbar para vence hoje, cinza para a vencer.
   existe desde a fase 5; calcular depende da taxa, que é decisão de quem cobra.
 - **Gerar recorrência por rotina agendada.** Gerar é um gesto na tela: uma
   rotina criaria lançamento sem ninguém ver, e erraria em silêncio.
-- **Relatório do financeiro.** Os totais da listagem respondem o mês que está
-  na tela. Comparar meses, fechar por categoria e exportar é outra coisa.
 - **Conciliação por arquivo do banco.** O extrato de cada conta existe para
   conferir à mão, linha por linha; ler OFX é outro módulo.
 - **Anexos.** Comprovante da baixa e nota do lançamento: nada no sistema guarda

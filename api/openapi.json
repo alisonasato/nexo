@@ -2504,6 +2504,105 @@
         }
       }
     },
+    "/relatorios/por-categoria": {
+      "get": {
+        "tags": [
+          "Relatórios"
+        ],
+        "summary": "O fechamento por categoria, mês a mês",
+        "description": "Por competência, soma o valor dos lançamentos do mês a que eles se referem, pagos ou não. Por caixa, soma o valor pago no mês em que o dinheiro se moveu. Cancelado e renegociado ficam de fora dos dois. Sem período, são os últimos seis meses.",
+        "operationId": "RelatorioPorCategoria",
+        "parameters": [
+          {
+            "name": "regime",
+            "in": "query",
+            "schema": {
+              "enum": [
+                "Competencia",
+                "Caixa"
+              ],
+              "type": "string",
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/RegimeDoRelatorio"
+                }
+              ],
+              "default": 1
+            }
+          },
+          {
+            "name": "deAno",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "deMes",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "ateAno",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "ateMes",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "centroDeCustoId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "semCentroDeCusto",
+            "in": "query",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RelatorioDeCategorias"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RespostaComProblemas"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/saude": {
       "get": {
         "tags": [
@@ -2613,6 +2712,24 @@
           },
           "ativo": {
             "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "CompetenciaDoRelatorio": {
+        "required": [
+          "ano",
+          "mes"
+        ],
+        "type": "object",
+        "properties": {
+          "ano": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "mes": {
+            "type": "integer",
+            "format": "int32"
           }
         },
         "additionalProperties": false
@@ -3899,6 +4016,47 @@
         ],
         "type": "string"
       },
+      "GrupoDoRelatorio": {
+        "required": [
+          "linhas",
+          "natureza",
+          "totais",
+          "total"
+        ],
+        "type": "object",
+        "properties": {
+          "natureza": {
+            "enum": [
+              "Receber",
+              "Pagar"
+            ],
+            "type": "string",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/NaturezaLancamento"
+              }
+            ]
+          },
+          "linhas": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LinhaDoRelatorio"
+            }
+          },
+          "totais": {
+            "type": "array",
+            "items": {
+              "type": "number",
+              "format": "double"
+            }
+          },
+          "total": {
+            "type": "number",
+            "format": "double"
+          }
+        },
+        "additionalProperties": false
+      },
       "LancamentoCobrado": {
         "required": [
           "cobrancaId",
@@ -4063,6 +4221,41 @@
             "type": "number",
             "format": "double",
             "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "LinhaDoRelatorio": {
+        "required": [
+          "categoria",
+          "nivel",
+          "total",
+          "valores"
+        ],
+        "type": "object",
+        "properties": {
+          "categoriaId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "categoria": {
+            "type": "string"
+          },
+          "nivel": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "valores": {
+            "type": "array",
+            "items": {
+              "type": "number",
+              "format": "double"
+            }
+          },
+          "total": {
+            "type": "number",
+            "format": "double"
           }
         },
         "additionalProperties": false
@@ -4788,6 +4981,13 @@
         },
         "additionalProperties": false
       },
+      "RegimeDoRelatorio": {
+        "enum": [
+          "Competencia",
+          "Caixa"
+        ],
+        "type": "string"
+      },
       "RegimeTributario": {
         "enum": [
           "Mei",
@@ -4798,6 +4998,54 @@
           "PessoaFisica"
         ],
         "type": "string"
+      },
+      "RelatorioDeCategorias": {
+        "required": [
+          "grupos",
+          "meses",
+          "regime",
+          "resultado",
+          "resultadoTotal"
+        ],
+        "type": "object",
+        "properties": {
+          "regime": {
+            "enum": [
+              "Competencia",
+              "Caixa"
+            ],
+            "type": "string",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RegimeDoRelatorio"
+              }
+            ]
+          },
+          "meses": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CompetenciaDoRelatorio"
+            }
+          },
+          "grupos": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GrupoDoRelatorio"
+            }
+          },
+          "resultado": {
+            "type": "array",
+            "items": {
+              "type": "number",
+              "format": "double"
+            }
+          },
+          "resultadoTotal": {
+            "type": "number",
+            "format": "double"
+          }
+        },
+        "additionalProperties": false
       },
       "RenegociacaoCriada": {
         "required": [
