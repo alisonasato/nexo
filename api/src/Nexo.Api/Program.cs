@@ -71,13 +71,16 @@ construtor.Services.AddCors(opcoes => opcoes.AddPolicy(PoliticaDeDesenvolvimento
 construtor.Services.AddHttpContextAccessor();
 construtor.Services.AddScoped<IContextoDeTenant, ContextoDeTenantHttp>();
 construtor.Services.AddScoped<InterceptorDeTenant>();
+construtor.Services.AddScoped<InterceptorDeAuditoria>();
 
 var conexao = ConexaoDoBanco.Resolver(construtor.Configuration);
 
 construtor.Services.AddDbContext<NexoDbContext>((provedor, opcoes) => opcoes
     .UseNpgsql(conexao)
     .UseSnakeCaseNamingConvention()
-    .AddInterceptors(provedor.GetRequiredService<InterceptorDeTenant>()));
+    .AddInterceptors(
+        provedor.GetRequiredService<InterceptorDeTenant>(),
+        provedor.GetRequiredService<InterceptorDeAuditoria>()));
 
 /* ------------------------------------------------- serviços de fora */
 
@@ -477,6 +480,7 @@ app.MapContasBancarias();
 app.MapCaixa();
 app.MapMovimentosAvulsos();
 app.MapPlanoDeContas();
+app.MapHistorico();
 app.MapConsultas();
 
 app.Run();
