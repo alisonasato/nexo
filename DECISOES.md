@@ -628,6 +628,25 @@ lote e o aviso do PSP não os informam, e zero conta como não informado. O
 estorno desfaz a baixa e leva os três junto. Juros e multa calculados sobre o
 vencido continuam no `DEPOIS.md`, esperando a taxa.
 
+## Recorrência é cadastro próprio, e gera sob demanda
+
+O que se repete sem contrato por trás, como o aluguel do escritório ou a
+licença anual do sistema, tem cadastro próprio, a receber e a pagar. O contrato
+continua sendo o acordo com o cliente: tem código, cobrança pelo PSP e o total
+mensal que responde quanto o escritório fatura, e o aluguel ali faria esse
+total somar despesa.
+
+A frequência é mensal, trimestral, semestral ou anual, contada a partir do mês
+de início. O dia de vencimento cabe no mês: dia 31 vence no último dia dos
+meses mais curtos, como nos contratos. A natureza não muda depois de criada.
+
+Gerar é um gesto, e não uma rotina: escolhe-se a competência e gera-se, das
+duas naturezas de uma vez. Uma rotina agendada criaria lançamentos sem ninguém
+ver, e erraria em silêncio. Gerar duas vezes não duplica, porque o banco recusa
+um segundo lançamento da mesma recorrência na mesma competência; o cancelado
+sai da conta, para a correção poder gerar de novo. O lançamento leva a
+classificação da recorrência, menos a categoria ou o centro inativados depois.
+
 ## Ordem de execução
 
 1. ~~Repositório e contrato~~ — feito.

@@ -21,6 +21,7 @@ public class NexoDbContext(DbContextOptions<NexoDbContext> opcoes)
     public DbSet<Categoria> Categorias => Set<Categoria>();
     public DbSet<CentroDeCusto> CentrosDeCusto => Set<CentroDeCusto>();
     public DbSet<EventoDeAuditoria> EventosDeAuditoria => Set<EventoDeAuditoria>();
+    public DbSet<Recorrencia> Recorrencias => Set<Recorrencia>();
 
     protected override void OnModelCreating(ModelBuilder modelo)
     {
@@ -229,6 +230,20 @@ public class NexoDbContext(DbContextOptions<NexoDbContext> opcoes)
                 .HasForeignKey(r => r.ContratoId)
                 .OnDelete(DeleteBehavior.Restrict);
 
+            /*
+             * A mesma trava do contrato, para a recorrência: um lançamento por
+             * competência, com os cancelados de fora para a correção poder gerar de
+             * novo. Gerar duas vezes, ou duas pessoas ao mesmo tempo, esbarra aqui.
+             */
+            lancamento.HasIndex(r => new { r.TenantId, r.RecorrenciaId, r.CompetenciaAno, r.CompetenciaMes })
+                .IsUnique()
+                .HasFilter("situacao <> 3");
+
+            lancamento.HasOne<Recorrencia>()
+                .WithMany()
+                .HasForeignKey(r => r.RecorrenciaId)
+                .OnDelete(DeleteBehavior.Restrict);
+
             /* Restrict: categoria e centro não se apagam, e o lançamento não fica apontando para o nada. */
             lancamento.HasOne(r => r.Categoria)
                 .WithMany()
@@ -379,6 +394,40 @@ public class NexoDbContext(DbContextOptions<NexoDbContext> opcoes)
 
             /* O nome é como o centro se escolhe na tela: dois iguais obrigariam a adivinhar. */
             centro.HasIndex(c => new { c.TenantId, c.Nome }).IsUnique();
+        });
+
+        modelo.Entity<Recorrencia>(recorrencia =>
+        {
+            recorrencia.HasKey(r => r.Id);
+            recorrencia.Property(r => r.Descricao).HasMaxLength(200);
+            recorrencia.Property(r => r.Valor).HasPrecision(14, 2);
+            recorrencia.Property(r => r.CriadoEm).HasDefaultValueSql("now()");
+            recorrencia.Property(r => r.AtualizadoEm).HasDefaultValueSql("now()");
+
+            /*
+             * Ativa fica sem valor padrão no banco, pelo mesmo motivo da conta
+             * bancária: com padrão verdadeiro, o EF deixaria de mandar o falso, e a
+             * recorrência gravada como inativa voltaria ativa.
+             */
+
+            /* A geração lê as do escritório, e a lista as ordena por natureza. */
+            recorrencia.HasIndex(r => new { r.TenantId, r.Natureza, r.Ativa });
+
+            /* Restrict: pessoa, categoria e centro não somem de baixo de uma recorrência. */
+            recorrencia.HasOne(r => r.Pessoa)
+                .WithMany()
+                .HasForeignKey(r => r.PessoaId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            recorrencia.HasOne(r => r.Categoria)
+                .WithMany()
+                .HasForeignKey(r => r.CategoriaId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            recorrencia.HasOne(r => r.CentroDeCusto)
+                .WithMany()
+                .HasForeignKey(r => r.CentroDeCustoId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         modelo.Entity<EventoDeAuditoria>(evento =>

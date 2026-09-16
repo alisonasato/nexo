@@ -749,6 +749,67 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/recorrencias": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Lista as recorrências do escritório
+         * @description A receber antes de a pagar; dentro de cada natureza, as ativas primeiro e pela descrição. Um escritório tem poucas: a lista vem inteira, sem página.
+         */
+        get: operations["ListarRecorrencias"];
+        put?: never;
+        /** Cadastra uma recorrência */
+        post: operations["CriarRecorrencia"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/recorrencias/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Altera uma recorrência
+         * @description Também inativa e reativa. A natureza não muda depois de criada. O que já foi gerado fica como está: a mudança vale para as próximas gerações.
+         */
+        put: operations["AlterarRecorrencia"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/recorrencias/gerar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Gera os lançamentos das recorrências de uma competência
+         * @description Das duas naturezas de uma vez. Pode ser executado quantas vezes for preciso: o que já foi gerado é ignorado, não duplicado.
+         */
+        post: operations["GerarRecorrencias"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/saude": {
         parameters: {
             query?: never;
@@ -899,6 +960,28 @@ export interface components {
             saldoInicialEm?: string | null;
             ativa: boolean;
             recebeCobrancas: boolean;
+        };
+        DadosDaRecorrencia: {
+            /** @enum {string} */
+            natureza: "Receber" | "Pagar";
+            /** Format: uuid */
+            pessoaId: string;
+            descricao?: string | null;
+            /** Format: double */
+            valor: number;
+            /** @enum {string} */
+            frequencia: "Mensal" | "Trimestral" | "Semestral" | "Anual";
+            /** Format: int32 */
+            diaDeVencimento: number;
+            /** Format: date */
+            inicioEm?: string | null;
+            /** Format: date */
+            fimEm?: string | null;
+            /** Format: uuid */
+            categoriaId?: string | null;
+            /** Format: uuid */
+            centroDeCustoId?: string | null;
+            ativa: boolean;
         };
         DadosDaRenegociacao: {
             /** Format: int32 */
@@ -1131,6 +1214,8 @@ export interface components {
             /** Format: double */
             saldoNoFim: number;
         };
+        /** @enum {string} */
+        FrequenciaDeRecorrencia: "Mensal" | "Trimestral" | "Semestral" | "Anual";
         LancamentoCobrado: {
             /** Format: uuid */
             id: string;
@@ -1264,6 +1349,12 @@ export interface components {
             parcelamentoId?: string | null;
             parcelas: components["schemas"]["LancamentoNaLista"][];
         };
+        PedidoDasRecorrencias: {
+            /** Format: int32 */
+            ano: number;
+            /** Format: int32 */
+            mes: number;
+        };
         PedidoDeEntrada: {
             email: string;
             senha: string;
@@ -1343,6 +1434,34 @@ export interface components {
             descricao: string;
             sugestao: string;
         };
+        RecorrenciaNaLista: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            natureza: "Receber" | "Pagar";
+            /** Format: uuid */
+            pessoaId: string;
+            codigoDaPessoa: string;
+            nomeDaPessoa: string;
+            descricao: string;
+            /** Format: double */
+            valor: number;
+            /** @enum {string} */
+            frequencia: "Mensal" | "Trimestral" | "Semestral" | "Anual";
+            /** Format: int32 */
+            diaDeVencimento: number;
+            /** Format: date */
+            inicioEm: string;
+            /** Format: date */
+            fimEm?: string | null;
+            ativa: boolean;
+            /** Format: uuid */
+            categoriaId?: string | null;
+            categoria?: string | null;
+            /** Format: uuid */
+            centroDeCustoId?: string | null;
+            centroDeCusto?: string | null;
+        };
         RecusaNaBaixaEmLote: {
             /** Format: uuid */
             id: string;
@@ -1379,6 +1498,15 @@ export interface components {
             ignoradas: number;
             /** Format: int32 */
             foraDeVigencia: number;
+            recado: string;
+        };
+        ResultadoDasRecorrencias: {
+            /** Format: int32 */
+            gerados: number;
+            /** Format: int32 */
+            ignorados: number;
+            /** Format: int32 */
+            foraDaVez: number;
             recado: string;
         };
         SessaoAberta: {
@@ -2992,6 +3120,134 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespostaComProblemas"];
+                };
+            };
+        };
+    };
+    ListarRecorrencias: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecorrenciaNaLista"][];
+                };
+            };
+        };
+    };
+    CriarRecorrencia: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DadosDaRecorrencia"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecorrenciaNaLista"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespostaComProblemas"];
+                };
+            };
+        };
+    };
+    AlterarRecorrencia: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DadosDaRecorrencia"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecorrenciaNaLista"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespostaComProblemas"];
+                };
+            };
+        };
+    };
+    GerarRecorrencias: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PedidoDasRecorrencias"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResultadoDasRecorrencias"];
+                };
             };
             /** @description Unprocessable Content */
             422: {
