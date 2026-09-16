@@ -8,7 +8,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/api/cliente";
 import { AreaDeTexto, Botao, Entrada, EntradaMascarada, Selecao } from "@/componentes/controles";
 import type { components } from "@/api/esquema";
-import { digitosDoValor, formatarValor, mascararDinheiro, valorDosDigitos } from "@/lib/dinheiro";
+import { digitosDoValor, formatarCompetencia, formatarValor, mascararDinheiro, valorDosDigitos } from "@/lib/dinheiro";
 import { useRetornoDaListagem } from "@/lib/estado-na-url";
 
 type DadosDeContrato = components["schemas"]["DadosDeContrato"];
@@ -71,6 +71,17 @@ export function FormularioDeContrato({ id }: { id?: string }) {
     queryFn: async () => {
       const { data, error } = await api.GET("/contratos/{id}", { params: { path: { id: id! } } });
       if (error || !data) throw new Error("Este contrato não foi encontrado.");
+      return data;
+    },
+  });
+
+  /* O histórico explica o valor de hoje, e é onde o reajuste do ano passado aparece. */
+  const valores = useQuery({
+    queryKey: ["contrato-valores", id],
+    enabled: editando,
+    queryFn: async () => {
+      const { data, error } = await api.GET("/contratos/{id}/valores", { params: { path: { id: id! } } });
+      if (error || !data) throw new Error("Não foi possível carregar o histórico de valores.");
       return data;
     },
   });
@@ -191,9 +202,11 @@ export function FormularioDeContrato({ id }: { id?: string }) {
             erro={erroDe("valor")}
             ajuda={
               sugestaoDe("valor") ??
-              (valorEmDigitos
-                ? formatarValor(valorDosDigitos(valorEmDigitos))
-                : "Digite só os números: os centavos entram primeiro.")
+              (editando
+                ? "Corrige o valor em vigor. Para mudar a partir de um mês, use Reajustar na listagem."
+                : valorEmDigitos
+                  ? formatarValor(valorDosDigitos(valorEmDigitos))
+                  : "Digite só os números: os centavos entram primeiro.")
             }
           />
 
@@ -246,6 +259,38 @@ export function FormularioDeContrato({ id }: { id?: string }) {
             />
           </div>
         </section>
+
+        {editando && valores.data && valores.data.length > 0 && (
+          <section aria-labelledby="titulo-do-historico" className="flex flex-col gap-2">
+            <h2 id="titulo-do-historico" className="font-semibold text-marca-950">
+              Histórico de valores
+            </h2>
+            <p className="text-slate-600">
+              A mensalidade de cada competência sai pelo valor que valia nela. Reajustar abre uma vigência
+              nova, e fica na listagem de contratos.
+            </p>
+
+            <ul className="rounded-[--radius-cartao] border border-borda bg-superficie px-4">
+              {valores.data.map((valor) => (
+                <li
+                  key={valor.id}
+                  className="flex flex-wrap items-baseline justify-between gap-2 border-b border-borda py-2 last:border-0"
+                >
+                  <span className="text-slate-700">
+                    A partir de {formatarCompetencia(valor.vigenteDeAno, valor.vigenteDeMes)}
+                    <span className="block text-sm text-slate-500">
+                      {valor.motivo}
+                      {valor.percentual != null && ` · ${String(valor.percentual).replace(".", ",")}%`}
+                    </span>
+                  </span>
+                  <span className="numeros-tabulares font-medium text-slate-800">
+                    {formatarValor(valor.valor)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
       </div>
 
       <footer className="sticky bottom-0 flex items-center justify-end gap-3 border-t border-borda bg-superficie px-6 py-3">

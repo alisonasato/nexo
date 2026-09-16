@@ -119,8 +119,9 @@ e não atrapalha.
 - Editar ou cancelar uma cobrança avulsa recém-lançada. Hoje o conserto de um
   valor digitado errado é cancelar e lançar de novo, o que funciona e deixa
   duas linhas no histórico onde bastaria uma.
-- Reajuste de contrato por índice, e histórico de valores. Hoje mudar o valor
-  reescreve o contrato, sem deixar rastro do que era antes.
+- ~~Reajuste de contrato por índice, e histórico de valores~~ — feito. O valor
+  do contrato passou a ter vigência por competência, e o reajuste em lote por
+  percentual abre a próxima.
 - Juros e multa **calculados** sobre o vencido. Informá-los à mão na baixa já
   existe; o cálculo depende da taxa, que é decisão de quem cobra.
 

@@ -13,6 +13,7 @@ public class NexoDbContext(DbContextOptions<NexoDbContext> opcoes)
     public DbSet<Pessoa> Pessoas => Set<Pessoa>();
     public DbSet<PessoaPapel> PessoaPapeis => Set<PessoaPapel>();
     public DbSet<Contrato> Contratos => Set<Contrato>();
+    public DbSet<ValorDoContrato> ValoresDeContrato => Set<ValorDoContrato>();
     public DbSet<Lancamento> Lancamentos => Set<Lancamento>();
     public DbSet<EventoDeCobranca> EventosDeCobranca => Set<EventoDeCobranca>();
     public DbSet<Renegociacao> Renegociacoes => Set<Renegociacao>();
@@ -137,13 +138,6 @@ public class NexoDbContext(DbContextOptions<NexoDbContext> opcoes)
             contrato.Property(c => c.CriadoEm).HasDefaultValueSql("now()");
             contrato.Property(c => c.AtualizadoEm).HasDefaultValueSql("now()");
 
-            /*
-             * Dinheiro em decimal com escala fixa, nunca em ponto flutuante.
-             * 14 dígitos e 2 casas: valor de honorário não passa disso, e o
-             * banco recusa em vez de arredondar em silêncio.
-             */
-            contrato.Property(c => c.Valor).HasPrecision(14, 2);
-
             contrato.HasIndex(c => new { c.TenantId, c.Codigo }).IsUnique();
             contrato.HasIndex(c => new { c.TenantId, c.PessoaId });
 
@@ -151,6 +145,40 @@ public class NexoDbContext(DbContextOptions<NexoDbContext> opcoes)
                 .WithMany()
                 .HasForeignKey(c => c.PessoaId)
                 .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelo.Entity<ValorDoContrato>(valor =>
+        {
+            valor.HasKey(v => v.Id);
+            valor.Property(v => v.Motivo).HasMaxLength(200);
+            valor.Property(v => v.CriadoEm).HasDefaultValueSql("now()");
+
+            /*
+             * Dinheiro em decimal com escala fixa, nunca em ponto flutuante.
+             * 14 dígitos e 2 casas: valor de honorário não passa disso, e o
+             * banco recusa em vez de arredondar em silêncio.
+             */
+            valor.Property(v => v.Valor).HasPrecision(14, 2);
+
+            /* O percentual guarda duas casas: 4,50% é o que o índice publica. */
+            valor.Property(v => v.Percentual).HasPrecision(7, 2);
+
+            /*
+             * Uma vigência por competência, em cada contrato. É isto que faz
+             * reajustar duas vezes o mesmo mês não compor o percentual: quem recusa
+             * a segunda é o banco, e não uma conferência no código — que é
+             * justamente o que duas pessoas clicando juntas atravessam.
+             */
+            valor.HasIndex(v => new { v.TenantId, v.ContratoId, v.VigenteDeAno, v.VigenteDeMes }).IsUnique();
+
+            /*
+             * Cascata: a vigência não tem vida própria sem o contrato. Quem impede
+             * o contrato de sumir é o Restrict dos lançamentos que apontam para ele.
+             */
+            valor.HasOne(v => v.Contrato)
+                .WithMany(c => c.Valores)
+                .HasForeignKey(v => v.ContratoId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         modelo.Entity<Lancamento>(lancamento =>

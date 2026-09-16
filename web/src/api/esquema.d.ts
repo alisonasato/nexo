@@ -309,6 +309,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/contratos/{id}/valores": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * O histórico de valores do contrato
+         * @description Do mais recente para o mais antigo, com a competência em que cada valor passou a valer e por quê.
+         */
+        get: operations["ValoresDoContrato"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/contratos/reajustar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reajusta contratos por percentual, a partir de uma competência
+         * @description Abre uma vigência nova em cada contrato ativo escolhido, com o valor que ele tem hoje corrigido pelo percentual. Pode ser executado quantas vezes for preciso: contrato que já tem vigência nessa competência é ignorado, e não reajustado de novo.
+         */
+        post: operations["ReajustarContratos"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/empresas": {
         parameters: {
             query?: never;
@@ -1410,6 +1450,16 @@ export interface components {
             mes: number;
             contratoIds?: string[] | null;
         };
+        PedidoDeReajuste: {
+            /** Format: double */
+            percentual: number;
+            /** Format: int32 */
+            ano: number;
+            /** Format: int32 */
+            mes: number;
+            motivo?: string | null;
+            contratoIds?: string[] | null;
+        };
         PedidoDeTrocaDeSenha: {
             senhaAtual: string;
             senhaNova: string;
@@ -1564,6 +1614,15 @@ export interface components {
             foraDaVez: number;
             recado: string;
         };
+        ResultadoDoReajuste: {
+            /** Format: int32 */
+            reajustados: number;
+            /** Format: int32 */
+            ignorados: number;
+            /** Format: int32 */
+            foraDeVigencia: number;
+            recado: string;
+        };
         SessaoAberta: {
             nome: string;
             email: string;
@@ -1595,6 +1654,21 @@ export interface components {
             saidaId: string;
             /** Format: uuid */
             entradaId: string;
+        };
+        ValorNaLista: {
+            /** Format: uuid */
+            id: string;
+            /** Format: double */
+            valor: number;
+            /** Format: int32 */
+            vigenteDeAno: number;
+            /** Format: int32 */
+            vigenteDeMes: number;
+            motivo: string;
+            /** Format: double */
+            percentual?: number | null;
+            /** Format: date-time */
+            criadoEm: string;
         };
     };
     responses: never;
@@ -2255,6 +2329,68 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ResultadoDaGeracao"];
+                };
+            };
+        };
+    };
+    ValoresDoContrato: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ValorNaLista"][];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ReajustarContratos: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PedidoDeReajuste"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResultadoDoReajuste"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespostaComProblemas"];
                 };
             };
         };

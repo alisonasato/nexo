@@ -888,6 +888,91 @@
         }
       }
     },
+    "/contratos/{id}/valores": {
+      "get": {
+        "tags": [
+          "Contratos"
+        ],
+        "summary": "O histórico de valores do contrato",
+        "description": "Do mais recente para o mais antigo, com a competência em que cada valor passou a valer e por quê.",
+        "operationId": "ValoresDoContrato",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ValorNaLista"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/contratos/reajustar": {
+      "post": {
+        "tags": [
+          "Contratos"
+        ],
+        "summary": "Reajusta contratos por percentual, a partir de uma competência",
+        "description": "Abre uma vigência nova em cada contrato ativo escolhido, com o valor que ele tem hoje corrigido pelo percentual. Pode ser executado quantas vezes for preciso: contrato que já tem vigência nessa competência é ignorado, e não reajustado de novo.",
+        "operationId": "ReajustarContratos",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/PedidoDeReajuste"
+                  }
+                ]
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultadoDoReajuste"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RespostaComProblemas"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/empresas": {
       "get": {
         "tags": [
@@ -4592,6 +4677,41 @@
         },
         "additionalProperties": false
       },
+      "PedidoDeReajuste": {
+        "required": [
+          "ano",
+          "mes",
+          "percentual"
+        ],
+        "type": "object",
+        "properties": {
+          "percentual": {
+            "type": "number",
+            "format": "double"
+          },
+          "ano": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "mes": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "motivo": {
+            "type": "string",
+            "nullable": true
+          },
+          "contratoIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
       "PedidoDeTrocaDeSenha": {
         "required": [
           "senhaAtual",
@@ -5186,6 +5306,33 @@
         },
         "additionalProperties": false
       },
+      "ResultadoDoReajuste": {
+        "required": [
+          "foraDeVigencia",
+          "ignorados",
+          "reajustados",
+          "recado"
+        ],
+        "type": "object",
+        "properties": {
+          "reajustados": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "ignorados": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "foraDeVigencia": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "recado": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
       "SessaoAberta": {
         "required": [
           "email",
@@ -5294,6 +5441,48 @@
           "entradaId": {
             "type": "string",
             "format": "uuid"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ValorNaLista": {
+        "required": [
+          "criadoEm",
+          "id",
+          "motivo",
+          "valor",
+          "vigenteDeAno",
+          "vigenteDeMes"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "valor": {
+            "type": "number",
+            "format": "double"
+          },
+          "vigenteDeAno": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "vigenteDeMes": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "motivo": {
+            "type": "string"
+          },
+          "percentual": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "criadoEm": {
+            "type": "string",
+            "format": "date-time"
           }
         },
         "additionalProperties": false

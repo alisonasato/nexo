@@ -42,6 +42,20 @@ public static class Contratos
             .WithDescription("Pode ser executado quantas vezes for preciso: o que já foi gerado é ignorado, não duplicado.")
             .Produces<ResultadoDaGeracao>();
 
+        grupo.MapGet("/{id:guid}/valores", Valores)
+            .WithName("ValoresDoContrato")
+            .WithSummary("O histórico de valores do contrato")
+            .WithDescription("Do mais recente para o mais antigo, com a competência em que cada valor passou a valer e por quê.")
+            .Produces<List<ValorNaLista>>()
+            .Produces(StatusCodes.Status404NotFound);
+
+        grupo.MapPost("/reajustar", Reajustar)
+            .WithName("ReajustarContratos")
+            .WithSummary("Reajusta contratos por percentual, a partir de uma competência")
+            .WithDescription("Abre uma vigência nova em cada contrato ativo escolhido, com o valor que ele tem hoje corrigido pelo percentual. Pode ser executado quantas vezes for preciso: contrato que já tem vigência nessa competência é ignorado, e não reajustado de novo.")
+            .Produces<ResultadoDoReajuste>()
+            .Produces<RespostaComProblemas>(StatusCodes.Status422UnprocessableEntity);
+
         return rotas;
     }
 
@@ -65,6 +79,9 @@ public static class Contratos
     {
         pagina = Math.Max(1, pagina);
         tamanho = Math.Clamp(tamanho, 1, 200);
+
+        /* "Quanto este contrato vale" é sempre uma pergunta sobre uma competência, e aqui ela é a de hoje. */
+        var competencia = CompetenciaDeHoje();
 
         IQueryable<Contrato> consulta = banco.Contratos.AsNoTracking();
 
@@ -92,10 +109,14 @@ public static class Contratos
          */
         var totalMensalAtivo = await banco.Contratos.AsNoTracking()
             .Where(contrato => contrato.Situacao == SituacaoContrato.Ativo)
-            .Select(contrato => (decimal?)contrato.Valor)
+            .Select(contrato => (decimal?)contrato.Valores
+                .Where(valor => valor.VigenteDeAno * 12 + valor.VigenteDeMes <= competencia)
+                .OrderByDescending(valor => valor.VigenteDeAno * 12 + valor.VigenteDeMes)
+                .Select(valor => valor.Valor)
+                .FirstOrDefault())
             .SumAsync(cancelamento) ?? 0m;
 
-        var itens = await Ordenar(consulta, ordenarPor, direcao)
+        var itens = await Ordenar(consulta, ordenarPor, direcao, competencia)
             .Skip((pagina - 1) * tamanho)
             .Take(tamanho)
             .Select(contrato => new ContratoNaLista(
@@ -105,7 +126,11 @@ public static class Contratos
                 contrato.Pessoa!.Codigo,
                 contrato.Pessoa!.Nome,
                 contrato.Descricao,
-                contrato.Valor,
+                contrato.Valores
+                    .Where(valor => valor.VigenteDeAno * 12 + valor.VigenteDeMes <= competencia)
+                    .OrderByDescending(valor => valor.VigenteDeAno * 12 + valor.VigenteDeMes)
+                    .Select(valor => valor.Valor)
+                    .FirstOrDefault(),
                 contrato.DiaDeVencimento,
                 contrato.Situacao))
             .ToListAsync(cancelamento);
@@ -134,7 +159,8 @@ public static class Contratos
     private static IOrderedQueryable<Contrato> Ordenar(
         IQueryable<Contrato> consulta,
         OrdemDeContratos por,
-        Direcao direcao)
+        Direcao direcao,
+        int competencia)
     {
         var decrescente = direcao == Direcao.Decrescente;
 
@@ -145,8 +171,16 @@ public static class Contratos
                 : consulta.OrderBy(contrato => contrato.Pessoa!.Nome),
 
             OrdemDeContratos.Valor => decrescente
-                ? consulta.OrderByDescending(contrato => contrato.Valor)
-                : consulta.OrderBy(contrato => contrato.Valor),
+                ? consulta.OrderByDescending(contrato => contrato.Valores
+                    .Where(valor => valor.VigenteDeAno * 12 + valor.VigenteDeMes <= competencia)
+                    .OrderByDescending(valor => valor.VigenteDeAno * 12 + valor.VigenteDeMes)
+                    .Select(valor => valor.Valor)
+                    .FirstOrDefault())
+                : consulta.OrderBy(contrato => contrato.Valores
+                    .Where(valor => valor.VigenteDeAno * 12 + valor.VigenteDeMes <= competencia)
+                    .OrderByDescending(valor => valor.VigenteDeAno * 12 + valor.VigenteDeMes)
+                    .Select(valor => valor.Valor)
+                    .FirstOrDefault()),
 
             OrdemDeContratos.Vencimento => decrescente
                 ? consulta.OrderByDescending(contrato => contrato.DiaDeVencimento)
@@ -164,10 +198,28 @@ public static class Contratos
 
     private static async Task<IResult> Obter(Guid id, NexoDbContext banco, CancellationToken cancelamento)
     {
-        var contrato = await banco.Contratos.AsNoTracking()
-            .FirstOrDefaultAsync(contrato => contrato.Id == id, cancelamento);
+        var competencia = CompetenciaDeHoje();
 
-        return contrato is null ? Results.NotFound() : Results.Ok(Detalhar(contrato));
+        var contrato = await banco.Contratos.AsNoTracking()
+            .Where(contrato => contrato.Id == id)
+            .Select(contrato => new ContratoDetalhado(
+                contrato.Id,
+                contrato.Codigo,
+                contrato.PessoaId,
+                contrato.Descricao,
+                contrato.Valores
+                    .Where(valor => valor.VigenteDeAno * 12 + valor.VigenteDeMes <= competencia)
+                    .OrderByDescending(valor => valor.VigenteDeAno * 12 + valor.VigenteDeMes)
+                    .Select(valor => valor.Valor)
+                    .FirstOrDefault(),
+                contrato.DiaDeVencimento,
+                contrato.InicioDaVigencia,
+                contrato.FimDaVigencia,
+                contrato.Situacao,
+                contrato.Observacoes))
+            .FirstOrDefaultAsync(cancelamento);
+
+        return contrato is null ? Results.NotFound() : Results.Ok(contrato);
     }
 
     private static async Task<IResult> Criar(
@@ -198,9 +250,23 @@ public static class Contratos
         Aplicar(dados, contrato);
 
         banco.Contratos.Add(contrato);
+
+        /* O valor nasce com vigência: a competência do início, que é a primeira mensalidade possível. */
+        banco.ValoresDeContrato.Add(new ValorDoContrato
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenant,
+            ContratoId = contrato.Id,
+            Valor = dados.Valor,
+            VigenteDeAno = contrato.InicioDaVigencia.Year,
+            VigenteDeMes = contrato.InicioDaVigencia.Month,
+            Motivo = ValorInicial,
+            CriadoEm = DateTimeOffset.UtcNow,
+        });
+
         await banco.SaveChangesAsync(cancelamento);
 
-        return Results.Created($"/contratos/{contrato.Id}", Detalhar(contrato));
+        return Results.Created($"/contratos/{contrato.Id}", Detalhar(contrato, dados.Valor));
     }
 
     private static async Task<IResult> Alterar(
@@ -209,7 +275,10 @@ public static class Contratos
         NexoDbContext banco,
         CancellationToken cancelamento)
     {
-        var contrato = await banco.Contratos.FirstOrDefaultAsync(c => c.Id == id, cancelamento);
+        var contrato = await banco.Contratos
+            .Include(c => c.Valores)
+            .FirstOrDefaultAsync(c => c.Id == id, cancelamento);
+
         if (contrato is null) return Results.NotFound();
 
         var problemas = await Conferir(dados, banco, cancelamento);
@@ -219,9 +288,16 @@ public static class Contratos
         Aplicar(dados, contrato);
         contrato.AtualizadoEm = DateTimeOffset.UtcNow;
 
+        /*
+         * Alterar o valor aqui é corrigir, e não reajustar: vale desde o começo da
+         * vigência em curso, e não abre vigência nova. Quem quer mudar a partir de
+         * um mês usa o reajuste, que deixa o valor de antes no histórico.
+         */
+        Corrigir(contrato, dados.Valor);
+
         await banco.SaveChangesAsync(cancelamento);
 
-        return Results.Ok(Detalhar(contrato));
+        return Results.Ok(Detalhar(contrato, dados.Valor));
     }
 
     /// <summary>
@@ -253,6 +329,7 @@ public static class Contratos
         }
 
         var candidatos = await banco.Contratos.AsNoTracking()
+            .Include(contrato => contrato.Valores)
             .Where(contrato => pedido.ContratoIds == null || pedido.ContratoIds.Contains(contrato.Id))
             .ToListAsync(cancelamento);
 
@@ -279,6 +356,13 @@ public static class Contratos
             if (!contrato.VigenteEm(pedido.Ano, pedido.Mes)) { foraDeVigencia++; continue; }
             if (jaGerados.Contains(contrato.Id)) { ignoradas++; continue; }
 
+            /* O valor é o que valia na competência gerada: reajuste a partir de abril não mexe em março. */
+            if (contrato.ValorEm(pedido.Ano, pedido.Mes) is not { } valorDaCompetencia)
+            {
+                foraDeVigencia++;
+                continue;
+            }
+
             banco.Lancamentos.Add(new Lancamento
             {
                 Id = Guid.NewGuid(),
@@ -289,7 +373,7 @@ public static class Contratos
                 CompetenciaAno = pedido.Ano,
                 CompetenciaMes = pedido.Mes,
                 Descricao = contrato.Descricao,
-                Valor = contrato.Valor,
+                Valor = valorDaCompetencia,
                 Vencimento = contrato.VencimentoEm(pedido.Ano, pedido.Mes),
                 Situacao = SituacaoLancamento.Aberto,
                 CriadoEm = DateTimeOffset.UtcNow,
@@ -324,7 +408,190 @@ public static class Contratos
         return Results.Ok(new ResultadoDaGeracao(geradas, ignoradas, foraDeVigencia, recado));
     }
 
+    private static async Task<IResult> Valores(Guid id, NexoDbContext banco, CancellationToken cancelamento)
+    {
+        if (!await banco.Contratos.AnyAsync(contrato => contrato.Id == id, cancelamento))
+            return Results.NotFound();
+
+        var valores = await banco.ValoresDeContrato.AsNoTracking()
+            .Where(valor => valor.ContratoId == id)
+            .OrderByDescending(valor => valor.VigenteDeAno * 12 + valor.VigenteDeMes)
+            .Select(valor => new ValorNaLista(
+                valor.Id, valor.Valor, valor.VigenteDeAno, valor.VigenteDeMes,
+                valor.Motivo, valor.Percentual, valor.CriadoEm))
+            .ToListAsync(cancelamento);
+
+        return Results.Ok(valores);
+    }
+
+    /// <summary>
+    /// Reajusta contratos por percentual, a partir de uma competência.
+    ///
+    /// <para>
+    /// <b>Percentual, e não valor digitado.</b> Reajuste de carteira vem de um
+    /// índice, e cada contrato tem o próprio valor: digitar dezenas de valores
+    /// novos à mão é onde o erro mora. Cada um recebe o que tem hoje corrigido
+    /// pelo percentual.
+    /// </para>
+    /// <para>
+    /// <b>Rodar duas vezes não compõe o percentual.</b> Quem recusa a segunda
+    /// vigência da mesma competência é o índice único do banco, do mesmo jeito que
+    /// a mensalidade não se gera duas vezes. A conferência aqui serve para dar uma
+    /// resposta boa, e não para garantir o dado.
+    /// </para>
+    /// </summary>
+    private static async Task<IResult> Reajustar(
+        [FromBody] PedidoDeReajuste pedido,
+        NexoDbContext banco,
+        IContextoDeTenant contexto,
+        CancellationToken cancelamento)
+    {
+        if (contexto.TenantAtual is not { } tenant) return Results.Unauthorized();
+
+        var problemas = new List<Problema>();
+
+        if (pedido.Mes is < 1 or > 12)
+        {
+            problemas.Add(new Problema("mes", "Competência inválida",
+                $"O mês informado foi {pedido.Mes}.",
+                "Informe um mês entre 1 e 12."));
+        }
+
+        if (pedido.Ano is < 2000 or > 2100)
+        {
+            problemas.Add(new Problema("ano", "Competência inválida",
+                $"O ano informado foi {pedido.Ano}.",
+                "Informe um ano entre 2000 e 2100."));
+        }
+
+        if (pedido.Percentual == 0m)
+        {
+            problemas.Add(new Problema("percentual", "Reajuste sem percentual",
+                "O percentual informado foi zero.",
+                "Informe quanto o valor muda: 4,5 sobe 4,5%."));
+        }
+        else if (pedido.Percentual is < -99m or > 1000m)
+        {
+            problemas.Add(new Problema("percentual", "Percentual fora do razoável",
+                $"O percentual informado foi {pedido.Percentual}.",
+                "Informe um percentual entre -99 e 1000. Acima disso costuma ser vírgula no lugar errado."));
+        }
+
+        if (string.IsNullOrWhiteSpace(pedido.Motivo))
+        {
+            problemas.Add(new Problema("motivo", "Reajuste sem motivo",
+                "O motivo não foi informado.",
+                "Escreva de onde veio o índice: “IPCA de 2026”, “reajuste anual combinado”."));
+        }
+
+        if (problemas.Count > 0)
+            return Results.Json(new RespostaComProblemas(problemas), statusCode: 422);
+
+        var escolhidos = await banco.Contratos
+            .Include(contrato => contrato.Valores)
+            .Where(contrato => pedido.ContratoIds == null || pedido.ContratoIds.Contains(contrato.Id))
+            .ToListAsync(cancelamento);
+
+        var competencia = ValorDoContrato.Competencia(pedido.Ano, pedido.Mes);
+        var motivo = pedido.Motivo!.Trim();
+        var agora = DateTimeOffset.UtcNow;
+
+        var reajustados = 0;
+        var ignorados = 0;
+        var foraDeVigencia = 0;
+
+        foreach (var contrato in escolhidos)
+        {
+            /* Só o ativo: suspenso e encerrado não geram mensalidade, e reajustá-los seria mexer no que está parado. */
+            if (contrato.Situacao != SituacaoContrato.Ativo) { foraDeVigencia++; continue; }
+
+            if (contrato.Valores.Any(valor =>
+                    ValorDoContrato.Competencia(valor.VigenteDeAno, valor.VigenteDeMes) == competencia))
+            {
+                ignorados++;
+                continue;
+            }
+
+            if (contrato.ValorEm(pedido.Ano, pedido.Mes) is not { } valorDeAgora) { foraDeVigencia++; continue; }
+
+            var reajustado = decimal.Round(
+                valorDeAgora * (1m + pedido.Percentual / 100m), 2, MidpointRounding.AwayFromZero);
+
+            if (reajustado <= 0m) { foraDeVigencia++; continue; }
+
+            banco.ValoresDeContrato.Add(new ValorDoContrato
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenant,
+                ContratoId = contrato.Id,
+                Valor = reajustado,
+                VigenteDeAno = pedido.Ano,
+                VigenteDeMes = pedido.Mes,
+                Motivo = motivo,
+                Percentual = pedido.Percentual,
+                CriadoEm = agora,
+            });
+
+            reajustados++;
+        }
+
+        try
+        {
+            await banco.SaveChangesAsync(cancelamento);
+        }
+        catch (DbUpdateException erro) when (erro.InnerException is PostgresException { SqlState: "23505" })
+        {
+            /* Outro reajuste da mesma competência passou entre a leitura e a gravação: o valor novo já está lá. */
+            return Results.Ok(new ResultadoDoReajuste(0, reajustados + ignorados, foraDeVigencia,
+                "Estes contratos já haviam sido reajustados nesta competência."));
+        }
+
+        var recado = reajustados switch
+        {
+            0 => "Nada a reajustar: nenhum contrato novo para esta competência.",
+            1 => "1 contrato reajustado.",
+            _ => $"{reajustados} contratos reajustados.",
+        };
+
+        return Results.Ok(new ResultadoDoReajuste(reajustados, ignorados, foraDeVigencia, recado));
+    }
+
     /* ------------------------------------------------------------- apoio */
+
+    /// <summary>O motivo da vigência que nasce com o contrato.</summary>
+    private const string ValorInicial = "Valor inicial";
+
+    /// <summary>A competência de hoje, que é a que responde "quanto este contrato vale".</summary>
+    private static int CompetenciaDeHoje()
+    {
+        var hoje = DateOnly.FromDateTime(DateTime.Today);
+        return ValorDoContrato.Competencia(hoje.Year, hoje.Month);
+    }
+
+    /// <summary>
+    /// Corrige o valor da vigência em curso, sem abrir outra, e mantém a primeira
+    /// começando junto com a vigência do contrato: mudar o início leva o valor
+    /// inicial junto, senão sobraria uma vigência começando antes do contrato.
+    /// </summary>
+    private static void Corrigir(Contrato contrato, decimal valor)
+    {
+        var ordenadas = contrato.Valores
+            .OrderBy(item => ValorDoContrato.Competencia(item.VigenteDeAno, item.VigenteDeMes))
+            .ToList();
+
+        if (ordenadas.Count == 0) return;
+
+        var primeira = ordenadas[0];
+        primeira.VigenteDeAno = contrato.InicioDaVigencia.Year;
+        primeira.VigenteDeMes = contrato.InicioDaVigencia.Month;
+
+        var competencia = CompetenciaDeHoje();
+
+        var emCurso = ordenadas.LastOrDefault(item =>
+            ValorDoContrato.Competencia(item.VigenteDeAno, item.VigenteDeMes) <= competencia) ?? primeira;
+
+        emCurso.Valor = valor;
+    }
 
     private static async Task<List<Problema>> Conferir(
         DadosDeContrato dados,
@@ -391,7 +658,6 @@ public static class Contratos
     {
         contrato.PessoaId = dados.PessoaId;
         contrato.Descricao = (dados.Descricao ?? string.Empty).Trim();
-        contrato.Valor = dados.Valor;
         contrato.DiaDeVencimento = dados.DiaDeVencimento;
         contrato.InicioDaVigencia = dados.InicioDaVigencia;
         contrato.FimDaVigencia = dados.FimDaVigencia;
@@ -399,12 +665,12 @@ public static class Contratos
         contrato.Observacoes = (dados.Observacoes ?? string.Empty).Trim();
     }
 
-    private static ContratoDetalhado Detalhar(Contrato contrato) => new(
+    private static ContratoDetalhado Detalhar(Contrato contrato, decimal valor) => new(
         contrato.Id,
         contrato.Codigo,
         contrato.PessoaId,
         contrato.Descricao,
-        contrato.Valor,
+        valor,
         contrato.DiaDeVencimento,
         contrato.InicioDaVigencia,
         contrato.FimDaVigencia,
@@ -470,3 +736,24 @@ public record PedidoDeGeracao(int Ano, int Mes, List<Guid>? ContratoIds);
 /// <param name="Ignoradas">Já existiam nesta competência.</param>
 /// <param name="ForaDeVigencia">Contratos suspensos, encerrados ou fora do período.</param>
 public record ResultadoDaGeracao(int Geradas, int Ignoradas, int ForaDeVigencia, string Recado);
+
+/// <param name="Percentual">Em pontos percentuais: 4,5 sobe 4,5%. Negativo reduz.</param>
+/// <param name="Motivo">De onde veio o índice. Fica no histórico de cada contrato.</param>
+/// <param name="ContratoIds">Nulo para reajustar todos os contratos ativos.</param>
+public record PedidoDeReajuste(decimal Percentual, int Ano, int Mes, string? Motivo, List<Guid>? ContratoIds);
+
+/// <param name="Reajustados">Contratos que ganharam vigência nova.</param>
+/// <param name="Ignorados">Já tinham vigência nesta competência.</param>
+/// <param name="ForaDeVigencia">Suspensos, encerrados, ou sem valor nessa competência.</param>
+public record ResultadoDoReajuste(int Reajustados, int Ignorados, int ForaDeVigencia, string Recado);
+
+/// <param name="VigenteDeAno">A competência a partir da qual este valor vale.</param>
+/// <param name="Percentual">O percentual do reajuste que o criou. Nulo quando o valor foi digitado.</param>
+public record ValorNaLista(
+    Guid Id,
+    decimal Valor,
+    int VigenteDeAno,
+    int VigenteDeMes,
+    string Motivo,
+    decimal? Percentual,
+    DateTimeOffset CriadoEm);

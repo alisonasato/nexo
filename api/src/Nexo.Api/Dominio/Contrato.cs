@@ -28,7 +28,11 @@ public class Contrato
 
     public string Descricao { get; set; } = string.Empty;
 
-    public decimal Valor { get; set; }
+    /// <summary>
+    /// Quanto o contrato vale, por competência: a primeira vigência nasce com ele,
+    /// e cada reajuste abre a próxima.
+    /// </summary>
+    public List<ValorDoContrato> Valores { get; set; } = [];
 
     /// <summary>
     /// Dia do mês em que vence, de 1 a 31.
@@ -73,6 +77,22 @@ public class Contrato
         if (FimDaVigencia is { } fim && fim < primeiroDia) return false;
 
         return true;
+    }
+
+    /// <summary>
+    /// O valor que vale na competência informada: a última vigência que já tinha
+    /// começado. Nulo antes da primeira, o que só acontece em competência anterior
+    /// ao próprio contrato.
+    /// </summary>
+    public decimal? ValorEm(int ano, int mes)
+    {
+        var competencia = ValorDoContrato.Competencia(ano, mes);
+
+        return Valores
+            .Where(valor => ValorDoContrato.Competencia(valor.VigenteDeAno, valor.VigenteDeMes) <= competencia)
+            .OrderByDescending(valor => ValorDoContrato.Competencia(valor.VigenteDeAno, valor.VigenteDeMes))
+            .Select(valor => (decimal?)valor.Valor)
+            .FirstOrDefault();
     }
 
     /// <summary>
