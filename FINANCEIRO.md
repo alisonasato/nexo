@@ -24,6 +24,9 @@ custo, parcelamento, renegociação, baixa em lote e trilha de auditoria geral.
 
 ## As fases
 
+**As cinco estão feitas**, cada uma em PRs empilhados, na ordem abaixo. O que o
+módulo deixou de fora de propósito está no fim deste arquivo.
+
 ### Fase 1 — Lançamentos a receber
 
 A tela de Recebíveis vira a tela de Lançamentos, com as operações avançadas
@@ -283,3 +286,19 @@ extrair.
 
 Cores de situação, com texto sempre junto e nunca só cor: verde para pago,
 vermelho para vencido, âmbar para vence hoje, cinza para a vencer.
+
+## O que o módulo não faz, de propósito
+
+- **Juros e multa calculados sobre o vencido.** Informá-los à mão na baixa
+  existe desde a fase 5; calcular depende da taxa, que é decisão de quem cobra.
+- **Gerar recorrência por rotina agendada.** Gerar é um gesto na tela: uma
+  rotina criaria lançamento sem ninguém ver, e erraria em silêncio.
+- **Relatório do financeiro.** Os totais da listagem respondem o mês que está
+  na tela. Comparar meses, fechar por categoria e exportar é outra coisa.
+- **Conciliação por arquivo do banco.** O extrato de cada conta existe para
+  conferir à mão, linha por linha; ler OFX é outro módulo.
+- **Anexos.** Comprovante da baixa e nota do lançamento: nada no sistema guarda
+  arquivo ainda.
+
+Com as fases feitas, a suspensão acaba: a regra do `DEPOIS.md` volta a valer
+para tudo, inclusive para o que este módulo sugerir daqui em diante.
