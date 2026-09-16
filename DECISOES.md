@@ -658,8 +658,11 @@ classificação da recorrência, menos a categoria ou o centro inativados depois
    - **Cobrança automática pelo PSP** — escrita e em main. Liga quando houver
      conta no Asaas. Ver abaixo.
 6. **Cobrança e baixa automática.** Depende de uma conta no Asaas.
-7. **O módulo financeiro, em fases.** A regra do `DEPOIS.md` foi suspensa para
-   ele. O plano está em [FINANCEIRO.md](FINANCEIRO.md).
+7. ~~**O módulo financeiro, em fases**~~ — feito, nas cinco fases do
+   [FINANCEIRO.md](FINANCEIRO.md): lançamentos a receber; contas a pagar;
+   contas bancárias e caixa; plano de contas e centro de custo; e auditoria,
+   com desconto, juros e multa na baixa e recorrência genérica. A regra do
+   `DEPOIS.md`, suspensa para ele, volta a valer para tudo.
 
 **No ar desde 10 de setembro de 2026**, na Railway: três serviços — front com
 domínio público, API só na rede privada, e Postgres. O papel do banco não é

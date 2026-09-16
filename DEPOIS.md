@@ -20,7 +20,8 @@ e não atrapalha.
 
 - ~~Contas a pagar e caixa~~ — saiu daqui em 13 de setembro de 2026. A regra
   deste arquivo foi suspensa para o módulo financeiro, que passou a ser
-  implementado em fases. O plano está em [FINANCEIRO.md](FINANCEIRO.md).
+  implementado em fases. O plano está em [FINANCEIRO.md](FINANCEIRO.md), e as
+  cinco fases estão feitas: a suspensão acabou com elas.
 - Portal do cliente do escritório: documentos, boletos, solicitações (era a
   opção 3 da Q18, e é a primeira expansão natural).
 - NFS-e por agregador (Q21). Conferir na hora a cobertura real do padrão
@@ -120,7 +121,22 @@ e não atrapalha.
   duas linhas no histórico onde bastaria uma.
 - Reajuste de contrato por índice, e histórico de valores. Hoje mudar o valor
   reescreve o contrato, sem deixar rastro do que era antes.
-- Juros e multa sobre o vencido. Hoje o vencido só aparece destacado.
+- Juros e multa **calculados** sobre o vencido. Informá-los à mão na baixa já
+  existe; o cálculo depende da taxa, que é decisão de quem cobra.
+
+## Aberto pelo módulo financeiro
+
+- Relatório do financeiro: fechamento por categoria e centro de custo,
+  comparação entre meses, exportação. Hoje os totais da listagem respondem o
+  mês que está na tela, e nada além disso.
+- Conciliação por arquivo do banco (OFX). Hoje o extrato de cada conta serve
+  para conferir à mão, linha por linha.
+- Gerar as recorrências por rotina agendada, quando houver agendador. Hoje
+  gerar é um gesto na tela, de propósito.
+- Anexar o comprovante à baixa e a nota ao lançamento. Nada no sistema guarda
+  arquivo ainda.
+- Trilha de auditoria do que não é dinheiro: pessoa, contrato, plano de contas.
+  Hoje ela cobre lançamento, movimento e conta bancária.
 
 ## Aberto pela preparação para produção
 
