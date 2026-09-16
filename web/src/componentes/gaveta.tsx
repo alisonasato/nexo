@@ -14,9 +14,6 @@ type Props = {
   rodape?: ReactNode;
 };
 
-const FOCAVEIS =
-  'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
-
 /**
  * Um painel que entra pela direita, por cima da tela, sem tirar ninguém dela.
  *
@@ -26,25 +23,24 @@ const FOCAVEIS =
  * pessoa exatamente onde estava, com o recorte e a seleção intactos.
  * </p>
  * <p>
- * <b>Comporta-se como diálogo de verdade.</b> O foco entra no título ao abrir,
- * para o leitor de tela anunciar onde se está; Tab dá a volta dentro da gaveta
- * em vez de escapar para a tabela escondida atrás do véu; Escape e o clique no
- * véu fecham; e ao fechar o foco volta ao botão que abriu.
+ * <b>É um <c>dialog</c> de verdade.</b> Foco preso dentro, Tab dando a volta,
+ * Escape fechando, fundo inerte, véu e devolução do foco ao botão de origem são
+ * do próprio elemento. A versão anterior fazia tudo isso à mão, com uma lista de
+ * seletores focáveis que envelhece a cada controle novo.
+ * </p>
+ * <p>
+ * Quem manda continua sendo o estado de quem abriu: Escape e clique no véu
+ * pedem para fechar, e o fechamento acontece quando o estado muda.
  * </p>
  */
 export function Gaveta({ titulo, descricao, aberta, aoFechar, children, rodape }: Props) {
-  const painel = useRef<HTMLDivElement>(null);
-  const cabecalho = useRef<HTMLHeadingElement>(null);
+  const painel = useRef<HTMLDialogElement>(null);
   const idDoTitulo = useId();
   const idDaDescricao = useId();
 
   /*
-   * O fechar vive numa referência, e não nas dependências do efeito.
-   *
-   * Quem usa a gaveta passa uma função nova a cada render. Com ela nas
-   * dependências, cada letra digitada num campo recriaria o efeito: a limpeza
-   * devolveria o foco ao botão de origem e a abertura o jogaria de novo no
-   * título, e digitar viraria impossível.
+   * O fechar vive numa referência porque quem usa a gaveta passa uma função nova
+   * a cada render, e ela não pode entrar nas dependências do efeito que abre.
    */
   const fechar = useRef(aoFechar);
   useEffect(() => {
@@ -52,68 +48,48 @@ export function Gaveta({ titulo, descricao, aberta, aoFechar, children, rodape }
   });
 
   useEffect(() => {
-    if (!aberta) return;
+    const dialogo = painel.current;
+    if (!dialogo) return;
 
-    const origem = document.activeElement as HTMLElement | null;
-    cabecalho.current?.focus();
-
-    function aoTeclar(evento: KeyboardEvent) {
-      if (evento.key === "Escape") {
-        evento.stopPropagation();
-        fechar.current();
-        return;
-      }
-
-      if (evento.key !== "Tab" || !painel.current) return;
-
-      const itens = [...painel.current.querySelectorAll<HTMLElement>(FOCAVEIS)];
-      if (itens.length === 0) return;
-
-      const primeiro = itens[0];
-      const ultimo = itens[itens.length - 1];
-      const atual = document.activeElement;
-
-      if (evento.shiftKey && (atual === primeiro || atual === cabecalho.current)) {
-        evento.preventDefault();
-        ultimo.focus();
-      } else if (!evento.shiftKey && atual === ultimo) {
-        evento.preventDefault();
-        primeiro.focus();
-      }
-    }
-
-    document.addEventListener("keydown", aoTeclar);
-
-    return () => {
-      document.removeEventListener("keydown", aoTeclar);
-      origem?.focus?.();
-    };
+    if (aberta && !dialogo.open) dialogo.showModal();
+    if (!aberta && dialogo.open) dialogo.close();
   }, [aberta]);
 
-  if (!aberta) return null;
-
   return (
-    <div className="fixed inset-0 z-40 flex justify-end">
-      <div
-        aria-hidden="true"
-        onClick={() => fechar.current()}
-        className="absolute inset-0 bg-slate-900/40 motion-safe:animate-[aparecer_150ms_ease-out]"
-      />
-
-      <div
-        ref={painel}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={idDoTitulo}
-        aria-describedby={descricao ? idDaDescricao : undefined}
-        className="relative flex h-full w-full max-w-md flex-col bg-superficie shadow-nivel-3 motion-safe:animate-[entrar-da-direita_200ms_ease-out]"
-      >
+    <dialog
+      ref={painel}
+      aria-labelledby={idDoTitulo}
+      aria-describedby={descricao ? idDaDescricao : undefined}
+      /* Escape pede o fechamento; quem fecha é o estado, senão a gaveta some com ele dizendo que está aberta. */
+      onCancel={(evento) => {
+        evento.preventDefault();
+        fechar.current();
+      }}
+      /*
+       * A mesma porta, pela tecla. O `cancel` é do próprio elemento, mas nem todo
+       * navegador embutido o dispara — no que esta gaveta foi conferida, não
+       * dispara —, e fechar com Escape é básico demais para depender disso. As
+       * duas portas levam ao mesmo lugar, e pedir para fechar duas vezes não muda
+       * nada.
+       */
+      onKeyDown={(evento) => {
+        if (evento.key !== "Escape") return;
+        evento.preventDefault();
+        fechar.current();
+      }}
+      /* Clique no véu chega com o próprio dialog como alvo: o painel cobre todo o resto. */
+      onClick={(evento) => {
+        if (evento.target === painel.current) fechar.current();
+      }}
+      className="m-0 ml-auto h-dvh max-h-none w-full max-w-md border-0 bg-transparent p-0 backdrop:bg-slate-900/40"
+    >
+      <div className="flex h-full flex-col bg-superficie shadow-nivel-3 motion-safe:animate-[entrar-da-direita_200ms_ease-out]">
         <header className="flex items-start justify-between gap-4 border-b border-borda px-5 py-4">
           <div className="min-w-0">
-            {/* Recebe o foco ao abrir, mas não é controle: o anel não faz sentido nele. */}
+            {/* Recebe o foco ao abrir, para o leitor de tela anunciar onde se está; não é controle, e não leva anel. */}
             <h2
-              ref={cabecalho}
               id={idDoTitulo}
+              autoFocus
               tabIndex={-1}
               className="text-lg font-semibold text-marca-950 outline-none"
             >
@@ -140,6 +116,6 @@ export function Gaveta({ titulo, descricao, aberta, aoFechar, children, rodape }
 
         {rodape && <footer className="border-t border-borda px-5 py-4">{rodape}</footer>}
       </div>
-    </div>
+    </dialog>
   );
 }
