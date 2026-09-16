@@ -8,15 +8,11 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/api/cliente";
 import { AreaDeTexto, Botao, Entrada, EntradaMascarada, Selecao } from "@/componentes/controles";
 import type { components } from "@/api/esquema";
-import { digitosDoValor, formatarCompetencia, formatarValor, mascararDinheiro, valorDosDigitos } from "@/lib/dinheiro";
+import { digitosDoValor, formatarCompetencia, formatarValor, hojeIso, mascararDinheiro, valorDosDigitos } from "@/lib/dinheiro";
 import { useRetornoDaListagem } from "@/lib/estado-na-url";
 
 type DadosDeContrato = components["schemas"]["DadosDeContrato"];
 type Problema = components["schemas"]["Problema"];
-
-function hojeIso(): string {
-  return new Date().toISOString().slice(0, 10);
-}
 
 const vazio: DadosDeContrato = {
   pessoaId: "",
