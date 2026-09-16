@@ -1,9 +1,8 @@
 using System.Net;
 using System.Net.Http.Json;
-using System.Text.Json;
-using System.Text.Json.Serialization;
 using Nexo.Api.Dominio;
 using Nexo.Api.Endpoints;
+using static Nexo.Api.Testes.Apoio;
 
 namespace Nexo.Api.Testes;
 
@@ -21,9 +20,6 @@ namespace Nexo.Api.Testes;
 public class LancamentoClassificado(BancoDeTestes banco) : IDisposable
 {
     private readonly AplicacaoDeTestes _aplicacao = new(banco.Conexao);
-
-    private static readonly JsonSerializerOptions Json =
-        new(JsonSerializerDefaults.Web) { Converters = { new JsonStringEnumConverter() } };
 
     public void Dispose() => _aplicacao.Dispose();
 
@@ -147,17 +143,6 @@ public class LancamentoClassificado(BancoDeTestes banco) : IDisposable
         return (await resposta.Content.ReadFromJsonAsync<CentroNaLista>(Json))!.Id;
     }
 
-    private static async Task<Guid> CriarPessoa(HttpClient http, Papel papel)
-    {
-        var resposta = await http.PostAsJsonAsync("/pessoas", new DadosDePessoa(
-            TipoPessoa.Juridica, RegimeTributario.SimplesNacional, string.Empty, [papel],
-            "Pessoa do teste", string.Empty, Documentos.CnpjValido(), string.Empty, string.Empty,
-            string.Empty, string.Empty, string.Empty, null, string.Empty, true), Json);
-
-        resposta.EnsureSuccessStatusCode();
-        return (await resposta.Content.ReadFromJsonAsync<PessoaDetalhada>(Json))!.Id;
-    }
-
     private static async Task<HttpResponseMessage> Lancar(
         HttpClient http, NaturezaLancamento natureza, decimal valor, Guid? categoria, Guid? centro)
     {
@@ -169,11 +154,4 @@ public class LancamentoClassificado(BancoDeTestes banco) : IDisposable
 
     private static async Task<PaginaDeLancamentos> Listar(HttpClient http, NaturezaLancamento natureza) =>
         (await http.GetFromJsonAsync<PaginaDeLancamentos>($"/lancamentos?natureza={natureza}", Json))!;
-
-    private static async Task<string> CampoRecusado(HttpResponseMessage resposta)
-    {
-        Assert.Equal(HttpStatusCode.UnprocessableEntity, resposta.StatusCode);
-        var corpo = await resposta.Content.ReadFromJsonAsync<RespostaComProblemas>(Json);
-        return Assert.Single(corpo!.Problemas).Campo;
-    }
 }

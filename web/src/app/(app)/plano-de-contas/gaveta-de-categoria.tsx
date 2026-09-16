@@ -5,6 +5,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { api } from "@/api/cliente";
 import type { components } from "@/api/esquema";
+import { problemasDaResposta } from "@/lib/problemas";
 import { useAvisos } from "@/componentes/avisos";
 import { Botao, Entrada, Selecao } from "@/componentes/controles";
 import { Gaveta } from "@/componentes/gaveta";
@@ -19,13 +20,6 @@ const MAXIMO_DE_NIVEIS = 3;
 export type EdicaoDeCategoria =
   | { tipo: "nova"; natureza: NaturezaLancamento; paiId: string | null }
   | { tipo: "alterar"; categoria: CategoriaNaLista };
-
-function problemasDaResposta(erro: unknown): Problema[] {
-  if (erro && typeof erro === "object" && "problemas" in erro && Array.isArray(erro.problemas)) {
-    return erro.problemas as Problema[];
-  }
-  return [];
-}
 
 /** A categoria e tudo o que está abaixo dela: nenhum desses serve de lugar para ela mesma. */
 function galho(raiz: string, categorias: CategoriaNaLista[]): Set<string> {

@@ -1,9 +1,7 @@
-using System.Net;
 using System.Net.Http.Json;
-using System.Text.Json;
-using System.Text.Json.Serialization;
 using Nexo.Api.Dominio;
 using Nexo.Api.Endpoints;
+using static Nexo.Api.Testes.Apoio;
 
 namespace Nexo.Api.Testes;
 
@@ -20,9 +18,6 @@ namespace Nexo.Api.Testes;
 public class FluxoDeCaixaNoPeriodo(BancoDeTestes banco) : IDisposable
 {
     private readonly AplicacaoDeTestes _aplicacao = new(banco.Conexao);
-
-    private static readonly JsonSerializerOptions Json =
-        new(JsonSerializerDefaults.Web) { Converters = { new JsonStringEnumConverter() } };
 
     private static readonly DateOnly Hoje = DateOnly.FromDateTime(DateTime.Today);
 
@@ -146,12 +141,5 @@ public class FluxoDeCaixaNoPeriodo(BancoDeTestes banco) : IDisposable
         var baixa = await http.PostAsJsonAsync($"/lancamentos/{lancamento}/baixar",
             new DadosDaBaixa(conta, valor, dia), Json);
         baixa.EnsureSuccessStatusCode();
-    }
-
-    private static async Task<string> CampoRecusado(HttpResponseMessage resposta)
-    {
-        Assert.Equal(HttpStatusCode.UnprocessableEntity, resposta.StatusCode);
-        var corpo = await resposta.Content.ReadFromJsonAsync<RespostaComProblemas>(Json);
-        return Assert.Single(corpo!.Problemas).Campo;
     }
 }

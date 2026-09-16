@@ -1,9 +1,8 @@
 using System.Net;
 using System.Net.Http.Json;
-using System.Text.Json;
-using System.Text.Json.Serialization;
 using Nexo.Api.Dominio;
 using Nexo.Api.Endpoints;
+using static Nexo.Api.Testes.Apoio;
 
 namespace Nexo.Api.Testes;
 
@@ -26,9 +25,6 @@ namespace Nexo.Api.Testes;
 public class EmpresaDoEscritorio(BancoDeTestes banco) : IDisposable
 {
     private readonly AplicacaoDeTestes _aplicacao = new(banco.Conexao);
-
-    private static readonly JsonSerializerOptions Json =
-        new(JsonSerializerDefaults.Web) { Converters = { new JsonStringEnumConverter() } };
 
     public void Dispose() => _aplicacao.Dispose();
 

@@ -5,6 +5,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { api } from "@/api/cliente";
 import type { components } from "@/api/esquema";
+import { problemasDaResposta } from "@/lib/problemas";
 import { useAvisos } from "@/componentes/avisos";
 import { Botao, Entrada, EntradaMascarada } from "@/componentes/controles";
 import { Gaveta } from "@/componentes/gaveta";
@@ -19,13 +20,6 @@ import { dividirEmParcelas, limitarParcelas, MAXIMO_DE_PARCELAS, somarMeses } fr
 
 type LancamentoNaLista = components["schemas"]["LancamentoNaLista"];
 type Problema = components["schemas"]["Problema"];
-
-function problemasDaResposta(erro: unknown): Problema[] {
-  if (erro && typeof erro === "object" && "problemas" in erro && Array.isArray(erro.problemas)) {
-    return erro.problemas as Problema[];
-  }
-  return [];
-}
 
 const centavosDe = (digitos: string) => Number(digitos.replace(/\D/g, "") || "0");
 

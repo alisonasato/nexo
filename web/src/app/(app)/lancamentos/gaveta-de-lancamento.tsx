@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { api } from "@/api/cliente";
 import type { components } from "@/api/esquema";
+import { problemasDaResposta } from "@/lib/problemas";
 import { useAvisos } from "@/componentes/avisos";
 import { Botao, Entrada, EntradaMascarada, Selecao } from "@/componentes/controles";
 import { Gaveta } from "@/componentes/gaveta";
@@ -22,13 +23,6 @@ import { useCategorias, useCentrosDeCusto } from "./classificacao";
 
 type NaturezaLancamento = components["schemas"]["NaturezaLancamento"];
 type Problema = components["schemas"]["Problema"];
-
-function problemasDaResposta(erro: unknown): Problema[] {
-  if (erro && typeof erro === "object" && "problemas" in erro && Array.isArray(erro.problemas)) {
-    return erro.problemas as Problema[];
-  }
-  return [];
-}
 
 /*
  * O que muda entre lançar a receber e a pagar: quem está do outro lado, e as

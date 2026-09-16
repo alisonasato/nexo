@@ -8,6 +8,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/api/cliente";
 import { AreaDeTexto, Botao, Entrada, EntradaMascarada, Selecao } from "@/componentes/controles";
 import type { components } from "@/api/esquema";
+import { problemasDaResposta } from "@/lib/problemas";
 import { apenasAlfanumericos, apenasDigitos } from "@/lib/formato";
 import { useRetornoDaListagem } from "@/lib/estado-na-url";
 import { mascararCep, mascararCnpj, mascararCpf, mascararTelefone } from "@/lib/mascaras";
@@ -97,13 +98,6 @@ const vazia: DadosDePessoa = {
  * API. Então o formulário não duplica regra — ele sabe **ler** o que a API
  * respondeu e colocar cada problema no campo de onde ele veio.
  */
-function problemasDaResposta(erro: unknown): Problema[] {
-  if (erro && typeof erro === "object" && "problemas" in erro && Array.isArray(erro.problemas)) {
-    return erro.problemas as Problema[];
-  }
-  return [];
-}
-
 export function FormularioDePessoa({ id }: { id?: string }) {
   const navegacao = useRouter();
   const clienteDeConsultas = useQueryClient();

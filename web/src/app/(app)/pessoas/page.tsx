@@ -23,6 +23,7 @@ import {
   IconeDeSeta,
 } from "@/componentes/icones";
 import type { components } from "@/api/esquema";
+import { problemasDaResposta } from "@/lib/problemas";
 import { formatarDocumento } from "@/lib/formato";
 import { useConsultaDaUrl, useLinkComRetorno } from "@/lib/estado-na-url";
 import { CabecalhoOrdenavel, useOrdenacao } from "@/componentes/tabela";
@@ -38,7 +39,6 @@ import { useSelecaoPorConsulta } from "@/lib/selecao";
 
 type Papel = components["schemas"]["Papel"];
 type PessoaNaLista = components["schemas"]["PessoaNaLista"];
-type Problema = components["schemas"]["Problema"];
 type OrdemDePessoas = components["schemas"]["OrdemDePessoas"];
 
 const papeis: Papel[] = ["Cliente", "Fornecedor", "Vendedor", "Colaborador"];
@@ -46,13 +46,6 @@ const papeis: Papel[] = ["Cliente", "Fornecedor", "Vendedor", "Colaborador"];
 /** "1 inativado" e "3 inativados": o número manda no participio. */
 const concordar = (quantos: number, participio: string) =>
   `${quantos} ${participio}${quantos === 1 ? "" : "s"}`;
-
-function problemasDaResposta(erro: unknown): Problema[] {
-  if (erro && typeof erro === "object" && "problemas" in erro && Array.isArray(erro.problemas)) {
-    return erro.problemas as Problema[];
-  }
-  return [];
-}
 
 export default function ListagemDePessoas() {
   const navegacao = useRouter();
