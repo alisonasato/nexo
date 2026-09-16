@@ -810,6 +810,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/relatorios/por-categoria": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * O fechamento por categoria, mês a mês
+         * @description Por competência, soma o valor dos lançamentos do mês a que eles se referem, pagos ou não. Por caixa, soma o valor pago no mês em que o dinheiro se moveu. Cancelado e renegociado ficam de fora dos dois. Sem período, são os últimos seis meses.
+         */
+        get: operations["RelatorioPorCategoria"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/saude": {
         parameters: {
             query?: never;
@@ -857,6 +877,12 @@ export interface components {
             id: string;
             nome: string;
             ativo: boolean;
+        };
+        CompetenciaDoRelatorio: {
+            /** Format: int32 */
+            ano: number;
+            /** Format: int32 */
+            mes: number;
         };
         ContaNaLista: {
             /** Format: uuid */
@@ -1216,6 +1242,14 @@ export interface components {
         };
         /** @enum {string} */
         FrequenciaDeRecorrencia: "Mensal" | "Trimestral" | "Semestral" | "Anual";
+        GrupoDoRelatorio: {
+            /** @enum {string} */
+            natureza: "Receber" | "Pagar";
+            linhas: components["schemas"]["LinhaDoRelatorio"][];
+            totais: number[];
+            /** Format: double */
+            total: number;
+        };
         LancamentoCobrado: {
             /** Format: uuid */
             id: string;
@@ -1266,6 +1300,16 @@ export interface components {
             juros?: number | null;
             /** Format: double */
             multa?: number | null;
+        };
+        LinhaDoRelatorio: {
+            /** Format: uuid */
+            categoriaId?: string | null;
+            categoria: string;
+            /** Format: int32 */
+            nivel: number;
+            valores: number[];
+            /** Format: double */
+            total: number;
         };
         MovimentoGravado: {
             /** Format: uuid */
@@ -1468,7 +1512,18 @@ export interface components {
             motivo: string;
         };
         /** @enum {string} */
+        RegimeDoRelatorio: "Competencia" | "Caixa";
+        /** @enum {string} */
         RegimeTributario: "Mei" | "SimplesNacional" | "LucroPresumido" | "LucroReal" | "TerceiroSetor" | "PessoaFisica";
+        RelatorioDeCategorias: {
+            /** @enum {string} */
+            regime: "Competencia" | "Caixa";
+            meses: components["schemas"]["CompetenciaDoRelatorio"][];
+            grupos: components["schemas"]["GrupoDoRelatorio"][];
+            resultado: number[];
+            /** Format: double */
+            resultadoTotal: number;
+        };
         RenegociacaoCriada: {
             /** Format: uuid */
             renegociacaoId: string;
@@ -3247,6 +3302,43 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ResultadoDasRecorrencias"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespostaComProblemas"];
+                };
+            };
+        };
+    };
+    RelatorioPorCategoria: {
+        parameters: {
+            query?: {
+                regime?: "Competencia" | "Caixa";
+                deAno?: number;
+                deMes?: number;
+                ateAno?: number;
+                ateMes?: number;
+                centroDeCustoId?: string;
+                semCentroDeCusto?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RelatorioDeCategorias"];
                 };
             };
             /** @description Unprocessable Content */

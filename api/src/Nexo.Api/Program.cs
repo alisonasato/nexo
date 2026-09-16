@@ -482,6 +482,7 @@ app.MapMovimentosAvulsos();
 app.MapPlanoDeContas();
 app.MapHistorico();
 app.MapRecorrencias();
+app.MapRelatorios();
 app.MapConsultas();
 
 app.Run();
