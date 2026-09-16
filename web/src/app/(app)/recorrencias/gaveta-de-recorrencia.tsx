@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { api } from "@/api/cliente";
 import type { components } from "@/api/esquema";
+import { problemasDaResposta } from "@/lib/problemas";
 import { useAvisos } from "@/componentes/avisos";
 import { Botao, Entrada, EntradaMascarada, Selecao } from "@/componentes/controles";
 import { Gaveta } from "@/componentes/gaveta";
@@ -32,13 +33,6 @@ const lados = {
   Receber: { rotulo: "A receber", papel: "Cliente", escolha: "Escolha um cliente…" },
   Pagar: { rotulo: "A pagar", papel: "Fornecedor", escolha: "Escolha um fornecedor…" },
 } as const;
-
-function problemasDaResposta(erro: unknown): Problema[] {
-  if (erro && typeof erro === "object" && "problemas" in erro && Array.isArray(erro.problemas)) {
-    return erro.problemas as Problema[];
-  }
-  return [];
-}
 
 type Props = { edicao: EdicaoDeRecorrencia | null; aoFechar: () => void };
 

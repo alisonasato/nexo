@@ -5,6 +5,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 
 import { api } from "@/api/cliente";
 import type { components } from "@/api/esquema";
+import { problemasDaResposta } from "@/lib/problemas";
 import { useAvisos } from "@/componentes/avisos";
 import { Botao, Entrada, EntradaMascarada, Selecao } from "@/componentes/controles";
 import { Gaveta } from "@/componentes/gaveta";
@@ -13,13 +14,6 @@ import { hojeIso, mascararDinheiro, valorDosDigitos } from "@/lib/dinheiro";
 type Problema = components["schemas"]["Problema"];
 
 const camposDaGaveta = ["destinoId", "data", "valor", "descricao"];
-
-function problemasDaResposta(erro: unknown): Problema[] {
-  if (erro && typeof erro === "object" && "problemas" in erro && Array.isArray(erro.problemas)) {
-    return erro.problemas as Problema[];
-  }
-  return [];
-}
 
 type Props = { origemId: string; aberta: boolean; aoFechar: () => void; aoGravar: () => void };
 

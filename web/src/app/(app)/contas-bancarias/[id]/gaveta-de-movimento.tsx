@@ -5,6 +5,7 @@ import { useMutation } from "@tanstack/react-query";
 
 import { api } from "@/api/cliente";
 import type { components } from "@/api/esquema";
+import { problemasDaResposta } from "@/lib/problemas";
 import { useAvisos } from "@/componentes/avisos";
 import { Botao, Entrada, EntradaMascarada, Selecao } from "@/componentes/controles";
 import { Gaveta } from "@/componentes/gaveta";
@@ -22,13 +23,6 @@ const tipos: Record<TipoDeMovimentoAvulso, { rotulo: string; ajuda: string }> = 
 
 /* Os campos que esta gaveta mostra; o que a API recusar fora deles aparece no alto. */
 const camposDaGaveta = ["tipo", "data", "valor", "descricao"];
-
-function problemasDaResposta(erro: unknown): Problema[] {
-  if (erro && typeof erro === "object" && "problemas" in erro && Array.isArray(erro.problemas)) {
-    return erro.problemas as Problema[];
-  }
-  return [];
-}
 
 type Props = { contaId: string; aberta: boolean; aoFechar: () => void; aoGravar: () => void };
 

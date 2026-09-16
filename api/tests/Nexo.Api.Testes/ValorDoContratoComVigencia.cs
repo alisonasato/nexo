@@ -1,9 +1,7 @@
-using System.Net;
 using System.Net.Http.Json;
-using System.Text.Json;
-using System.Text.Json.Serialization;
 using Nexo.Api.Dominio;
 using Nexo.Api.Endpoints;
+using static Nexo.Api.Testes.Apoio;
 
 namespace Nexo.Api.Testes;
 
@@ -22,9 +20,6 @@ namespace Nexo.Api.Testes;
 public class ValorDoContratoComVigencia(BancoDeTestes banco) : IDisposable
 {
     private readonly AplicacaoDeTestes _aplicacao = new(banco.Conexao);
-
-    private static readonly JsonSerializerOptions Json =
-        new(JsonSerializerDefaults.Web) { Converters = { new JsonStringEnumConverter() } };
 
     public void Dispose() => _aplicacao.Dispose();
 
@@ -172,12 +167,5 @@ public class ValorDoContratoComVigencia(BancoDeTestes banco) : IDisposable
             $"/lancamentos?natureza=Receber&ano={ano}&mes={mes}", Json))!;
 
         return Assert.Single(pagina.Itens);
-    }
-
-    private static async Task<string> CampoRecusado(HttpResponseMessage resposta)
-    {
-        Assert.Equal(HttpStatusCode.UnprocessableEntity, resposta.StatusCode);
-        var corpo = await resposta.Content.ReadFromJsonAsync<RespostaComProblemas>(Json);
-        return Assert.Single(corpo!.Problemas).Campo;
     }
 }

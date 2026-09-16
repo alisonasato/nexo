@@ -5,6 +5,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { api } from "@/api/cliente";
 import type { components } from "@/api/esquema";
+import { problemasDaResposta } from "@/lib/problemas";
 import { useAvisos } from "@/componentes/avisos";
 import { Botao, Entrada, EntradaMascarada, Selecao } from "@/componentes/controles";
 import { Gaveta } from "@/componentes/gaveta";
@@ -20,13 +21,6 @@ export const rotulosDeTipo: Record<TipoConta, string> = {
   Pagamento: "Conta de pagamento",
   Dinheiro: "Dinheiro em caixa",
 };
-
-function problemasDaResposta(erro: unknown): Problema[] {
-  if (erro && typeof erro === "object" && "problemas" in erro && Array.isArray(erro.problemas)) {
-    return erro.problemas as Problema[];
-  }
-  return [];
-}
 
 /**
  * Nula com a gaveta fechada, "nova" para cadastrar, a conta para alterar. Quem

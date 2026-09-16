@@ -6,19 +6,13 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/api/cliente";
 import { Botao, Entrada, EntradaMascarada } from "@/componentes/controles";
 import type { components } from "@/api/esquema";
+import { problemasDaResposta } from "@/lib/problemas";
 import { apenasAlfanumericos } from "@/lib/formato";
 import { mascararCnpj } from "@/lib/mascaras";
 
 type Problema = components["schemas"]["Problema"];
 
 type Campos = { razaoSocial: string; nomeFantasia: string; cnpj: string };
-
-function problemasDaResposta(erro: unknown): Problema[] {
-  if (erro && typeof erro === "object" && "problemas" in erro && Array.isArray(erro.problemas)) {
-    return erro.problemas as Problema[];
-  }
-  return [];
-}
 
 /**
  * O estabelecimento do próprio escritório.

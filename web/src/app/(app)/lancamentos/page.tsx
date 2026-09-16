@@ -6,6 +6,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tansta
 
 import { api } from "@/api/cliente";
 import type { components } from "@/api/esquema";
+import { problemasDaResposta } from "@/lib/problemas";
 import { useAvisos } from "@/componentes/avisos";
 import { BarraDeSelecao } from "@/componentes/barra-de-selecao";
 import { Botao, Entrada, EntradaMascarada, Selecao } from "@/componentes/controles";
@@ -47,7 +48,6 @@ type NaturezaLancamento = components["schemas"]["NaturezaLancamento"];
 type SituacaoLancamento = components["schemas"]["SituacaoLancamento"];
 type LancamentoNaLista = components["schemas"]["LancamentoNaLista"];
 type OrdemDeLancamentos = components["schemas"]["OrdemDeLancamentos"];
-type Problema = components["schemas"]["Problema"];
 
 /**
  * O que muda de uma natureza para a outra é quase só palavra.
@@ -90,13 +90,6 @@ const naturezas = ["Receber", "Pagar"] as const;
  * linha, a altura cheia engordaria a lista sem ganho nenhum.
  */
 const compacto = "min-h-11 px-4 text-xs md:min-h-0 md:px-3 md:py-1";
-
-function problemasDaResposta(erro: unknown): Problema[] {
-  if (erro && typeof erro === "object" && "problemas" in erro && Array.isArray(erro.problemas)) {
-    return erro.problemas as Problema[];
-  }
-  return [];
-}
 
 function descreverFalha(erro: unknown, padrao: string): string {
   const problemas = problemasDaResposta(erro);

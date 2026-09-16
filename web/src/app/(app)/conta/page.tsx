@@ -6,16 +6,10 @@ import { useMutation } from "@tanstack/react-query";
 import { api } from "@/api/cliente";
 import { Botao, Entrada } from "@/componentes/controles";
 import type { components } from "@/api/esquema";
+import { problemasDaResposta } from "@/lib/problemas";
 import { useSessao } from "@/sessao/usar-sessao";
 
 type Problema = components["schemas"]["Problema"];
-
-function problemasDaResposta(erro: unknown): Problema[] {
-  if (erro && typeof erro === "object" && "problemas" in erro && Array.isArray(erro.problemas)) {
-    return erro.problemas as Problema[];
-  }
-  return [];
-}
 
 export default function Conta() {
   const sessao = useSessao();
