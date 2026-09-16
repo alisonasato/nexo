@@ -670,6 +670,29 @@ o total do grupo soma só as de cima. Somar todas as linhas contaria o mesmo
 dinheiro uma vez por nível. Categoria sem valor no período não vira linha: um
 plano sugerido inteiro, zerado, esconderia as poucas que têm dinheiro.
 
+## O valor do contrato tem vigência
+
+O valor do contrato não é campo: é a última vigência que já começou, do mesmo
+jeito que o saldo da conta é o inicial mais os movimentos. Valor editável em
+cima do anterior é o número que alguém muda em março e que, em junho, ninguém
+mais sabe quanto era — e a mensalidade de fevereiro passaria a dizer que sempre
+foi assim.
+
+A vigência começa numa competência, e não num dia: quem decide o valor de uma
+mensalidade é o mês a que ela se refere. Por isso a geração usa o valor da
+competência gerada, e um reajuste que vale a partir de abril não mexe em março.
+
+Alterar o valor no cadastro é corrigir, e vale desde o começo da vigência em
+curso: consertar um zero a mais digitado hoje de manhã não é reajuste, e não
+merece linha no histórico. Reajustar é outro gesto, em lote e por percentual,
+porque reajuste de carteira vem de um índice — digitar o valor novo de cada
+contrato é onde o erro mora. O motivo é obrigatório: quem olhar daqui a um ano
+vai perguntar de onde saiu o índice.
+
+Reajustar a mesma competência duas vezes não compõe o percentual. Quem recusa a
+segunda é o índice único de contrato e competência, e não uma conferência no
+código — que é justamente o que duas pessoas clicando juntas atravessam.
+
 ## Ordem de execução
 
 1. ~~Repositório e contrato~~ — feito.

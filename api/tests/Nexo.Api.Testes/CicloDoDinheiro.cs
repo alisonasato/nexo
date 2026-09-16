@@ -105,8 +105,16 @@ public class CicloDoDinheiro(BancoDeTestes banco) : IDisposable
             contexto.Contratos.Add(new Contrato
             {
                 Id = contratoId, TenantId = conta.TenantId, PessoaId = pessoaId,
-                Codigo = "C9001", Descricao = "Honorários", Valor = 100m,
+                Codigo = "C9001", Descricao = "Honorários",
                 DiaDeVencimento = 10, InicioDaVigencia = new DateOnly(2025, 1, 1),
+                Valores =
+                [
+                    new ValorDoContrato
+                    {
+                        Id = Guid.NewGuid(), TenantId = conta.TenantId, Valor = 100m,
+                        VigenteDeAno = 2025, VigenteDeMes = 1, Motivo = "Valor inicial",
+                    },
+                ],
             });
             await contexto.SaveChangesAsync();
         }

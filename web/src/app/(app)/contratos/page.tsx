@@ -13,6 +13,8 @@ import { competenciaAtual, formatarValor } from "@/lib/dinheiro";
 import { useConsultaDaUrl, useLinkComRetorno } from "@/lib/estado-na-url";
 import { CabecalhoOrdenavel, useOrdenacao } from "@/componentes/tabela";
 
+import { GavetaDeReajuste } from "./gaveta-de-reajuste";
+
 type SituacaoContrato = components["schemas"]["SituacaoContrato"];
 type ContratoNaLista = components["schemas"]["ContratoNaLista"];
 type OrdemDeContratos = components["schemas"]["OrdemDeContratos"];
@@ -79,6 +81,7 @@ export default function ListagemDeContratos() {
    * quarto e marca também espera encontrar os quatro no fim.
    */
   const [escolhidos, definirEscolhidos] = useState<Set<string>>(new Set());
+  const [reajustando, definirReajustando] = useState(false);
 
   /* Mesmo meio segundo de espera da tela de pessoas: uma ida ao servidor por
      pausa, não por tecla. Quem espera é a URL, e a consulta sai dela pronta. */
@@ -233,6 +236,11 @@ export default function ListagemDeContratos() {
                 : escolhidos.size > 0
                   ? `Gerar para ${escolhidos.size} escolhido${escolhidos.size > 1 ? "s" : ""}`
                   : "Gerar para todos"}
+            </Botao>
+
+            {/* Reajustar usa a mesma escolha da geração: quem marcou três contratos reajusta os três. */}
+            <Botao aparencia="secundario" type="button" onClick={() => definirReajustando(true)}>
+              {escolhidos.size > 0 ? `Reajustar ${escolhidos.size}` : "Reajustar todos"}
             </Botao>
 
             {escolhidos.size > 0 && (
@@ -512,6 +520,17 @@ export default function ListagemDeContratos() {
           </>
         )}
       </div>
+
+      <GavetaDeReajuste
+        key={reajustando ? "aberta" : "fechada"}
+        escolhidos={[...escolhidos]}
+        aberta={reajustando}
+        aoFechar={() => definirReajustando(false)}
+        aoReajustar={() => {
+          definirReajustando(false);
+          definirEscolhidos(new Set());
+        }}
+      />
 
       <VoltarAoTopo />
     </>
