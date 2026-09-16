@@ -116,9 +116,9 @@ e não atrapalha.
 - **Cobrança automática pelo PSP.** A integração com o Asaas já está em main,
   com emissão e baixa por webhook. O que falta para ligá-la é a conta no Asaas,
   que só você pode criar.
-- Editar ou cancelar uma cobrança avulsa recém-lançada. Hoje o conserto de um
-  valor digitado errado é cancelar e lançar de novo, o que funciona e deixa
-  duas linhas no histórico onde bastaria uma.
+- ~~Editar uma cobrança avulsa recém-lançada~~ — feito. Lançamento em aberto e
+  sem cobrança emitida se corrige na própria linha, e a mudança fica na trilha
+  de auditoria.
 - ~~Reajuste de contrato por índice, e histórico de valores~~ — feito. O valor
   do contrato passou a ter vigência por competência, e o reajuste em lote por
   percentual abre a próxima.
