@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { api } from "@/api/cliente";
@@ -13,6 +13,7 @@ import { digitosDoValor, formatarCompetencia, formatarValor, hojeIso, mascararDi
 import { useRetornoDaListagem } from "@/lib/estado-na-url";
 
 type DadosDeContrato = components["schemas"]["DadosDeContrato"];
+type ContratoDetalhado = components["schemas"]["ContratoDetalhado"];
 type Problema = components["schemas"]["Problema"];
 
 const vazio: DadosDeContrato = {
@@ -26,6 +27,20 @@ const vazio: DadosDeContrato = {
   observacoes: "",
 };
 
+/* O corpo que a API aceita é o contrato sem o que ela mesma gera. */
+function semIdentificadores(contrato: ContratoDetalhado): DadosDeContrato {
+  return {
+    pessoaId: contrato.pessoaId,
+    descricao: contrato.descricao,
+    valor: contrato.valor,
+    diaDeVencimento: contrato.diaDeVencimento,
+    inicioDaVigencia: contrato.inicioDaVigencia,
+    fimDaVigencia: contrato.fimDaVigencia ?? null,
+    situacao: contrato.situacao,
+    observacoes: contrato.observacoes,
+  };
+}
+
 export function FormularioDeContrato({ id }: { id?: string }) {
   const navegacao = useRouter();
   const clienteDeConsultas = useQueryClient();
@@ -34,15 +49,24 @@ export function FormularioDeContrato({ id }: { id?: string }) {
   /* Sair daqui devolve a listagem como ela estava, e não a listagem do zero. */
   const listagem = useRetornoDaListagem("/contratos");
 
-  const [dados, definirDados] = useState<DadosDeContrato>(vazio);
   const [problemas, definirProblemas] = useState<Problema[]>([]);
+
+  /*
+   * Nulos até alguém mexer. Enquanto forem nulos, o formulário mostra o que
+   * veio da consulta; a partir da primeira tecla, mostra o rascunho.
+   *
+   * O caminho óbvio seria um efeito copiando a consulta para o estado quando
+   * ela chega. Além de o React desaconselhar, ele passa por cima do que a
+   * pessoa está preenchendo toda vez que o dado chega de novo.
+   */
+  const [rascunho, definirRascunho] = useState<DadosDeContrato | null>(null);
 
   /*
    * O valor guarda dígitos, e a máscara os mostra em reais. Entram pelos
    * centavos: 1 vira 0,01, depois 0,12, depois 1,23. Assim a vírgula nunca é
    * digitada, e não sobra ambiguidade nenhuma para interpretar.
    */
-  const [valorEmDigitos, definirDigitos] = useState("");
+  const [digitados, definirDigitos] = useState<string | null>(null);
 
   const clientes = useQuery({
     queryKey: ["pessoas", "clientes"],
@@ -76,12 +100,9 @@ export function FormularioDeContrato({ id }: { id?: string }) {
     },
   });
 
-  useEffect(() => {
-    if (!existente.data) return;
-    const { id: _id, codigo: _codigo, ...resto } = existente.data;
-    definirDados(resto);
-    definirDigitos(digitosDoValor(resto.valor));
-  }, [existente.data]);
+  const carregado = existente.data;
+  const dados = rascunho ?? (carregado ? semIdentificadores(carregado) : vazio);
+  const valorEmDigitos = digitados ?? (carregado ? digitosDoValor(carregado.valor) : "");
 
   const salvar = useMutation({
     mutationFn: async (corpo: DadosDeContrato) => {
@@ -104,7 +125,7 @@ export function FormularioDeContrato({ id }: { id?: string }) {
   const sugestaoDe = (campo: string) => problemas.find((p) => p.campo === campo)?.sugestao;
 
   function alterar<C extends keyof DadosDeContrato>(campo: C, valor: DadosDeContrato[C]) {
-    definirDados((atual) => ({ ...atual, [campo]: valor }));
+    definirRascunho({ ...dados, [campo]: valor });
   }
 
   if (editando && existente.isPending) {
