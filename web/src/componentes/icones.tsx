@@ -194,6 +194,16 @@ export function IconeDeClassificar({ className }: Props) {
   );
 }
 
+/** Um lápis: corrigir o que foi digitado errado. */
+export function IconeDeCorrigir({ className }: Props) {
+  return (
+    <Traco className={className}>
+      <path d="M4 20h4L19 9a2 2 0 0 0-3-3L5 17z" />
+      <path d="M14.5 6.5 17.5 9.5" />
+    </Traco>
+  );
+}
+
 /** Um relógio andando para trás: o que aconteceu antes. */
 export function IconeDeHistorico({ className }: Props) {
   return (

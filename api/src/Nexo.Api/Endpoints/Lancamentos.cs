@@ -4,6 +4,7 @@ using Microsoft.Extensions.Options;
 using Nexo.Api.Cobranca;
 using Nexo.Api.Dados;
 using Nexo.Api.Dominio;
+using Npgsql;
 
 namespace Nexo.Api.Endpoints;
 
@@ -55,6 +56,14 @@ public static class Lancamentos
             .WithName("ClassificarLancamento")
             .WithSummary("Dá categoria e centro de custo a um lançamento que já existe")
             .WithDescription("Vale em qualquer situação: classificar não mexe em dinheiro. Vazio tira a classificação.")
+            .Produces<LancamentoNaLista>()
+            .Produces<RespostaComProblemas>(StatusCodes.Status422UnprocessableEntity)
+            .Produces(StatusCodes.Status404NotFound);
+
+        grupo.MapPut("/{id:guid}", Editar)
+            .WithName("EditarLancamento")
+            .WithSummary("Corrige um lançamento em aberto")
+            .WithDescription("Vale enquanto está em aberto e sem cobrança emitida; depois disso o conserto é estornar ou cancelar. A pessoa não muda: lançamento de outro cliente é outro lançamento. A mudança fica na trilha de auditoria.")
             .Produces<LancamentoNaLista>()
             .Produces<RespostaComProblemas>(StatusCodes.Status422UnprocessableEntity)
             .Produces(StatusCodes.Status404NotFound);
@@ -698,6 +707,118 @@ public static class Lancamentos
         return Results.Ok(Detalhar(lancamento));
     }
 
+    /// <summary>
+    /// Corrige um lançamento em aberto.
+    ///
+    /// <para>
+    /// <b>Só em aberto e sem cobrança emitida.</b> Depois da baixa o dinheiro já
+    /// se moveu, e o conserto é estornar; com boleto e Pix no ar, o valor já foi
+    /// para o cliente, e mudar aqui faria o que ele vai pagar discordar do que o
+    /// sistema mostra.
+    /// </para>
+    /// <para>
+    /// <b>A pessoa não muda.</b> Lançamento de outro cliente é outro lançamento —
+    /// e trocá-la levaria junto o histórico de cobrança de quem não devia nada.
+    /// </para>
+    /// <para>
+    /// Existe para o conserto de um valor digitado errado não ser cancelar e
+    /// lançar de novo, que deixava duas linhas no histórico onde bastava uma. O que
+    /// mudou fica na trilha de auditoria, com quem mudou.
+    /// </para>
+    /// </summary>
+    private static async Task<IResult> Editar(
+        Guid id,
+        [FromBody] DadosDaEdicao dados,
+        NexoDbContext banco,
+        CancellationToken cancelamento)
+    {
+        var lancamento = await banco.Lancamentos
+            .Include(r => r.Pessoa)
+            .Include(r => r.Categoria)
+            .Include(r => r.CentroDeCusto)
+            .FirstOrDefaultAsync(r => r.Id == id, cancelamento);
+
+        if (lancamento is null) return Results.NotFound();
+
+        if (lancamento.Situacao != SituacaoLancamento.Aberto)
+        {
+            var situacao = lancamento.Situacao switch
+            {
+                SituacaoLancamento.Pago => "baixado",
+                SituacaoLancamento.Cancelado => "cancelado",
+                _ => "renegociado",
+            };
+
+            return Problema("id", "Lançamento não está em aberto",
+                $"Este lançamento está {situacao}.",
+                "Estorne a baixa antes de corrigir, ou cancele e lance de novo.");
+        }
+
+        if (lancamento.CobrancaId.Length > 0)
+        {
+            return Problema("id", "Cobrança já emitida",
+                "Existe boleto e Pix no ar para este lançamento, com o valor de agora.",
+                "Cancele o lançamento e lance de novo: o cliente já recebeu o que está valendo.");
+        }
+
+        var problemas = new List<Problema>();
+
+        if (string.IsNullOrWhiteSpace(dados.Descricao))
+        {
+            problemas.Add(new Problema("descricao", "Falha na validação do lançamento",
+                "A descrição não foi informada.",
+                "Diga o que está sendo cobrado ou pago."));
+        }
+
+        if (dados.Valor <= 0)
+        {
+            problemas.Add(new Problema("valor", "Falha na validação do lançamento",
+                "O valor precisa ser maior que zero.",
+                "Informe o valor devido."));
+        }
+
+        if (dados.CompetenciaMes is < 1 or > 12)
+        {
+            problemas.Add(new Problema("competenciaMes", "Competência inválida",
+                $"O mês informado foi {dados.CompetenciaMes}.",
+                "Informe um mês entre 1 e 12."));
+        }
+
+        if (dados.CompetenciaAno is < 2000 or > 2100)
+        {
+            problemas.Add(new Problema("competenciaAno", "Competência inválida",
+                $"O ano informado foi {dados.CompetenciaAno}.",
+                "Informe um ano entre 2000 e 2100."));
+        }
+
+        if (problemas.Count > 0)
+            return Results.Json(new RespostaComProblemas(problemas), statusCode: 422);
+
+        lancamento.Descricao = dados.Descricao!.Trim();
+        lancamento.Valor = dados.Valor;
+        lancamento.Vencimento = dados.Vencimento;
+        lancamento.CompetenciaAno = dados.CompetenciaAno;
+        lancamento.CompetenciaMes = dados.CompetenciaMes;
+        lancamento.AtualizadoEm = DateTimeOffset.UtcNow;
+
+        try
+        {
+            if (await Gravar(banco, cancelamento) is { } conflito) return conflito;
+        }
+        catch (DbUpdateException erro) when (erro.InnerException is PostgresException
+        {
+            SqlState: PostgresErrorCodes.UniqueViolation
+        })
+        {
+            /* Mensalidade daquele contrato naquela competência já existe: é o índice único. */
+            return Problema("competenciaMes", "Competência já ocupada",
+                "Já existe um lançamento deste contrato nesta competência.",
+                "Escolha outra competência, ou cancele o que já está lá.");
+        }
+
+        return Results.Ok(Detalhar(lancamento));
+    }
+
     private static async Task<IResult> Estornar(Guid id, NexoDbContext banco, CancellationToken cancelamento)
     {
         var lancamento = await banco.Lancamentos
@@ -923,6 +1044,14 @@ public record DadosDoCancelamento(string? Motivo);
 /// <param name="CategoriaId">Vazia tira a categoria.</param>
 /// <param name="CentroDeCustoId">Vazio tira o centro de custo.</param>
 public record DadosDaClassificacao(Guid? CategoriaId, Guid? CentroDeCustoId);
+
+/// <param name="CompetenciaAno">O ano a que o serviço se refere, não o do vencimento.</param>
+public record DadosDaEdicao(
+    string? Descricao,
+    decimal Valor,
+    DateOnly Vencimento,
+    int CompetenciaAno,
+    int CompetenciaMes);
 
 /// <param name="ContaDaBaixa">A conta onde a baixa entrou ou de onde saiu. Nula em aberto e nas baixas de antes das contas.</param>
 /// <param name="Desconto">Desconto, juros e multa da baixa, quando informados: dizem por que o valor pago difere do valor.</param>

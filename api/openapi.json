@@ -1670,6 +1670,66 @@
         }
       }
     },
+    "/lancamentos/{id}": {
+      "put": {
+        "tags": [
+          "Lançamentos"
+        ],
+        "summary": "Corrige um lançamento em aberto",
+        "description": "Vale enquanto está em aberto e sem cobrança emitida; depois disso o conserto é estornar ou cancelar. A pessoa não muda: lançamento de outro cliente é outro lançamento. A mudança fica na trilha de auditoria.",
+        "operationId": "EditarLancamento",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/DadosDaEdicao"
+                  }
+                ]
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LancamentoNaLista"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RespostaComProblemas"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
     "/lancamentos/parcelamentos": {
       "post": {
         "tags": [
@@ -3179,6 +3239,38 @@
           },
           "recebeCobrancas": {
             "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "DadosDaEdicao": {
+        "required": [
+          "competenciaAno",
+          "competenciaMes",
+          "valor",
+          "vencimento"
+        ],
+        "type": "object",
+        "properties": {
+          "descricao": {
+            "type": "string",
+            "nullable": true
+          },
+          "valor": {
+            "type": "number",
+            "format": "double"
+          },
+          "vencimento": {
+            "type": "string",
+            "format": "date"
+          },
+          "competenciaAno": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "competenciaMes": {
+            "type": "integer",
+            "format": "int32"
           }
         },
         "additionalProperties": false

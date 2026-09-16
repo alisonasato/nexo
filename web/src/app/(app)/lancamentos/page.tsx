@@ -16,6 +16,7 @@ import {
   IconeDeClassificar,
   IconeDeCobranca,
   IconeDeCopiar,
+  IconeDeCorrigir,
   IconeDeHistorico,
   IconeDeRenegociar,
 } from "@/componentes/icones";
@@ -40,6 +41,7 @@ import { useCategorias, useCentrosDeCusto } from "./classificacao";
 import { useContasParaBaixa } from "./contas";
 import { AvisoDeDivergencias } from "./divergencias";
 import { GavetaDeClassificacao } from "./gaveta-de-classificacao";
+import { GavetaDeCorrecao } from "./gaveta-de-correcao";
 import { GavetaDeHistorico } from "./gaveta-de-historico";
 import { GavetaDeLancamento } from "./gaveta-de-lancamento";
 import { GavetaDeRenegociacao } from "./gaveta-de-renegociacao";
@@ -267,6 +269,7 @@ export default function ListagemDeLancamentos() {
   const [renegociando, definirRenegociando] = useState<LancamentoNaLista | null>(null);
   const [classificando, definirClassificando] = useState<LancamentoNaLista | null>(null);
   const [historicoAberto, definirHistoricoAberto] = useState<LancamentoNaLista | null>(null);
+  const [corrigindo, definirCorrigindo] = useState<LancamentoNaLista | null>(null);
   const [baixandoEmLote, definirBaixandoEmLote] = useState(false);
 
   /* Os formulários que abrem dentro da própria linha. */
@@ -742,6 +745,18 @@ export default function ListagemDeLancamentos() {
       },
     });
 
+    /* Corrigir só enquanto não há cobrança no ar: o cliente já teria o valor de antes na mão. */
+    if (!item.cobrancaUrl) {
+      menu.push({
+        tipo: "botao",
+        rotulo: "Corrigir",
+        icone: <IconeDeCorrigir className="size-4" />,
+        executar: () => {
+          definirCorrigindo(item);
+        },
+      });
+    }
+
     menu.push({
       tipo: "botao",
       rotulo: "Renegociar",
@@ -1207,6 +1222,12 @@ export default function ListagemDeLancamentos() {
         key={classificando?.id ?? "nenhum"}
         lancamento={classificando}
         aoFechar={() => definirClassificando(null)}
+      />
+
+      <GavetaDeCorrecao
+        key={corrigindo?.id ?? "nenhum"}
+        lancamento={corrigindo}
+        aoFechar={() => definirCorrigindo(null)}
       />
 
       <GavetaDeHistorico

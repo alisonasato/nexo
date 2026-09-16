@@ -529,6 +529,20 @@ public class CobrancaPeloPsp : IDisposable
         Assert.Contains("conta marcada", evento.Divergencia);
     }
 
+    [Fact]
+    public async Task Lancamento_com_cobranca_emitida_nao_se_corrige()
+    {
+        var (http, _) = await Entrar();
+        var lancamento = await CriarLancamento(http);
+        (await http.PostAsync($"/lancamentos/{lancamento}/cobrar", null)).EnsureSuccessStatusCode();
+
+        var resposta = await http.PutAsJsonAsync($"/lancamentos/{lancamento}",
+            new DadosDaEdicao("Outra coisa", 999m, new DateOnly(2026, 3, 10), 2026, 3), Json);
+
+        /* O cliente já tem boleto e Pix com o valor de agora: mudar aqui faria os dois discordarem. */
+        Assert.Equal("id", await CampoRecusado(resposta));
+    }
+
     /* ---------------------------------------------------------- trilha */
 
     [Fact]

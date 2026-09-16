@@ -567,6 +567,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/lancamentos/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Corrige um lançamento em aberto
+         * @description Vale enquanto está em aberto e sem cobrança emitida; depois disso o conserto é estornar ou cancelar. A pessoa não muda: lançamento de outro cliente é outro lançamento. A mudança fica na trilha de auditoria.
+         */
+        put: operations["EditarLancamento"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/lancamentos/parcelamentos": {
         parameters: {
             query?: never;
@@ -1026,6 +1046,17 @@ export interface components {
             saldoInicialEm?: string | null;
             ativa: boolean;
             recebeCobrancas: boolean;
+        };
+        DadosDaEdicao: {
+            descricao?: string | null;
+            /** Format: double */
+            valor: number;
+            /** Format: date */
+            vencimento: string;
+            /** Format: int32 */
+            competenciaAno: number;
+            /** Format: int32 */
+            competenciaMes: number;
         };
         DadosDaRecorrencia: {
             /** @enum {string} */
@@ -2771,6 +2802,48 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["DadosDaClassificacao"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LancamentoNaLista"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespostaComProblemas"];
+                };
+            };
+        };
+    };
+    EditarLancamento: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DadosDaEdicao"];
             };
         };
         responses: {
