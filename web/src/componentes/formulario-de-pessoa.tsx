@@ -14,6 +14,7 @@ import { useRetornoDaListagem } from "@/lib/estado-na-url";
 import { mascararCep, mascararCnpj, mascararCpf, mascararTelefone } from "@/lib/mascaras";
 
 type DadosDePessoa = components["schemas"]["DadosDePessoa"];
+type PessoaDetalhada = components["schemas"]["PessoaDetalhada"];
 type Papel = components["schemas"]["Papel"];
 type RegimeTributario = components["schemas"]["RegimeTributario"];
 
@@ -90,6 +91,27 @@ const vazia: DadosDePessoa = {
   ativo: true,
 };
 
+/* O corpo que a API aceita é o cadastro sem o que ela mesma gera. */
+function semIdentificadores(pessoa: PessoaDetalhada): DadosDePessoa {
+  return {
+    tipo: pessoa.tipo,
+    regimeTributario: pessoa.regimeTributario,
+    responsavel: pessoa.responsavel,
+    papeis: pessoa.papeis,
+    nome: pessoa.nome,
+    nomeFantasia: pessoa.nomeFantasia,
+    documento: pessoa.documento,
+    inscricaoEstadual: pessoa.inscricaoEstadual,
+    inscricaoMunicipal: pessoa.inscricaoMunicipal,
+    email: pessoa.email,
+    telefone: pessoa.telefone,
+    celular: pessoa.celular,
+    endereco: pessoa.endereco,
+    observacoes: pessoa.observacoes,
+    ativo: pessoa.ativo,
+  };
+}
+
 /**
  * Reconhece a resposta 422 da API.
  *
@@ -106,7 +128,11 @@ export function FormularioDePessoa({ id }: { id?: string }) {
   /* Sair daqui devolve a listagem como ela estava, e não a listagem do zero. */
   const listagem = useRetornoDaListagem("/pessoas");
 
-  const [dados, definirDados] = useState<DadosDePessoa>(vazia);
+  /*
+   * Nulo até alguém mexer. Enquanto for nulo, o formulário mostra o que veio
+   * da consulta; a partir da primeira tecla, mostra o rascunho.
+   */
+  const [rascunho, definirRascunho] = useState<DadosDePessoa | null>(null);
   const [problemas, definirProblemas] = useState<Problema[]>([]);
   const [procurandoCep, definirProcurandoCep] = useState(false);
   const [avisoDoCep, definirAvisoDoCep] = useState<string | null>(null);
@@ -146,16 +172,20 @@ export function FormularioDePessoa({ id }: { id?: string }) {
     },
   });
 
+  const doServidor = existente.data ? semIdentificadores(existente.data) : vazia;
+  const dados = rascunho ?? doServidor;
+
   /*
-   * O estado do formulário só é preenchido quando o cadastro chega. Iniciar o
-   * `useState` com o dado da consulta não funcionaria: no primeiro render ele
-   * ainda não existe, e o valor inicial de um `useState` fica congelado.
+   * Mexe no rascunho a partir do que está na tela agora — que, enquanto
+   * ninguém digitou, é o que veio da consulta.
+   *
+   * A forma funcional não é enfeite: as buscas de CEP e de CNPJ chamam isto
+   * depois de um `await`, e sem ela escreveriam por cima do que foi digitado
+   * durante a consulta.
    */
-  useEffect(() => {
-    if (!existente.data) return;
-    const { id: _id, criadoEm: _criadoEm, ...resto } = existente.data;
-    definirDados(resto);
-  }, [existente.data]);
+  function mexer(mudanca: (atual: DadosDePessoa) => DadosDePessoa) {
+    definirRascunho((atual) => mudanca(atual ?? doServidor));
+  }
 
   const salvar = useMutation({
     mutationFn: async (corpo: DadosDePessoa) => {
@@ -228,7 +258,7 @@ export function FormularioDePessoa({ id }: { id?: string }) {
   const ehFisica = dados.tipo === "Fisica";
 
   function alterar<C extends keyof DadosDePessoa>(campo: C, valor: DadosDePessoa[C]) {
-    definirDados((atual) => ({ ...atual, [campo]: valor }));
+    mexer((atual) => ({ ...atual, [campo]: valor }));
   }
 
   /**
@@ -240,7 +270,7 @@ export function FormularioDePessoa({ id }: { id?: string }) {
    * manda é o tipo de erro que ninguém procura, porque a tela parece certa.
    */
   function alterarTipo(tipo: DadosDePessoa["tipo"]) {
-    definirDados((atual) => ({
+    mexer((atual) => ({
       ...atual,
       tipo,
       documento:
@@ -275,7 +305,7 @@ export function FormularioDePessoa({ id }: { id?: string }) {
     definirProcurandoCep(false);
 
     if (data) {
-      definirDados((atual) => ({
+      mexer((atual) => ({
         ...atual,
         endereco: {
           ...(atual.endereco ?? vazia.endereco!),
@@ -325,7 +355,7 @@ export function FormularioDePessoa({ id }: { id?: string }) {
     definirProcurandoCnpj(false);
 
     if (data) {
-      definirDados((atual) => ({
+      mexer((atual) => ({
         ...atual,
         nome: data.razaoSocial,
         nomeFantasia: data.nomeFantasia,
@@ -358,7 +388,7 @@ export function FormularioDePessoa({ id }: { id?: string }) {
   }
 
   function alterarEndereco(campo: keyof NonNullable<DadosDePessoa["endereco"]>, valor: string) {
-    definirDados((atual) => ({
+    mexer((atual) => ({
       ...atual,
       endereco: { ...(atual.endereco ?? vazia.endereco!), [campo]: valor },
     }));
